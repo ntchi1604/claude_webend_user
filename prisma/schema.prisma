@@ -43,7 +43,7 @@ model Subscription {
   expiresAt DateTime
   active    Boolean  @default(true)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan      Plan     @relation(fields: [planId], references: [id])
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([userId, active])
@@ -108,7 +108,7 @@ model Payment {
   reviewedAt  DateTime?
   createdAt   DateTime      @default(now())
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan        Plan          @relation(fields: [planId], references: [id])
+  plan        Plan          @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
 }
