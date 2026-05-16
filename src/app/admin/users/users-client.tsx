@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Ban, ShieldCheck, Sparkles } from 'lucide-react';
 
-type U = { id: string; email: string; name: string | null; role: string; banned: boolean; createdAt: string; planName: string | null; expiresAt: string | null; keyCount: number; paymentCount: number };
+type U = { id: string; email: string; name: string | null; role: string; banned: boolean; createdAt: string; planName: string | null; expiresAt: string | null; keyCount: number; paymentCount: number; totalTokens: number };
 type P = { id: string; name: string; durationDays: number };
 
 export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }) {
@@ -38,7 +38,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
               <th className="p-3">Gói</th>
               <th className="p-3">Hết hạn</th>
               <th className="p-3">Keys</th>
-              <th className="p-3">GD</th>
+              <th className="p-3">Tokens</th>
               <th className="p-3">Đăng ký</th>
               <th className="p-3 text-right">Thao tác</th>
             </tr>
@@ -54,7 +54,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
                 <td className="p-3">{u.planName ?? '—'}</td>
                 <td className="p-3 text-xs">{u.expiresAt ? new Date(u.expiresAt).toLocaleDateString('vi-VN') : '—'}</td>
                 <td className="p-3">{u.keyCount}</td>
-                <td className="p-3">{u.paymentCount}</td>
+                <td className="p-3 font-mono text-xs">{u.totalTokens.toLocaleString('vi-VN')}</td>
                 <td className="p-3 text-xs">{new Date(u.createdAt).toLocaleDateString('vi-VN')}</td>
                 <td className="p-3 text-right space-x-1">
                   <button onClick={() => setPicking(picking === u.id ? null : u.id)} className="btn-ghost text-xs"><Sparkles className="h-3.5 w-3.5" /> Cấp gói</button>

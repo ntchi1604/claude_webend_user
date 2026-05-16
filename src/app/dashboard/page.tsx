@@ -2,6 +2,7 @@ import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatNumber } from '@/lib/utils';
 import Link from 'next/link';
+import Countdown from '@/components/countdown';
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -75,7 +76,7 @@ export default async function DashboardPage() {
         </div>
         <div className="flex justify-between mt-2">
           <span className="caption">Còn lại: {formatNumber(remaining)}</span>
-          <span className="caption">Reset: {resetText}</span>
+          <span className="caption">Reset: <Countdown resetAt={resetAt ? resetAt.toISOString() : null} /></span>
         </div>
       </div>
 

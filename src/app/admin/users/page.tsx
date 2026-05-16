@@ -11,6 +11,14 @@ export default async function AdminUsersPage() {
     take: 200
   });
   const plans = await prisma.plan.findMany({ where: { enabled: true } });
+
+  // Aggregate total tokens per user
+  const tokenAgg = await prisma.usageLog.groupBy({
+    by: ['userId'],
+    _sum: { totalTokens: true }
+  });
+  const tokenMap = new Map(tokenAgg.map((t) => [t.userId, t._sum.totalTokens ?? 0]));
+
   return (
     <UsersClient
       users={users.map((u) => ({
@@ -23,7 +31,8 @@ export default async function AdminUsersPage() {
         planName: u.subscriptions[0]?.plan.name ?? null,
         expiresAt: u.subscriptions[0]?.expiresAt.toISOString() ?? null,
         keyCount: u._count.apiKeys,
-        paymentCount: u._count.payments
+        paymentCount: u._count.payments,
+        totalTokens: tokenMap.get(u.id) ?? 0
       }))}
       plans={plans.map((p) => ({ id: p.id, name: p.name, durationDays: p.durationDays }))}
     />

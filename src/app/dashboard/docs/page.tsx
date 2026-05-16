@@ -58,10 +58,7 @@ export ANTHROPIC_AUTH_TOKEN="sk-cw-xxxx"
 claude`}</Code>
       </Section>
 
-      <Section title="Rate limits & Quota">
-        <p className="body-sm">Mặc định: <b>60 RPM</b>, <b>200K TPM</b> per API key. Vượt → HTTP 429.</p>
-        <p className="body-sm mt-2">Quota gói: rolling window (default 5h). Khi gần đầy → ưu tiên model rẻ.</p>
-      </Section>
+
     </div>
   );
 }
