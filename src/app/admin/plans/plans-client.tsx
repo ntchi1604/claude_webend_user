@@ -73,6 +73,13 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
 
       {/* Plan list */}
       <div className="space-y-3">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', padding: '0 16px' }}>
+          <span className="caption">Tên gói</span>
+          <span className="caption" style={{ gridColumn: 'span 2' }}>Mô tả</span>
+          <span className="caption">Giá (VND)</span>
+          <span className="caption">Token limit</span>
+          <span className="caption">Window (h) / Ngày</span>
+        </div>
         {list.map((p, i) => (
           <div key={p.id} className="card" style={{ opacity: p.enabled ? 1 : 0.5 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', alignItems: 'center' }}>
