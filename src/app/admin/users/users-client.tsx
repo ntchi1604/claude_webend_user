@@ -29,7 +29,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
         <h1 className="text-3xl font-bold">Users</h1>
         <input className="input max-w-xs" placeholder="Tìm email..." value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
             <tr>

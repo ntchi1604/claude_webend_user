@@ -64,8 +64,8 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
         <button onClick={add} className="btn-primary mt-4"><Plus className="h-4 w-4" /> Thêm</button>
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm min-w-[600px]">
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
             <tr>
               <th className="p-3">Name</th>

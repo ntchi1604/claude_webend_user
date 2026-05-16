@@ -72,16 +72,18 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
       </div>
 
       {/* Plan list */}
-      <div className="space-y-3">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', padding: '0 16px' }}>
+      <div className="space-y-3" style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', padding: '0 16px', minWidth: '600px' }}>
           <span className="caption">Tên gói</span>
           <span className="caption" style={{ gridColumn: 'span 2' }}>Mô tả</span>
           <span className="caption">Giá (VND)</span>
           <span className="caption">Token limit</span>
           <span className="caption">Window (h) / Ngày</span>
         </div>
+        </div>
         {list.map((p, i) => (
-          <div key={p.id} className="card" style={{ opacity: p.enabled ? 1 : 0.5 }}>
+          <div key={p.id} className="card" style={{ opacity: p.enabled ? 1 : 0.5, minWidth: '600px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', alignItems: 'center' }}>
               <input className="input" value={p.name} onChange={(e) => patch(i, { name: e.target.value })} />
               <input className="input" style={{ gridColumn: 'span 2' }} value={p.description ?? ''} onChange={(e) => patch(i, { description: e.target.value })} />

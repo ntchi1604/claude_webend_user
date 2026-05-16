@@ -120,7 +120,7 @@ export default function BillingClient({
         </div>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <h3 className="font-semibold p-4">Lịch sử thanh toán</h3>
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">

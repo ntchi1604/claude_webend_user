@@ -30,7 +30,7 @@ export default function PaymentsClient({ payments }: { payments: P[] }) {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold">Thanh toán</h1>
         <div className="flex gap-2">
           {(['PENDING','APPROVED','REJECTED','ALL'] as const).map((f) => (
@@ -40,8 +40,8 @@ export default function PaymentsClient({ payments }: { payments: P[] }) {
         </div>
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
             <tr>
               <th className="p-3">Thời gian</th>
