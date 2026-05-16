@@ -25,6 +25,32 @@ export default async function DashboardPage() {
   const keyCount = await prisma.apiKey.count({ where: { userId: user.id, active: true } });
   const totalRequests = await prisma.usageLog.count({ where: { userId: user.id } });
 
+  // Calculate rolling reset time
+  const earliest = await prisma.usageLog.findFirst({
+    where: { userId: user.id, ts: { gte: windowStart } },
+    orderBy: { ts: 'asc' },
+    select: { ts: true }
+  });
+  const windowHours = sub?.plan.windowHours ?? 5;
+  const resetAt = earliest ? new Date(earliest.ts.getTime() + windowHours * 3600 * 1000) : null;
+  const now = new Date();
+  let resetText = 'Không có dữ liệu';
+  if (resetAt && resetAt > now) {
+    const diffMs = resetAt.getTime() - now.getTime();
+    const diffMin = Math.ceil(diffMs / 60000);
+    if (diffMin >= 60) {
+      const h = Math.floor(diffMin / 60);
+      const m = diffMin % 60;
+      resetText = `${h}h${m > 0 ? ` ${m}p` : ''} nữa`;
+    } else {
+      resetText = `${diffMin} phút nữa`;
+    }
+  } else if (used === 0) {
+    resetText = 'Chưa sử dụng';
+  } else {
+    resetText = 'Đã reset';
+  }
+
   return (
     <div className="space-y-8 animate-fade-in max-w-4xl">
       <div>
@@ -35,7 +61,7 @@ export default async function DashboardPage() {
       {/* Quota card */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <span className="label">Quota ({sub?.plan.windowHours ?? 5}h rolling)</span>
+          <span className="label">Quota ({windowHours}h rolling)</span>
           <span className="caption">{formatNumber(used)} / {formatNumber(limit)} tokens</span>
         </div>
         <div className="w-full h-2 rounded-full bg-[var(--cream-50)] overflow-hidden">
@@ -49,7 +75,7 @@ export default async function DashboardPage() {
         </div>
         <div className="flex justify-between mt-2">
           <span className="caption">Còn lại: {formatNumber(remaining)}</span>
-          <span className="caption">{pct}% đã dùng</span>
+          <span className="caption">Reset: {resetText}</span>
         </div>
       </div>
 
