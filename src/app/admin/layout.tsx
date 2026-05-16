@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
-import { Users, Package, Cpu, CreditCard, ArrowLeft, Settings } from 'lucide-react';
+import { Users, Package, Cpu, CreditCard, ArrowLeft, Settings, LayoutDashboard } from 'lucide-react';
 import ThemeToggle from '@/components/theme-toggle';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -9,11 +9,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user || user.role !== 'ADMIN') redirect('/login');
 
   const nav = [
-    { href: '/admin', label: 'Dashboard', icon: Settings },
+    { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/plans', label: 'Plans', icon: Package },
     { href: '/admin/models', label: 'Models', icon: Cpu },
-    { href: '/admin/payments', label: 'Payments', icon: CreditCard }
+    { href: '/admin/payments', label: 'Payments', icon: CreditCard },
+    { href: '/admin/settings', label: 'Settings', icon: Settings }
   ];
 
   return (

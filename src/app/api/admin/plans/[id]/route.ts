@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         enabled: b.enabled
       }
     });
-    return NextResponse.json({ ok: true, plan });
+    return NextResponse.json({ ok: true, plan: { ...plan, tokenLimit: Number(plan.tokenLimit) } });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message }, { status: 400 });
   }

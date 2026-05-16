@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         enabled: b.enabled ?? true
       }
     });
-    return NextResponse.json({ ok: true, plan });
+    return NextResponse.json({ ok: true, plan: { ...plan, tokenLimit: Number(plan.tokenLimit) } });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message }, { status: 400 });
   }
