@@ -59,8 +59,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
             <option value="openai">openai</option>
             <option value="anthropic">anthropic</option>
           </select>
-          <input className="input" type="number" placeholder="Giá input (VND/1M)" value={draft.inputPriceVND} onChange={(e) => setDraft({ ...draft, inputPriceVND: +e.target.value })} />
-          <input className="input" type="number" placeholder="Giá output (VND/1M)" value={draft.outputPriceVND} onChange={(e) => setDraft({ ...draft, outputPriceVND: +e.target.value })} />
+
         </div>
         <button onClick={add} className="btn-primary mt-4"><Plus className="h-4 w-4" /> Thêm</button>
       </div>
@@ -73,7 +72,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
               <th className="p-3">Upstream</th>
               <th className="p-3">Endpoint</th>
               <th className="p-3">Provider</th>
-              <th className="p-3">In/Out (VND/1M)</th>
+
               <th className="p-3">On</th>
               <th className="p-3 text-right">⋯</th>
             </tr>
@@ -90,10 +89,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
                     <option value="anthropic">anthropic</option>
                   </select>
                 </td>
-                <td className="p-2 flex gap-1">
-                  <input className="input" type="number" value={m.inputPriceVND} onChange={(e) => patch(i, { inputPriceVND: +e.target.value })} />
-                  <input className="input" type="number" value={m.outputPriceVND} onChange={(e) => patch(i, { outputPriceVND: +e.target.value })} />
-                </td>
+
                 <td className="p-2">
                   <button onClick={() => patch(i, { enabled: !m.enabled })} className="btn-ghost">
                     <Power className={`h-4 w-4 ${m.enabled ? 'text-emerald-600' : 'text-zinc-400'}`} />
