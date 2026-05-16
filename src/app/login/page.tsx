@@ -54,6 +54,8 @@ export default function LoginPage() {
 
         <p className="text-center body-sm text-[var(--stone-600)] mt-4">
           Chưa có tài khoản? <Link href="/register" className="link" style={{ color: 'var(--brand-blue)' }}>Đăng ký</Link>
+          {' · '}
+          <Link href="/forgot-password" className="link" style={{ color: 'var(--brand-blue)' }}>Quên mật khẩu?</Link>
         </p>
       </div>
     </main>
