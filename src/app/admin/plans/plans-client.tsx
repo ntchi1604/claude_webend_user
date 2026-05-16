@@ -105,7 +105,7 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
               ))}
             </div>
             <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-              <button onClick={() => patch(i, { enabled: !p.enabled })} className="btn-ghost" title={p.enabled ? 'Disable' : 'Enable'}>
+              <button onClick={() => { const updated = { ...p, enabled: !p.enabled }; patch(i, { enabled: !p.enabled }); save(updated); }} className="btn-ghost" title={p.enabled ? 'Disable' : 'Enable'}>
                 <Power className="h-4 w-4" style={{ color: p.enabled ? 'var(--accent-green)' : 'var(--stone-600)' }} />
               </button>
               <button onClick={() => save(p)} className="btn-primary" style={{ fontSize: '13px', padding: '6px 12px' }}><Save className="h-3.5 w-3.5" /> Lưu</button>

@@ -91,7 +91,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
                 </td>
 
                 <td className="p-2">
-                  <button onClick={() => patch(i, { enabled: !m.enabled })} className="btn-ghost">
+                  <button onClick={() => { const updated = { ...m, enabled: !m.enabled }; patch(i, { enabled: !m.enabled }); update(updated); }} className="btn-ghost">
                     <Power className={`h-4 w-4 ${m.enabled ? 'text-emerald-600' : 'text-zinc-400'}`} />
                   </button>
                 </td>
