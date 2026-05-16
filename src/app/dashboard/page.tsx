@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     _sum: { totalTokens: true }
   });
   const used = usage._sum.totalTokens ?? 0;
-  const limit = sub?.plan.tokenLimit ?? 0;
+  const limit = Number(sub?.plan.tokenLimit ?? 0);
   const remaining = Math.max(0, limit - used);
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 

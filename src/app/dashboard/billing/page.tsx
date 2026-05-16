@@ -15,7 +15,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { pl
   });
   return (
     <BillingClient
-      plans={plans.map((p) => ({ id: p.id, name: p.name, priceVND: p.priceVND, tokenLimit: p.tokenLimit, durationDays: p.durationDays, windowHours: p.windowHours }))}
+      plans={plans.map((p) => ({ id: p.id, name: p.name, priceVND: p.priceVND, tokenLimit: Number(p.tokenLimit), durationDays: p.durationDays, windowHours: p.windowHours }))}
       bank={bank}
       payments={payments.map((p) => ({ id: p.id, planName: p.plan.name, amountVND: p.amountVND, status: p.status as "PENDING" | "APPROVED" | "REJECTED", createdAt: p.createdAt.toISOString(), reference: p.reference }))}
       selectedPlanId={searchParams.plan}

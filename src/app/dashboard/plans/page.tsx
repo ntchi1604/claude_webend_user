@@ -28,7 +28,7 @@ export default async function PlansPage() {
             name={p.name}
             description={p.description}
             price={formatVND(p.priceVND)}
-            tokenLimit={formatNumber(p.tokenLimit)}
+            tokenLimit={formatNumber(Number(p.tokenLimit))}
             windowHours={p.windowHours}
             durationDays={p.durationDays}
             models={parseModelIds(p.modelIds).map((id) => modelMap.get(id)).filter((n): n is string => !!n)}

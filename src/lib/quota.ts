@@ -23,14 +23,15 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     return { allowed: false, limit: 0, used: 0, remaining: 0, windowHours: 0, resetAt: null, reason: 'NO_ACTIVE_PLAN' };
   }
   const plan = sub.plan;
+  const tokenLimit = Number(plan.tokenLimit);
   const allowedIds = parseModelIds(plan.modelIds);
 
   const model = await prisma.model.findUnique({ where: { name: modelName } });
   if (!model || !model.enabled) {
-    return { allowed: false, limit: plan.tokenLimit, used: 0, remaining: 0, windowHours: plan.windowHours, resetAt: null, reason: 'MODEL_NOT_FOUND', planName: plan.name, modelAllowed: false };
+    return { allowed: false, limit: tokenLimit, used: 0, remaining: 0, windowHours: plan.windowHours, resetAt: null, reason: 'MODEL_NOT_FOUND', planName: plan.name, modelAllowed: false };
   }
   if (!allowedIds.includes(model.id)) {
-    return { allowed: false, limit: plan.tokenLimit, used: 0, remaining: 0, windowHours: plan.windowHours, resetAt: null, reason: 'MODEL_NOT_IN_PLAN', planName: plan.name, modelAllowed: false };
+    return { allowed: false, limit: tokenLimit, used: 0, remaining: 0, windowHours: plan.windowHours, resetAt: null, reason: 'MODEL_NOT_IN_PLAN', planName: plan.name, modelAllowed: false };
   }
 
   const windowStart = new Date(Date.now() - plan.windowHours * 3600 * 1000);
@@ -39,7 +40,7 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     _sum: { totalTokens: true }
   });
   const used = agg._sum.totalTokens ?? 0;
-  const remaining = Math.max(0, plan.tokenLimit - used);
+  const remaining = Math.max(0, tokenLimit - used);
 
   const earliest = await prisma.usageLog.findFirst({
     where: { userId, ts: { gte: windowStart } },
@@ -48,8 +49,8 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
   });
   const resetAt = earliest ? new Date(earliest.ts.getTime() + plan.windowHours * 3600 * 1000) : null;
 
-  if (used + estimateTokens > plan.tokenLimit) {
-    return { allowed: false, limit: plan.tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, reason: 'QUOTA_EXCEEDED', planName: plan.name, modelAllowed: true };
+  if (used + estimateTokens > tokenLimit) {
+    return { allowed: false, limit: tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, reason: 'QUOTA_EXCEEDED', planName: plan.name, modelAllowed: true };
   }
-  return { allowed: true, limit: plan.tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, planName: plan.name, modelAllowed: true };
+  return { allowed: true, limit: tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, planName: plan.name, modelAllowed: true };
 }
