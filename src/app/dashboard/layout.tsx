@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
 import { LogOut, Key, BarChart3, CreditCard, Package, BookOpen, MessageSquare } from 'lucide-react';
 import ThemeToggle from '@/components/theme-toggle';
+import MobileNav from '@/components/mobile-nav';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -47,6 +48,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </a>
         </div>
       </aside>
+      <MobileNav nav={nav.map((n) => ({ href: n.href, label: n.label }))} email={user.email} isAdmin={user.role === 'ADMIN'} />
       <main className="flex-1 p-6 md:p-10 overflow-y-auto min-h-screen">{children}</main>
     </div>
   );
