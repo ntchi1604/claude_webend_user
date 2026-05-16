@@ -1,0 +1,113 @@
+'use client';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Plus, Save, Trash2, Power } from 'lucide-react';
+
+type M = { id: string; name: string; upstreamName: string; endpoint: string | null; provider: string; inputPriceVND: number; outputPriceVND: number; enabled: boolean };
+
+const empty: Omit<M, 'id'> = { name: '', upstreamName: '', endpoint: null, provider: 'openai', inputPriceVND: 0, outputPriceVND: 0, enabled: true };
+
+export default function ModelsClient({ initial }: { initial: M[] }) {
+  const [list, setList] = useState<M[]>(initial);
+  const [draft, setDraft] = useState(empty);
+
+  async function add() {
+    if (!draft.name || !draft.upstreamName) return toast.error('Thiếu name/upstreamName');
+    const r = await fetch('/api/admin/models', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(draft)
+    });
+    const d = await r.json();
+    if (!r.ok) return toast.error(d.error || 'Lỗi');
+    setList([d.model, ...list]);
+    setDraft(empty);
+    toast.success('Đã thêm');
+  }
+
+  async function update(m: M) {
+    const r = await fetch(`/api/admin/models/${m.id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(m)
+    });
+    if (r.ok) toast.success('Lưu OK');
+    else toast.error('Lỗi');
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Xoá model?')) return;
+    const r = await fetch(`/api/admin/models/${id}`, { method: 'DELETE' });
+    if (r.ok) { setList(list.filter((x) => x.id !== id)); toast.success('Đã xoá'); }
+  }
+
+  function patch(idx: number, p: Partial<M>) {
+    const next = [...list];
+    next[idx] = { ...next[idx], ...p };
+    setList(next);
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <h1 className="text-3xl font-bold">Models</h1>
+
+      <div className="card p-5">
+        <h2 className="font-semibold mb-3">Thêm model mới</h2>
+        <div className="grid md:grid-cols-3 gap-3">
+          <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+          <input className="input" placeholder="Upstream (gửi đến 9router)" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
+          <input className="input" placeholder="Endpoint override (optional)" value={draft.endpoint ?? ''} onChange={(e) => setDraft({ ...draft, endpoint: e.target.value || null })} />
+          <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
+            <option value="openai">openai</option>
+            <option value="anthropic">anthropic</option>
+          </select>
+          <input className="input" type="number" placeholder="Giá input (VND/1M)" value={draft.inputPriceVND} onChange={(e) => setDraft({ ...draft, inputPriceVND: +e.target.value })} />
+          <input className="input" type="number" placeholder="Giá output (VND/1M)" value={draft.outputPriceVND} onChange={(e) => setDraft({ ...draft, outputPriceVND: +e.target.value })} />
+        </div>
+        <button onClick={add} className="btn-primary mt-4"><Plus className="h-4 w-4" /> Thêm</button>
+      </div>
+
+      <div className="card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
+            <tr>
+              <th className="p-3">Name</th>
+              <th className="p-3">Upstream</th>
+              <th className="p-3">Endpoint</th>
+              <th className="p-3">Provider</th>
+              <th className="p-3">In/Out (VND/1M)</th>
+              <th className="p-3">On</th>
+              <th className="p-3 text-right">⋯</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((m, i) => (
+              <tr key={m.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
+                <td className="p-2"><input className="input" value={m.name} onChange={(e) => patch(i, { name: e.target.value })} /></td>
+                <td className="p-2"><input className="input" value={m.upstreamName} onChange={(e) => patch(i, { upstreamName: e.target.value })} /></td>
+                <td className="p-2"><input className="input" placeholder="(default)" value={m.endpoint ?? ''} onChange={(e) => patch(i, { endpoint: e.target.value || null })} /></td>
+                <td className="p-2">
+                  <select className="input" value={m.provider} onChange={(e) => patch(i, { provider: e.target.value })}>
+                    <option value="openai">openai</option>
+                    <option value="anthropic">anthropic</option>
+                  </select>
+                </td>
+                <td className="p-2 flex gap-1">
+                  <input className="input" type="number" value={m.inputPriceVND} onChange={(e) => patch(i, { inputPriceVND: +e.target.value })} />
+                  <input className="input" type="number" value={m.outputPriceVND} onChange={(e) => patch(i, { outputPriceVND: +e.target.value })} />
+                </td>
+                <td className="p-2">
+                  <button onClick={() => patch(i, { enabled: !m.enabled })} className="btn-ghost">
+                    <Power className={`h-4 w-4 ${m.enabled ? 'text-emerald-600' : 'text-zinc-400'}`} />
+                  </button>
+                </td>
+                <td className="p-2 text-right space-x-1 whitespace-nowrap">
+                  <button onClick={() => update(m)} className="btn-primary text-xs py-1 px-2"><Save className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => remove(m.id)} className="btn-danger text-xs py-1 px-2"><Trash2 className="h-3.5 w-3.5" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

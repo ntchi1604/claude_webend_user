@@ -1,0 +1,252 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand */
+  --brand-orange: #C46849;
+  --brand-orange-hover: #B85A3A;
+  --brand-blue: #2C84DB;
+  --brand-blue-light: rgba(44, 132, 219, 0.1);
+
+  /* Accent */
+  --accent-red: #DF6666;
+  --accent-green: #629987;
+  --accent-teal: #BCD1CA;
+  --accent-periwinkle: #6A9BCC;
+  --accent-mauve: #C46686;
+
+  /* Neutral */
+  --charcoal-900: #141413;
+  --charcoal-800: #30302E;
+  --stone-600: #5E5D59;
+  --lavender-100: #CBCADB;
+  --cream-100: #FAF9F5;
+  --cream-50: #F0EEE6;
+  --beige-100: #E3DACC;
+
+  /* Semantic */
+  --error: #B53333;
+  --success: #629987;
+
+  /* Shadows */
+  --shadow-shallow: rgba(0, 0, 0, 0.04) 0px 2px 8px 0px;
+  --shadow-standard: rgba(0, 0, 0, 0.05) 0px 4px 24px 0px;
+  --shadow-elevated: rgba(0, 0, 0, 0.08) 0px 6px 32px 0px;
+  --shadow-deep: rgba(0, 0, 0, 0.12) 0px 12px 48px 0px;
+
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Dark mode overrides */
+.dark {
+  --charcoal-900: #FAF9F5;
+  --charcoal-800: #E3DACC;
+  --stone-600: #CBCADB;
+  --lavender-100: #30302E;
+  --cream-100: #141413;
+  --cream-50: #1A1A19;
+  --beige-100: #30302E;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--charcoal-900);
+  background: var(--cream-100);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography */
+.display-xl { font-family: var(--font-serif); font-size: 48px; font-weight: 500; line-height: 56px; letter-spacing: -0.5px; }
+.display-lg { font-family: var(--font-serif); font-size: 40px; font-weight: 500; line-height: 48px; letter-spacing: -0.3px; }
+.display-md { font-family: var(--font-serif); font-size: 32px; font-weight: 500; line-height: 40px; }
+.heading-1 { font-family: var(--font-sans); font-size: 28px; font-weight: 500; line-height: 36px; }
+.heading-2 { font-family: var(--font-sans); font-size: 24px; font-weight: 400; line-height: 32px; }
+.heading-3 { font-family: var(--font-serif); font-size: 25px; font-weight: 500; line-height: 30px; }
+.heading-4 { font-family: var(--font-sans); font-size: 20px; font-weight: 400; line-height: 32px; }
+.heading-5 { font-family: var(--font-sans); font-size: 18px; font-weight: 500; line-height: 28px; }
+.heading-6 { font-family: var(--font-sans); font-size: 12px; font-weight: 500; line-height: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+.body-lg { font-family: var(--font-serif); font-size: 18px; font-weight: 400; line-height: 28px; }
+.body { font-family: var(--font-serif); font-size: 15px; font-weight: 400; line-height: 24px; }
+.body-sm { font-family: var(--font-sans); font-size: 14px; font-weight: 400; line-height: 21px; }
+.label { font-family: var(--font-sans); font-size: 13px; font-weight: 500; line-height: 20px; }
+.caption { font-family: var(--font-sans); font-size: 12px; font-weight: 400; line-height: 18px; color: var(--stone-600); }
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--charcoal-900); color: #FFFFFF;
+  font-family: var(--font-sans); font-size: 15px; font-weight: 400; line-height: 24px;
+  padding: 12px 24px; border-radius: 8px; border: none;
+  cursor: pointer; text-decoration: none; transition: background 0.15s;
+}
+.btn-primary:hover { background: #000000; }
+.btn-primary:active { background: #30302E; }
+.btn-primary:disabled { background: #CBCADB; color: #5E5D59; opacity: 0.6; cursor: not-allowed; }
+
+.dark .btn-primary { background: #FAF9F5; color: #141413; }
+.dark .btn-primary:hover { background: #FFFFFF; }
+
+.btn-primary-lg {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--charcoal-900); color: #FFFFFF;
+  font-family: var(--font-sans); font-size: 17px; font-weight: 400; line-height: 27px;
+  padding: 14px 28px; border-radius: 8px; border: none;
+  cursor: pointer; text-decoration: none; transition: background 0.15s;
+}
+.btn-primary-lg:hover { background: #000000; }
+
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; color: var(--stone-600);
+  font-family: var(--font-sans); font-size: 15px; font-weight: 400; line-height: 24px;
+  padding: 12px 24px; border-radius: 7.5px; border: 1px solid var(--stone-600);
+  cursor: pointer; text-decoration: none; transition: all 0.15s;
+}
+.btn-secondary:hover { background: var(--cream-50); color: var(--charcoal-900); }
+.btn-secondary:active { background: var(--lavender-100); border-color: var(--charcoal-900); }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; color: var(--stone-600);
+  font-family: var(--font-sans); font-size: 15px; font-weight: 400; line-height: 24px;
+  padding: 8px 12px; border-radius: 6px; border: none;
+  cursor: pointer; text-decoration: none; transition: all 0.15s;
+}
+.btn-ghost:hover { background: rgba(0, 0, 0, 0.05); color: var(--charcoal-900); }
+
+.btn-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--brand-orange); color: #FFFFFF;
+  font-family: var(--font-sans); font-size: 15px; font-weight: 500; line-height: 24px;
+  padding: 12px 24px; border-radius: 8px; border: none;
+  cursor: pointer; text-decoration: none; transition: background 0.15s;
+}
+.btn-cta:hover { background: var(--brand-orange-hover); }
+.btn-cta:active { background: #A84D2E; }
+
+/* Cards */
+.card {
+  background: #FFFFFF; color: var(--charcoal-900);
+  padding: 24px; border-radius: 8px;
+  border: 1px solid var(--lavender-100);
+  box-shadow: var(--shadow-standard);
+}
+.dark .card { background: #1A1A19; border-color: #30302E; }
+
+.card-elevated {
+  background: var(--cream-100); color: var(--charcoal-900);
+  padding: 20px; border-radius: 16px; border: none;
+  box-shadow: var(--shadow-elevated);
+}
+
+.card-code {
+  background: #1A1A19; color: #F0EEE6;
+  font-family: var(--font-mono); font-size: 13px; line-height: 20px;
+  padding: 16px 20px; border-radius: 8px;
+  border: 1px solid #30302E;
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 16px 0px;
+}
+
+/* Inputs */
+.input {
+  width: 100%; background: #FFFFFF; color: var(--charcoal-900);
+  font-family: var(--font-sans); font-size: 15px; font-weight: 400; line-height: 24px;
+  padding: 10px 12px; border-radius: 6px;
+  border: 1px solid var(--lavender-100);
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input::placeholder { color: var(--stone-600); }
+.input:focus { border-color: var(--brand-blue); box-shadow: 0px 0px 0px 3px var(--brand-blue-light); }
+.input:disabled { background: var(--cream-50); border-color: var(--lavender-100); color: var(--stone-600); opacity: 0.6; }
+
+.dark .input { background: #1A1A19; color: #FAF9F5; border-color: #30302E; }
+.dark .input::placeholder { color: rgba(250, 249, 245, 0.5); }
+.dark .input:focus { border-color: var(--accent-periwinkle); box-shadow: 0px 0px 0px 3px rgba(106, 155, 204, 0.15); }
+
+.form-label {
+  display: block; color: var(--charcoal-900);
+  font-family: var(--font-sans); font-size: 13px; font-weight: 500; line-height: 20px;
+  margin-bottom: 6px;
+}
+
+/* Badges */
+.badge-primary {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--brand-orange); color: #FFFFFF;
+  font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 4px; line-height: 18px;
+}
+.badge-secondary {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--cream-50); color: var(--charcoal-900);
+  font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 4px;
+  border: 1px solid var(--lavender-100); line-height: 18px;
+}
+.badge-error {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #FFE5E5; color: var(--error);
+  font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 4px; line-height: 18px;
+}
+.badge-success {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #E5F5EE; color: var(--accent-green);
+  font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 4px; line-height: 18px;
+}
+
+/* Navigation */
+.nav-link {
+  color: var(--charcoal-900); font-size: 15px; font-weight: 400;
+  text-decoration: none; padding: 8px 12px; border-radius: 6px;
+  transition: all 0.15s;
+}
+.nav-link:hover { color: var(--brand-blue); }
+.nav-link.active { color: var(--brand-blue); border-bottom: 2px solid var(--brand-blue); }
+
+/* Tabs */
+.tab {
+  background: transparent; color: var(--stone-600);
+  font-size: 14px; font-weight: 400; padding: 12px 16px;
+  border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all 0.15s;
+}
+.tab:hover { color: var(--charcoal-900); }
+.tab.active { color: var(--charcoal-900); font-weight: 500; border-bottom-color: var(--brand-blue); }
+
+/* Links */
+a.link { color: var(--brand-blue); text-decoration: none; }
+a.link:hover { text-decoration: underline; }
+
+/* Utility */
+.text-muted { color: var(--stone-600); }
+.text-error { color: var(--error); }
+.text-success { color: var(--accent-green); }
+.bg-surface { background: var(--cream-100); }
+.bg-elevated { background: var(--cream-50); }
+.border-light { border-color: var(--lavender-100); }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in { animation: fadeIn 0.4s ease-out; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--lavender-100); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--stone-600); }
+
+/* Container */
+.container-main { max-width: 1440px; margin: 0 auto; padding: 0 32px; }
+@media (max-width: 1024px) { .container-main { padding: 0 24px; } }
+@media (max-width: 640px) { .container-main { padding: 0 16px; } }

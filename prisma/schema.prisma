@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String?
+  role          String         @default("USER") // USER | ADMIN
+  banned        Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  apiKeys       ApiKey[]
+  subscriptions Subscription[]
+  payments      Payment[]
+}
+
+model Plan {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  description   String?
+  tokenLimit    Int
+  windowHours   Int            @default(5)
+  durationDays  Int            @default(30)
+  priceVND      Int
+  modelIds      String         @default("[]") // JSON array of model IDs
+  enabled       Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  subscriptions Subscription[]
+  payments      Payment[]
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  planId    String
+  startsAt  DateTime @default(now())
+  expiresAt DateTime
+  active    Boolean  @default(true)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      Plan     @relation(fields: [planId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([userId, active])
+}
+
+model ApiKey {
+  id         String     @id @default(cuid())
+  userId     String
+  name       String
+  keyHash    String     @unique
+  keyPrefix  String
+  active     Boolean    @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime   @default(now())
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usage      UsageLog[]
+
+  @@index([userId])
+}
+
+model Model {
+  id               String     @id @default(cuid())
+  name             String     @unique
+  upstreamName     String
+  endpoint         String?
+  provider         String     @default("openai")
+  inputPriceVND    Int        @default(0)
+  outputPriceVND   Int        @default(0)
+  enabled          Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  usage            UsageLog[]
+}
+
+model UsageLog {
+  id               String   @id @default(cuid())
+  apiKeyId         String
+  userId           String
+  modelId          String?
+  modelName        String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  status           Int      @default(200)
+  errorMessage     String?
+  ts               DateTime @default(now())
+  apiKey           ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  model            Model?   @relation(fields: [modelId], references: [id])
+
+  @@index([userId, ts])
+  @@index([apiKeyId, ts])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  userId      String
+  planId      String
+  amountVND   Int
+  status      String        @default("PENDING") // PENDING | APPROVED | REJECTED
+  reference   String?
+  note        String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        Plan          @relation(fields: [planId], references: [id])
+
+  @@index([userId, status])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
