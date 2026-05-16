@@ -41,7 +41,7 @@ export default function LoginPage() {
           {error && <div className="badge-error w-full justify-center py-2">{error}</div>}
           <div>
             <label className="form-label">Email</label>
-            <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="admin@local" required />
+            <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="email@example.com" required />
           </div>
           <div>
             <label className="form-label">Mật khẩu</label>

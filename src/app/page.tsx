@@ -30,7 +30,7 @@ export default function HomePage() {
         <div className="container-main flex items-center justify-between py-4">
           <Link href="/" className="flex items-center gap-3">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: 'var(--brand-orange)', color: '#fff', fontFamily: 'var(--font-serif)', fontSize: '16px', fontWeight: 500 }}>C</span>
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '18px', fontWeight: 500 }}>ClaudeWebEnd</span>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '18px', fontWeight: 500 }}>Api4Cheap</span>
           </Link>
           <nav className="flex items-center gap-3">
             <ThemeToggle />
@@ -80,7 +80,7 @@ export default function HomePage() {
 
       {/* Features */}
       <section className="container-main" style={{ paddingBottom: '80px' }}>
-        <h2 className="display-md" style={{ textAlign: 'center', marginBottom: '48px' }}>Tại sao chọn ClaudeWebEnd?</h2>
+        <h2 className="display-md" style={{ textAlign: 'center', marginBottom: '48px' }}>Tại sao chọn Api4Cheap?</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
           {features.map((f, i) => (
             <div key={i} className="card animate-fade-in" style={{ animationDelay: `${i * 80}ms` }}>
@@ -179,7 +179,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer style={{ borderTop: '1px solid var(--lavender-100)', padding: '24px 0', textAlign: 'center' }}>
-        <span className="caption">© {new Date().getFullYear()} ClaudeWebEnd · OpenAI & Anthropic-compatible AI gateway</span>
+        <span className="caption">© {new Date().getFullYear()} Api4Cheap · OpenAI & Anthropic-compatible AI gateway</span>
       </footer>
     </main>
   );

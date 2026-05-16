@@ -23,7 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <aside className="w-60 hidden md:flex flex-col border-r border-[var(--lavender-100)] bg-white dark:bg-[#1A1A19] p-4 gap-1 h-screen sticky top-0 overflow-y-auto">
         <Link href="/" className="flex items-center gap-2 px-2 py-3 mb-2">
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--brand-orange)] text-white font-serif text-xs">C</span>
-          <span className="heading-5 text-[15px]">ClaudeWebEnd</span>
+          <span className="heading-5 text-[15px]">Api4Cheap</span>
         </Link>
         <nav className="flex flex-col gap-0.5 flex-1">
           {nav.map((n) => (

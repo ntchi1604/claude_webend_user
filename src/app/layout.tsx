@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
-  title: 'ClaudeWebEnd — AI API Gateway',
+  title: 'Api4Cheap — AI API Gateway',
   description: 'Cloud AI gateway: Claude & GPT theo gói, reset mỗi 5 giờ. Tương thích OpenAI & Anthropic.',
   icons: [{ rel: 'icon', url: '/favicon.ico' }]
 };
