@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { ArrowRight, Zap, Shield, Code2, RefreshCw, Terminal, Sparkles } from 'lucide-react';
 import ThemeToggle from '@/components/theme-toggle';
+import { prisma } from '@/lib/prisma';
+import { formatNumber, formatVND } from '@/lib/utils';
+import { parseModelIds } from '@/lib/json';
 
 const features = [
   { icon: Code2, title: 'OpenAI Compatible', desc: 'Cắm thẳng vào Cursor, Cline, Continue, Roo Code. Một key duy nhất.' },
@@ -9,20 +12,25 @@ const features = [
   { icon: Shield, title: 'Token Chính Xác', desc: 'Đếm bằng tiktoken, ưu tiên usage từ upstream.' }
 ];
 
-const plans = [
-  { name: 'Free', tokens: '50K', price: '0đ', models: ['gpt-4o-mini'], highlight: false },
-  { name: 'Basic', tokens: '500K', price: '99.000đ', models: ['gpt-4o-mini', 'gpt-4o', 'claude-haiku'], highlight: false },
-  { name: 'Pro', tokens: '2M', price: '299.000đ', models: ['gpt-4o-mini', 'gpt-4o', 'claude-haiku', 'claude-sonnet'], highlight: true },
-  { name: 'Max', tokens: '10M', price: '799.000đ', models: ['Tất cả models', 'Priority support'], highlight: false }
-];
-
 const steps = [
-  { num: '01', title: 'Đăng ký', desc: 'Tạo tài khoản miễn phí, nhận 50K tokens.' },
+  { num: '01', title: 'Đăng ký', desc: 'Tạo tài khoản miễn phí, nhận tokens ngay.' },
   { num: '02', title: 'Tạo API Key', desc: 'Vào Dashboard → API Keys → Tạo key mới.' },
   { num: '03', title: 'Cắm vào IDE', desc: 'Paste Base URL + Key vào Cursor, Cline, Claude Code.' }
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const dbPlans = await prisma.plan.findMany({ where: { enabled: true }, orderBy: { priceVND: 'asc' } });
+  const models = await prisma.model.findMany();
+  const modelMap = new Map(models.map((m) => [m.id, m.name]));
+
+  const plans = dbPlans.map((p, i) => ({
+    name: p.name,
+    tokens: formatNumber(Number(p.tokenLimit)),
+    price: formatVND(p.priceVND),
+    windowHours: p.windowHours,
+    models: parseModelIds(p.modelIds).map((id) => modelMap.get(id)).filter((n): n is string => !!n),
+    highlight: i === Math.min(2, dbPlans.length - 1)
+  }));
   return (
     <main className="min-h-screen" style={{ background: 'var(--cream-100)' }}>
       {/* Header */}
@@ -153,7 +161,7 @@ export default function HomePage() {
                   <span className="display-md">{p.price}</span>
                   <span className="body-sm" style={{ color: 'var(--stone-600)' }}> / tháng</span>
                 </div>
-                <div style={{ marginTop: '8px' }} className="body-sm"><b>{p.tokens}</b> tokens / 5h</div>
+                <div style={{ marginTop: '8px' }} className="body-sm"><b>{p.tokens}</b> tokens / {p.windowHours}h</div>
                 <ul style={{ marginTop: '16px', listStyle: 'none', padding: 0 }}>
                   {p.models.map((m) => (
                     <li key={m} className="body-sm" style={{ padding: '4px 0', color: 'var(--stone-600)' }}>✓ {m}</li>
