@@ -13,7 +13,27 @@ export default async function DashboardPage() {
     include: { plan: true }
   });
 
-  const windowStart = sub ? new Date(Date.now() - sub.plan.windowHours * 3600 * 1000) : new Date();
+  const windowHours = sub?.plan.windowHours ?? 5;
+  const windowMs = windowHours * 3600 * 1000;
+
+  // Fixed window calculation
+  let windowStart = new Date();
+  let resetAt: Date | null = null;
+
+  if (sub) {
+    const first = await prisma.usageLog.findFirst({
+      where: { userId: user.id },
+      orderBy: { ts: 'asc' },
+      select: { ts: true }
+    });
+    if (first) {
+      const elapsed = Date.now() - first.ts.getTime();
+      const windowIndex = Math.floor(elapsed / windowMs);
+      windowStart = new Date(first.ts.getTime() + windowIndex * windowMs);
+      resetAt = new Date(windowStart.getTime() + windowMs);
+    }
+  }
+
   const usage = await prisma.usageLog.aggregate({
     where: { userId: user.id, ts: { gte: windowStart } },
     _sum: { totalTokens: true }
@@ -25,32 +45,6 @@ export default async function DashboardPage() {
 
   const keyCount = await prisma.apiKey.count({ where: { userId: user.id, active: true } });
   const totalRequests = await prisma.usageLog.count({ where: { userId: user.id } });
-
-  // Calculate rolling reset time
-  const earliest = await prisma.usageLog.findFirst({
-    where: { userId: user.id, ts: { gte: windowStart } },
-    orderBy: { ts: 'asc' },
-    select: { ts: true }
-  });
-  const windowHours = sub?.plan.windowHours ?? 5;
-  const resetAt = earliest ? new Date(earliest.ts.getTime() + windowHours * 3600 * 1000) : null;
-  const now = new Date();
-  let resetText = 'Không có dữ liệu';
-  if (resetAt && resetAt > now) {
-    const diffMs = resetAt.getTime() - now.getTime();
-    const diffMin = Math.ceil(diffMs / 60000);
-    if (diffMin >= 60) {
-      const h = Math.floor(diffMin / 60);
-      const m = diffMin % 60;
-      resetText = `${h}h${m > 0 ? ` ${m}p` : ''} nữa`;
-    } else {
-      resetText = `${diffMin} phút nữa`;
-    }
-  } else if (used === 0) {
-    resetText = 'Chưa sử dụng';
-  } else {
-    resetText = 'Đã reset';
-  }
 
   return (
     <div className="space-y-8 animate-fade-in max-w-4xl">

@@ -1,10 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function Countdown({ resetAt }: { resetAt: string | null }) {
   const [text, setText] = useState('');
-  const router = useRouter();
 
   useEffect(() => {
     if (!resetAt) {
@@ -22,7 +20,7 @@ export default function Countdown({ resetAt }: { resetAt: string | null }) {
           clearInterval(interval);
           interval = null;
         }
-        router.refresh();
+        setTimeout(() => window.location.reload(), 2000);
         return;
       }
       const h = Math.floor(diff / 3600000);
@@ -42,7 +40,7 @@ export default function Countdown({ resetAt }: { resetAt: string | null }) {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [resetAt, router]);
+  }, [resetAt]);
 
   return <span className="caption font-medium">{text}</span>;
 }

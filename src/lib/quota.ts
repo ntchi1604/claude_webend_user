@@ -34,20 +34,40 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     return { allowed: false, limit: tokenLimit, used: 0, remaining: 0, windowHours: plan.windowHours, resetAt: null, reason: 'MODEL_NOT_IN_PLAN', planName: plan.name, modelAllowed: false };
   }
 
-  const windowStart = new Date(Date.now() - plan.windowHours * 3600 * 1000);
+  // Fixed window: find the start of the current window based on earliest usage
+  const windowMs = plan.windowHours * 3600 * 1000;
+  const earliest = await prisma.usageLog.findFirst({
+    where: { userId },
+    orderBy: { ts: 'desc' },
+    select: { ts: true }
+  });
+
+  let windowStart: Date;
+  let resetAt: Date | null = null;
+
+  if (!earliest) {
+    windowStart = new Date();
+  } else {
+    // Find the first log to determine window anchor
+    const first = await prisma.usageLog.findFirst({
+      where: { userId },
+      orderBy: { ts: 'asc' },
+      select: { ts: true }
+    });
+    // Calculate which fixed window we're currently in
+    const firstTs = first!.ts.getTime();
+    const elapsed = Date.now() - firstTs;
+    const windowIndex = Math.floor(elapsed / windowMs);
+    windowStart = new Date(firstTs + windowIndex * windowMs);
+    resetAt = new Date(windowStart.getTime() + windowMs);
+  }
+
   const agg = await prisma.usageLog.aggregate({
     where: { userId, ts: { gte: windowStart } },
     _sum: { totalTokens: true }
   });
   const used = agg._sum.totalTokens ?? 0;
   const remaining = Math.max(0, tokenLimit - used);
-
-  const earliest = await prisma.usageLog.findFirst({
-    where: { userId, ts: { gte: windowStart } },
-    orderBy: { ts: 'asc' },
-    select: { ts: true }
-  });
-  const resetAt = earliest ? new Date(earliest.ts.getTime() + plan.windowHours * 3600 * 1000) : null;
 
   if (used + estimateTokens > tokenLimit) {
     return { allowed: false, limit: tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, reason: 'QUOTA_EXCEEDED', planName: plan.name, modelAllowed: true };
