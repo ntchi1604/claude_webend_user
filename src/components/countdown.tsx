@@ -1,8 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Countdown({ resetAt }: { resetAt: string | null }) {
   const [text, setText] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
     if (!resetAt) {
@@ -10,10 +12,17 @@ export default function Countdown({ resetAt }: { resetAt: string | null }) {
       return;
     }
 
+    let interval: NodeJS.Timeout | null = null;
+
     function update() {
       const diff = new Date(resetAt!).getTime() - Date.now();
       if (diff <= 0) {
         setText('Đã reset');
+        if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+        router.refresh();
         return;
       }
       const h = Math.floor(diff / 3600000);
@@ -29,9 +38,11 @@ export default function Countdown({ resetAt }: { resetAt: string | null }) {
     }
 
     update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [resetAt]);
+    interval = setInterval(update, 1000);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resetAt, router]);
 
   return <span className="caption font-medium">{text}</span>;
 }
