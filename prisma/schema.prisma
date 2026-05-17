@@ -36,15 +36,16 @@ model Plan {
 }
 
 model Subscription {
-  id        String   @id @default(cuid())
-  userId    String
-  planId    String
-  startsAt  DateTime @default(now())
-  expiresAt DateTime
-  active    Boolean  @default(true)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id           String    @id @default(cuid())
+  userId       String
+  planId       String
+  startsAt     DateTime  @default(now())
+  expiresAt    DateTime
+  active       Boolean   @default(true)
+  quotaResetAt DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
 
   @@index([userId, active])
 }

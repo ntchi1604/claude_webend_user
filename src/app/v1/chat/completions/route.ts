@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody) });
   } catch (e: any) {
     console.error('[gateway] upstream error:', e?.message, 'url=', url);
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message);
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch((err) => console.error('[logUsage] write failed:', err?.message));
     return errOut(stream, 'Upstream unavailable', 'upstream_error', 502);
   }
 
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
         const source = lastUsage ? 'upstream' : 'tiktoken';
         console.log(`[usage] stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (source=${source})`);
         recordTokens(key.id, pt + ct);
-        logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, 200, null).catch(() => {});
+        logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, 200, null).catch((err) => console.error('[logUsage] write failed:', err?.message));
       }
     }
   });

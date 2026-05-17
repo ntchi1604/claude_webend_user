@@ -129,19 +129,25 @@ export async function POST(req: NextRequest) {
   }
 
   let upstream: Response;
+  const fetchAbort = new AbortController();
+  const fetchTimer = setTimeout(() => fetchAbort.abort('fetch_timeout'), 5 * 60 * 1000);
   try {
-    upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody) });
+    upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody), signal: fetchAbort.signal });
   } catch (e: any) {
+    clearTimeout(fetchTimer);
+    const msg = fetchAbort.signal.aborted ? 'Upstream timeout' : 'Upstream unavailable';
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message);
-    return errOut(stream, 'Upstream unavailable', 'api_error', 502);
+    return errOut(stream, msg, 'api_error', 502);
+  } finally {
+    clearTimeout(fetchTimer);
   }
 
-  prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
+  prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => { });
 
   if (!stream) {
     const text = await upstream.text();
     let parsed: any = null;
-    try { parsed = JSON.parse(text); } catch {}
+    try { parsed = JSON.parse(text); } catch { }
     let pt = promptTokens, ct = 0;
     if (isAnthropic) {
       pt = parsed?.usage?.input_tokens ?? promptTokens;
@@ -206,6 +212,8 @@ async function logUsage(apiKeyId: string, userId: string, modelId: string, model
   });
 }
 
+const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 min idle = MITM likely dead
+
 function passthroughAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number) {
   const reader = upstream.body!.getReader();
   const decoder = new TextDecoder();
@@ -215,11 +223,21 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
 
   const stream = new ReadableStream({
     async start(controller) {
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          reader.cancel('idle_timeout').catch(() => { });
+          controller.error(new Error('Stream idle timeout — upstream/MITM may be hung'));
+        }, STREAM_IDLE_TIMEOUT_MS);
+      };
       try {
         let buf = '';
+        resetIdle();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          resetIdle();
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
           buf = parts.pop() || '';
@@ -233,18 +251,20 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                   if (j.type === 'content_block_delta' && j.delta?.text) completionBuf += j.delta.text;
                   if (j.type === 'message_start' && j.message?.usage?.input_tokens) inputTokens = j.message.usage.input_tokens;
                   if (j.type === 'message_delta' && j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
-                } catch {}
+                } catch { }
               }
             }
           }
           controller.enqueue(value);
         }
+        if (idleTimer) clearTimeout(idleTimer);
         controller.close();
       } catch (e) {
+        if (idleTimer) clearTimeout(idleTimer);
         controller.error(e);
       } finally {
         const ct = outputTokens || countTokens(completionBuf);
-        logUsage(key.id, key.userId, resolved.model.id, modelName, inputTokens, ct, 200, null).catch(() => {});
+        logUsage(key.id, key.userId, resolved.model.id, modelName, inputTokens, ct, 200, null).catch(() => { });
       }
     }
   });
@@ -267,6 +287,14 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
 
   const stream = new ReadableStream({
     async start(controller) {
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          reader.cancel('idle_timeout').catch(() => { });
+          controller.error(new Error('Stream idle timeout — upstream/MITM may be hung'));
+        }, STREAM_IDLE_TIMEOUT_MS);
+      };
       try {
         controller.enqueue(sse('message_start', {
           type: 'message_start',
@@ -279,9 +307,11 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         controller.enqueue(sse('content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }));
 
         let buf = '';
+        resetIdle();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          resetIdle();
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
           buf = parts.pop() || '';
@@ -300,9 +330,10 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
                   delta: { type: 'text_delta', text: delta }
                 }));
               }
-            } catch {}
+            } catch { }
           }
         }
+        if (idleTimer) clearTimeout(idleTimer);
         const ct = countTokens(completionBuf);
         controller.enqueue(sse('content_block_stop', { type: 'content_block_stop', index: 0 }));
         controller.enqueue(sse('message_delta', {
@@ -311,8 +342,9 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         }));
         controller.enqueue(sse('message_stop', { type: 'message_stop' }));
         controller.close();
-        logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, ct, 200, null).catch(() => {});
+        logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, ct, 200, null).catch(() => { });
       } catch (e) {
+        if (idleTimer) clearTimeout(idleTimer);
         controller.error(e);
       }
     }

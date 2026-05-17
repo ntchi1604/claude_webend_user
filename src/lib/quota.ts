@@ -20,6 +20,7 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     include: { plan: true }
   });
   if (!sub) {
+    console.log(`[quota] NO_ACTIVE_PLAN user=${userId} model=${modelName}`);
     return { allowed: false, limit: 0, used: 0, remaining: 0, windowHours: 0, resetAt: null, reason: 'NO_ACTIVE_PLAN' };
   }
   const plan = sub.plan;
@@ -34,58 +35,47 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     return { allowed: false, limit: tokenLimit, used: 0, remaining: 0, windowHours: plan.windowHours, resetAt: null, reason: 'MODEL_NOT_IN_PLAN', planName: plan.name, modelAllowed: false };
   }
 
-  // Fixed window anchored to first usage in current cycle
   const windowMs = plan.windowHours * 3600 * 1000;
+  const now = Date.now();
 
-  // Find the most recent log, then walk back to find window start
-  const latest = await prisma.usageLog.findFirst({
-    where: { userId },
-    orderBy: { ts: 'desc' },
-    select: { ts: true }
-  });
+  // Read the stored quotaResetAt
+  let resetAt = sub.quotaResetAt;
+  const resetMs = resetAt ? resetAt.getTime() : 0;
 
-  let windowStart: Date;
-  let resetAt: Date | null = null;
-  let used = 0;
+  console.log(`[quota] ENTRY user=${userId} model=${modelName} estimate=${estimateTokens} quotaResetAt=${resetAt?.toISOString() ?? 'NULL'} resetMs=${resetMs} now=${now} expired=${resetMs <= now} windowMs=${windowMs}`);
 
-  if (!latest) {
-    // No usage at all
-    windowStart = new Date();
-  } else {
-    // Find first log that starts the current window cycle
-    // Walk backwards: the current window started at the first log
-    // whose timestamp is within windowMs of now
-    const cutoff = new Date(Date.now() - windowMs);
-    const firstInWindow = await prisma.usageLog.findFirst({
-      where: { userId, ts: { gt: cutoff } },
-      orderBy: { ts: 'asc' },
-      select: { ts: true }
+  // Window expired or never set → start fresh window
+  // Use resetMs instead of getTime() to guard against NaN
+  if (!resetAt || !resetMs || isNaN(resetMs) || resetMs <= now) {
+    const oldResetAt = resetAt;
+    resetAt = new Date(now + windowMs);
+    await prisma.subscription.update({
+      where: { id: sub.id },
+      data: { quotaResetAt: resetAt }
     });
+    console.log(`[quota] RESET user=${userId} old=${oldResetAt?.toISOString() ?? 'NULL'} new=${resetAt.toISOString()} limit=${tokenLimit}`);
 
-    if (firstInWindow) {
-      // Window starts at the first usage within the last windowMs
-      windowStart = firstInWindow.ts;
-      resetAt = new Date(windowStart.getTime() + windowMs);
-
-      // If reset time has passed, window is done — quota is 0
-      if (resetAt.getTime() <= Date.now()) {
-        windowStart = new Date();
-        resetAt = null;
-        used = 0;
-      } else {
-        const agg = await prisma.usageLog.aggregate({
-          where: { userId, ts: { gte: windowStart } },
-          _sum: { totalTokens: true }
-        });
-        used = agg._sum.totalTokens ?? 0;
-      }
-    } else {
-      // All logs are older than windowMs — quota fully reset
-      windowStart = new Date();
+    // New window — used = 0
+    if (estimateTokens > tokenLimit) {
+      return { allowed: false, limit: tokenLimit, used: 0, remaining: tokenLimit, windowHours: plan.windowHours, resetAt, reason: 'QUOTA_EXCEEDED', planName: plan.name, modelAllowed: true };
     }
+    return { allowed: true, limit: tokenLimit, used: 0, remaining: tokenLimit, windowHours: plan.windowHours, resetAt, planName: plan.name, modelAllowed: true };
   }
 
+  // Window is active — count only SUCCESSFUL usage since window started
+  const windowStart = new Date(resetMs - windowMs);
+  const agg = await prisma.usageLog.aggregate({
+    where: {
+      userId,
+      ts: { gte: windowStart },
+      status: 200
+    },
+    _sum: { totalTokens: true }
+  });
+  const used = agg._sum.totalTokens ?? 0;
   const remaining = Math.max(0, tokenLimit - used);
+
+  console.log(`[quota] ACTIVE user=${userId} model=${modelName} used=${used}/${tokenLimit} remaining=${remaining} windowStart=${windowStart.toISOString()} resetAt=${resetAt.toISOString()} estimate=${estimateTokens} willBlock=${used + estimateTokens > tokenLimit}`);
 
   if (used + estimateTokens > tokenLimit) {
     return { allowed: false, limit: tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, reason: 'QUOTA_EXCEEDED', planName: plan.name, modelAllowed: true };
