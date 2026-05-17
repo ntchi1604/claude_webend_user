@@ -28,12 +28,11 @@ export default async function DashboardPage() {
       resetAt = sub.quotaResetAt;
       const windowStart = new Date(resetAt.getTime() - windowMs);
       const agg = await prisma.usageLog.aggregate({
-        where: { userId: user.id, ts: { gte: windowStart }, status: 200 },
+        where: { userId: user.id, ts: { gte: windowStart } },
         _sum: { totalTokens: true }
       });
       used = agg._sum.totalTokens ?? 0;
     }
-    // else: window expired or never set → used = 0, resetAt = null
   }
 
   const limit = Number(sub?.plan.tokenLimit ?? 0);
@@ -53,7 +52,7 @@ export default async function DashboardPage() {
       {/* Quota card */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <span className="label">Quota ({windowHours}h)</span>
+          <span className="label">Quota · Reset after {windowHours}h</span>
           <span className="caption">{formatNumber(used)} / {formatNumber(limit)} tokens</span>
         </div>
         <div className="w-full h-2 rounded-full bg-[var(--cream-50)] overflow-hidden">

@@ -1,0 +1,168 @@
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+
+0|claude-webend  | prisma:error
+0|claude-webend  | Invalid `prisma.plan.create()` invocation:
+0|claude-webend  | {
+0|claude-webend  |   data: {
+0|claude-webend  |     description: null,
+0|claude-webend  |     tokenLimit: NaN,
+0|claude-webend  |     windowHours: 5,
+0|claude-webend  |     durationDays: 30,
+0|claude-webend  |     priceVND: 0,
+0|claude-webend  |     modelIds: "[]",
+0|claude-webend  |     enabled: true,
+0|claude-webend  | +   name: String
+0|claude-webend  |   }
+0|claude-webend  | }
+0|claude-webend  | Argument `name` is missing.
+0|claude-webend  | prisma:error
+0|claude-webend  | Invalid `prisma.model.create()` invocation:
+0|claude-webend  | {
+0|claude-webend  |   data: {
+0|claude-webend  |     upstreamName: undefined,
+0|claude-webend  |     endpoint: null,
+0|claude-webend  |     provider: "openai",
+0|claude-webend  |     inputPriceVND: 0,
+0|claude-webend  |     outputPriceVND: 0,
+0|claude-webend  |     enabled: true,
+0|claude-webend  | +   name: String
+0|claude-webend  |   }
+0|claude-webend  | }
+0|claude-webend  | Argument `name` is missing.
+
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | [quota] ENTRY user=cmp8u8dkm00003femd9hd8j4x model=claude-opus-4-7 estimate=4769 quotaResetAt=2026-05-18T03:03:24.853Z resetMs=1779073404853 now=1779059221195 expired=false windowMs=18000000
+0|claude-webend  | [quota] ACTIVE user=cmp8u8dkm00003femd9hd8j4x model=claude-opus-4-7 used=49847/2000000 remaining=1950153 windowStart=2026-05-17T22:03:24.853Z resetAt=2026-05-18T03:03:24.853Z estimate=4769 willBlock=false
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+0|claude-webend  | Error: Failed to find Server Action "x". This request might be from an older or newer deployment.
+0|claude-webend  |     at getActionNotFoundError (webpack://next/dist/esm/server/app-render/action-handler.js:638:12)
+0|claude-webend  |     at handleAction (webpack://next/dist/esm/server/app-render/action-handler.js:236:23)
+0|claude-webend  |     at renderToHTMLOrFlightImpl (webpack://next/dist/esm/server/app-render/app-render.js:888:39)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1011:37)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/static-generation-async-storage-wrapper.js:39:24)
+0|claude-webend  |     at <anonymous> (webpack://next/dist/esm/server/app-render/app-render.js:1005:60)
+0|claude-webend  |     at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+0|claude-webend  |     at Object.wrap (webpack://next/dist/esm/server/async-storage/request-async-storage-wrapper.js:95:24)
+0|claude-webend  |     at ni (webpack://next/dist/esm/server/app-render/app-render.js:1001:39)
+
+
+

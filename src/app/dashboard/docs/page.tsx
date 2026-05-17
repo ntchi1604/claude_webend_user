@@ -1,79 +1,269 @@
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { Copy, Check, Terminal, Monitor, Apple } from 'lucide-react';
+
+type ApiKeyItem = { id: string; keyPrefix: string; name: string | null };
+
+type Tool = 'claude-code' | 'cursor' | 'cline';
+
+const TOOLS: { id: Tool; label: string; icon: string }[] = [
+  { id: 'claude-code', label: 'Claude Code', icon: '✦' },
+  { id: 'cursor', label: 'Cursor / Cline', icon: '⚡' },
+];
+
 export default function DocsPage() {
   const base = 'https://lccaptcha.io.vn';
+
+  const [tool, setTool] = useState<Tool>('claude-code');
+  const [os, setOs] = useState<'windows' | 'mac'>('windows');
+  const [keys, setKeys] = useState<ApiKeyItem[]>([]);
+  const [selectedKey, setSelectedKey] = useState('');
+  const [models, setModels] = useState<string[]>([]);
+  const [haiku, setHaiku] = useState('');
+  const [sonnet, setSonnet] = useState('');
+  const [opus, setOpus] = useState('');
+  const [cursorModel, setCursorModel] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/keys').then(r => r.json()).then(d => {
+      const k = d.keys || d || [];
+      setKeys(k);
+    }).catch(() => {});
+    fetch('/api/models').then(r => r.json()).then(d => {
+      const m = (d.models || d || []).map((x: any) => x.name || x.id || x);
+      setModels(m);
+      if (m.length > 0) {
+        // Auto-select defaults
+        const s = m.find((x: string) => x.includes('sonnet')) || m[0];
+        const h = m.find((x: string) => x.includes('haiku')) || '';
+        const o = m.find((x: string) => x.includes('opus')) || '';
+        setSonnet(s);
+        setHaiku(h);
+        setOpus(o);
+        setCursorModel(s);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const getSetupCommand = useCallback(() => {
+    const key = selectedKey || 'sk-cw-xxxx';
+    if (tool === 'claude-code') {
+      const params = new URLSearchParams({ key, os });
+      if (haiku) params.set('haiku', haiku);
+      if (sonnet) params.set('sonnet', sonnet);
+      if (opus) params.set('opus', opus);
+      const url = `${base}/api/setup/claude-code?${params.toString()}`;
+      if (os === 'windows') {
+        return `irm "${url}" | iex`;
+      } else {
+        return `curl -fsSL "${url}" | bash`;
+      }
+    }
+    // Cursor/Cline — just show config
+    return '';
+  }, [tool, os, selectedKey, haiku, sonnet, opus, cursorModel, base]);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const setupCmd = getSetupCommand();
+
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
       <div>
-        <h1 className="heading-1">Tài liệu API</h1>
-        <p className="body-sm text-[var(--stone-600)] mt-1">Hỗ trợ <b>OpenAI</b> & <b>Anthropic</b> compatible. API key dạng <code className="font-mono text-[13px] bg-[var(--cream-50)] px-1.5 py-0.5 rounded">sk-cw-...</code></p>
+        <h1 className="heading-1">Cấu hình API Key</h1>
+        <p className="body-sm text-[var(--stone-600)] mt-1">Thiết lập nhanh cho công cụ AI hoặc cấu hình thủ công.</p>
       </div>
 
-      <Section title="Endpoints">
-        <Code>{`Base URL:  ${base}
+      {/* Tool tabs */}
+      <div className="card">
+        <div className="flex gap-1 p-1 rounded-lg bg-[var(--cream-50)] mb-6">
+          {TOOLS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTool(t.id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-[14px] font-medium transition-all ${
+                tool === t.id
+                  ? 'bg-white dark:bg-[#2a2a29] shadow-sm text-[var(--charcoal-900)]'
+                  : 'text-[var(--stone-600)] hover:text-[var(--charcoal-900)]'
+              }`}
+            >
+              <span>{t.icon}</span> {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* API Key selector */}
+        <div className="mb-4">
+          <label className="form-label">API Key</label>
+          <select
+            value={selectedKey}
+            onChange={e => setSelectedKey(e.target.value)}
+            className="input"
+          >
+            <option value="">Chọn API Key...</option>
+            {keys.map(k => (
+              <option key={k.id} value={k.keyPrefix + '...'}>
+                {k.name || k.keyPrefix + '...'}
+              </option>
+            ))}
+          </select>
+          <p className="caption mt-1">⚠️ Vì lý do bảo mật, key đầy đủ không hiển thị. Copy key từ trang API Keys khi tạo.</p>
+        </div>
+
+        {/* OS toggle (for claude-code) */}
+        {tool === 'claude-code' && (
+          <>
+            <div className="mb-4">
+              <label className="form-label">Hệ điều hành</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setOs('windows')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'windows'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Monitor className="h-4 w-4" /> Windows
+                </button>
+                <button
+                  onClick={() => setOs('mac')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'mac'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Apple className="h-4 w-4" /> macOS / Linux
+                </button>
+              </div>
+            </div>
+
+            {/* Model selectors */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div>
+                <label className="form-label">Haiku (fast)</label>
+                <select value={haiku} onChange={e => setHaiku(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Sonnet (default)</label>
+                <select value={sonnet} onChange={e => setSonnet(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Opus (powerful)</label>
+                <select value={opus} onChange={e => setOpus(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Setup command */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
+                <button
+                  onClick={() => copyToClipboard(setupCmd)}
+                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Đã copy' : 'Copy'}
+                </button>
+              </div>
+              <div className="card-code">
+                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
+              </div>
+              <div className="mt-3 space-y-1">
+                <p className="caption">Hướng dẫn:</p>
+                <p className="caption">1. Copy lệnh ở trên</p>
+                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
+                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">claude</code></p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Cursor / Cline config */}
+        {tool === 'cursor' && (
+          <div>
+            <div className="mb-4">
+              <label className="form-label">Model</label>
+              <select value={cursorModel} onChange={e => setCursorModel(e.target.value)} className="input">
+                <option value="">Chọn model...</option>
+                {models.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            <div className="card-code">
+              <div className="space-y-1 text-[13px]">
+                <div><span style={{ color: '#629987' }}>Provider:</span> OpenAI Compatible</div>
+                <div><span style={{ color: '#629987' }}>Base URL:</span> {base}/v1</div>
+                <div><span style={{ color: '#629987' }}>API Key:</span>  {selectedKey || 'sk-cw-xxxx'}</div>
+                <div><span style={{ color: '#629987' }}>Model:</span>   {cursorModel || 'claude-sonnet-4-5'}</div>
+              </div>
+            </div>
+            <p className="caption mt-3">Paste thông tin trên vào Settings của Cursor / Cline / Continue / Roo Code.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Manual API docs */}
+      <div className="card">
+        <h2 className="heading-5 mb-4">API Reference</h2>
+        <div className="space-y-4">
+          <div>
+            <span className="label">Endpoints</span>
+            <div className="card-code mt-2">
+              <pre className="whitespace-pre-wrap text-[13px] leading-5">{`Base URL:  ${base}
 OpenAI:    POST ${base}/v1/chat/completions
            GET  ${base}/v1/models
 Anthropic: POST ${base}/v1/messages
 
-Streaming: stream: true — SSE đúng format từng provider.`}</Code>
-      </Section>
+Streaming: stream: true — SSE đúng format từng provider.`}</pre>
+            </div>
+          </div>
 
-      <Section title="cURL — OpenAI">
-        <Code>{`curl ${base}/v1/chat/completions \\
-  -H "Authorization: Bearer sk-cw-xxxx" \\
+          <div>
+            <span className="label">cURL — OpenAI</span>
+            <div className="card-code mt-2">
+              <pre className="whitespace-pre-wrap text-[13px] leading-5">{`curl ${base}/v1/chat/completions \\
+  -H "Authorization: Bearer ${selectedKey || 'sk-cw-xxxx'}" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gpt-4o-mini",
+    "model": "${cursorModel || 'claude-sonnet-4-5'}",
     "messages": [{"role":"user","content":"Xin chào"}],
     "stream": true
-  }'`}</Code>
-      </Section>
+  }'`}</pre>
+            </div>
+          </div>
 
-      <Section title="cURL — Anthropic">
-        <Code>{`curl ${base}/v1/messages \\
-  -H "x-api-key: sk-cw-xxxx" \\
+          <div>
+            <span className="label">cURL — Anthropic</span>
+            <div className="card-code mt-2">
+              <pre className="whitespace-pre-wrap text-[13px] leading-5">{`curl ${base}/v1/messages \\
+  -H "x-api-key: ${selectedKey || 'sk-cw-xxxx'}" \\
   -H "anthropic-version: 2023-06-01" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "claude-sonnet-4-5",
+    "model": "${sonnet || 'claude-sonnet-4-5'}",
     "max_tokens": 1024,
     "messages": [{"role":"user","content":"Hi"}]
-  }'`}</Code>
-      </Section>
-
-      <Section title="Cursor / Cline / Continue / Roo Code">
-        <p className="body-sm mb-2">Provider: <b>OpenAI Compatible</b></p>
-        <Code>{`Base URL: ${base}/v1
-API Key:  sk-cw-xxxx
-Model ID: claude-sonnet-4-5`}</Code>
-      </Section>
-
-      <Section title="Claude Code">
-        <Code>{`# Windows PowerShell
-$env:ANTHROPIC_BASE_URL="${base}"
-$env:ANTHROPIC_AUTH_TOKEN="sk-cw-xxxx"
-claude
-
-# macOS/Linux
-export ANTHROPIC_BASE_URL="${base}"
-export ANTHROPIC_AUTH_TOKEN="sk-cw-xxxx"
-claude`}</Code>
-      </Section>
-
-
+  }'`}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="card">
-      <h2 className="heading-5 mb-3">{title}</h2>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function Code({ children }: { children: string }) {
-  return (
-    <pre className="card-code whitespace-pre-wrap text-[13px] leading-5 overflow-x-auto">{children}</pre>
   );
 }

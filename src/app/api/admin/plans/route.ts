@@ -6,6 +6,8 @@ export async function POST(req: NextRequest) {
   try {
     await requireAdmin();
     const b = await req.json();
+    if (!b.name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
+    if (!b.tokenLimit || isNaN(+b.tokenLimit)) return NextResponse.json({ error: 'tokenLimit is required' }, { status: 400 });
     const plan = await prisma.plan.create({
       data: {
         name: b.name,

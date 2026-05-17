@@ -6,6 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     await requireAdmin();
     const b = await req.json();
+    if (!b.name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
     const model = await prisma.model.create({
       data: {
         name: b.name,
