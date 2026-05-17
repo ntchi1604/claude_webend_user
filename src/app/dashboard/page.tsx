@@ -16,29 +16,35 @@ export default async function DashboardPage() {
   const windowHours = sub?.plan.windowHours ?? 5;
   const windowMs = windowHours * 3600 * 1000;
 
-  // Fixed window calculation
+  // Fixed window: anchored to first usage in current cycle
   let windowStart = new Date();
   let resetAt: Date | null = null;
+  let used = 0;
 
   if (sub) {
-    const first = await prisma.usageLog.findFirst({
-      where: { userId: user.id },
+    const cutoff = new Date(Date.now() - windowMs);
+    const firstInWindow = await prisma.usageLog.findFirst({
+      where: { userId: user.id, ts: { gt: cutoff } },
       orderBy: { ts: 'asc' },
       select: { ts: true }
     });
-    if (first) {
-      const elapsed = Date.now() - first.ts.getTime();
-      const windowIndex = Math.floor(elapsed / windowMs);
-      windowStart = new Date(first.ts.getTime() + windowIndex * windowMs);
+
+    if (firstInWindow) {
+      windowStart = firstInWindow.ts;
       resetAt = new Date(windowStart.getTime() + windowMs);
+      if (resetAt.getTime() <= Date.now()) {
+        windowStart = new Date();
+        resetAt = null;
+      } else {
+        const usage = await prisma.usageLog.aggregate({
+          where: { userId: user.id, ts: { gte: windowStart } },
+          _sum: { totalTokens: true }
+        });
+        used = usage._sum.totalTokens ?? 0;
+      }
     }
   }
 
-  const usage = await prisma.usageLog.aggregate({
-    where: { userId: user.id, ts: { gte: windowStart } },
-    _sum: { totalTokens: true }
-  });
-  const used = usage._sum.totalTokens ?? 0;
   const limit = Number(sub?.plan.tokenLimit ?? 0);
   const remaining = Math.max(0, limit - used);
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
