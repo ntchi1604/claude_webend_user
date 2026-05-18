@@ -447,6 +447,7 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
       slug,
       display_name: slug,
       description: `${slug} via Api4Cheap (${label})`,
+      base_instructions: "",
       default_reasoning_level: "medium",
       supported_reasoning_levels: [
         { effort: "low", description: "Minimal reasoning" },
@@ -468,6 +469,7 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
       effective_context_window_percent: 95,
       input_modalities: ["text", "image"],
       supports_search_tool: false,
+      experimental_supported_tools: [],
     }, null, 4);
   });
 
@@ -568,7 +570,7 @@ function generateCodexCliUnix(p: { baseUrl: string; key: string; keyShort: strin
   const modelJsonEntries = [p.small, p.medium, p.large].filter(Boolean).map((slug, i) => {
     const labels = ['Fast', 'Default', 'Powerful'];
     const label = labels[i] || 'Model';
-    return `    {"slug":"${slug}","display_name":"${slug}","description":"${slug} via Api4Cheap (${label})","default_reasoning_level":"medium","supported_reasoning_levels":[{"effort":"low","description":"Minimal reasoning"},{"effort":"medium","description":"Balanced reasoning"},{"effort":"high","description":"Deep reasoning"},{"effort":"xhigh","description":"Maximum reasoning"}],"shell_type":"shell_command","visibility":"list","supported_in_api":true,"priority":${i + 1},"supports_reasoning_summaries":false,"default_reasoning_summary":"auto","support_verbosity":true,"web_search_tool_type":"text","truncation_policy":{"mode":"tokens","limit":400000},"supports_parallel_tool_calls":true,"context_window":400000,"effective_context_window_percent":95,"input_modalities":["text","image"],"supports_search_tool":false}`;
+    return `    {"slug":"${slug}","display_name":"${slug}","description":"${slug} via Api4Cheap (${label})","base_instructions":"","default_reasoning_level":"medium","supported_reasoning_levels":[{"effort":"low","description":"Minimal reasoning"},{"effort":"medium","description":"Balanced reasoning"},{"effort":"high","description":"Deep reasoning"},{"effort":"xhigh","description":"Maximum reasoning"}],"shell_type":"shell_command","visibility":"list","supported_in_api":true,"priority":${i + 1},"supports_reasoning_summaries":false,"default_reasoning_summary":"auto","support_verbosity":true,"web_search_tool_type":"text","truncation_policy":{"mode":"tokens","limit":400000},"supports_parallel_tool_calls":true,"context_window":400000,"effective_context_window_percent":95,"input_modalities":["text","image"],"supports_search_tool":false,"experimental_supported_tools":[]}`;
   });
 
   return `#!/bin/bash

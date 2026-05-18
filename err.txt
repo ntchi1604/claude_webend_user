@@ -1,0 +1,39 @@
+PS C:\Users\NguyenThanhChi> irm "https://lccaptcha.io.vn/api/setup/codex-cli?key=sk-cw-c6900a8132d2c4a714d37a8c1d37923e57e81df37b0a3888&os=windows&small=gpt-5.3-codex&medium=gpt-5.4&large=gpt-5.5" | iex
+
+================================
+  Api4Cheap Codex CLI Setup
+================================
+
+Endpoint:          https://lccaptcha.io.vn/v1
+API Key:           sk-cw-c6...
+Small (Fast):      gpt-5.3-codex
+Medium (Default):  gpt-5.4
+Large (Powerful):  gpt-5.5
+
+Checking prerequisites...
+  OK Node.js v24.13.0
+  OK npm 11.6.2
+
+Codex CLI already installed
+
+Configuring Codex CLI...
+  OK Written config.toml
+  OK Written models.json
+  OK Written auth.json
+
+================================
+  Configuration Complete!
+================================
+
+Codex CLI is now configured to use Api4Cheap:
+  Endpoint:          https://lccaptcha.io.vn/v1
+  API Key:           sk-cw-c6...
+  Small (Fast):      gpt-5.3-codex
+  Medium (Default):  gpt-5.4
+  Large (Powerful):  gpt-5.5
+
+Next steps:
+  Run: codex
+
+PS C:\Users\NguyenThanhChi> codex
+Error loading configuration: failed to parse model_catalog_json path `C:\Users\NguyenThanhChi\.codex\models.json` as JSON: missing field `base_instructions` at line 46 column 5
