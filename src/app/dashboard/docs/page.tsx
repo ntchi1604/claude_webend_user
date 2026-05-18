@@ -2,8 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Copy, Check, Terminal, Monitor, Apple } from 'lucide-react';
 
-type ApiKeyItem = { id: string; keyPrefix: string; name: string | null };
-
 type Tool = 'claude-code' | 'cursor' | 'openclaw' | 'codex-cli' | 'hermes-agent';
 
 const TOOLS: { id: Tool; label: string; icon: string }[] = [
@@ -19,7 +17,6 @@ export default function DocsPage() {
 
   const [tool, setTool] = useState<Tool>('claude-code');
   const [os, setOs] = useState<'windows' | 'mac'>('windows');
-  const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [selectedKey, setSelectedKey] = useState('');
   const [models, setModels] = useState<string[]>([]);
   const [haiku, setHaiku] = useState('');
@@ -36,10 +33,6 @@ export default function DocsPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch('/api/keys').then(r => r.json()).then(d => {
-      const k = d.keys || d || [];
-      setKeys(k);
-    }).catch(() => {});
     fetch('/api/models').then(r => r.json()).then(d => {
       const m = (d.models || d || []).map((x: any) => x.name || x.id || x);
       setModels(m);
@@ -141,22 +134,17 @@ export default function DocsPage() {
           ))}
         </div>
 
-        {/* API Key selector */}
+        {/* API Key input */}
         <div className="mb-4">
           <label className="form-label">API Key</label>
-          <select
+          <input
+            type="text"
             value={selectedKey}
             onChange={e => setSelectedKey(e.target.value)}
+            placeholder="sk-cw-xxxx"
             className="input"
-          >
-            <option value="">Chọn API Key...</option>
-            {keys.map(k => (
-              <option key={k.id} value={k.keyPrefix + '...'}>
-                {k.name || k.keyPrefix + '...'}
-              </option>
-            ))}
-          </select>
-          <p className="caption mt-1">⚠️ Vì lý do bảo mật, key đầy đủ không hiển thị. Copy key từ trang API Keys khi tạo.</p>
+          />
+          <p className="caption mt-1">Paste API Key đầy đủ từ trang API Keys.</p>
         </div>
 
         {/* OS toggle (for claude-code) */}
