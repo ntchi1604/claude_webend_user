@@ -45,12 +45,28 @@ function errOut(stream: boolean, message: string, type: string, status: number, 
 async function authKey(req: NextRequest) {
   const auth = req.headers.get('authorization') || '';
   const m = auth.match(/^Bearer\s+(.+)$/i);
-  if (!m) return null;
-  const raw = m[1].trim();
-  const hash = hashApiKey(raw);
-  const key = await prisma.apiKey.findUnique({ where: { keyHash: hash }, include: { user: true } });
-  if (!key || !key.active || key.user.banned) return null;
-  return key;
+  if (m) {
+    const raw = m[1].trim();
+    const hash = hashApiKey(raw);
+    const key = await prisma.apiKey.findUnique({ where: { keyHash: hash }, include: { user: true } });
+    if (!key || !key.active || key.user.banned) return null;
+    return key;
+  }
+  const cookieHeader = req.headers.get('cookie') || '';
+  const sessionMatch = cookieHeader.match(/cw_session=([^;]+)/);
+  if (sessionMatch) {
+    const { verifySession } = await import('@/lib/auth');
+    const payload = await verifySession(sessionMatch[1]);
+    if (!payload) return null;
+    const key = await prisma.apiKey.findFirst({
+      where: { userId: payload.uid, active: true },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' }
+    });
+    if (!key || key.user.banned) return null;
+    return key;
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {

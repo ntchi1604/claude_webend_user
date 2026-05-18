@@ -4,7 +4,10 @@
       "mcp__claude-peers__set_summary",
       "Bash(npx next *)",
       "Bash(Select-Object -Last 30)",
-      "PowerShell(npx next build 2>&1 | Select-Object -Last 40)"
+      "PowerShell(npx next build 2>&1 | Select-Object -Last 40)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "PowerShell(New-Item *)"
     ]
   }
 }
