@@ -101,13 +101,33 @@ export default function DocsPage() {
     return '';
   }, [tool, os, selectedKey, haiku, sonnet, opus, cursorModel, base, openclawSmall, openclawMedium, openclawHigh, codexSmall, codexMedium, codexLarge, hermesModel]);
 
+  const getUninstallCommand = useCallback(() => {
+    if (tool === 'cursor') return '';
+    const toolSlug = tool === 'claude-code' ? 'claude-code' : tool;
+    const url = `${base}/api/setup/${toolSlug}/uninstall?os=${os}`;
+    if (os === 'windows') {
+      return `irm "${url}" | iex`;
+    } else {
+      return `curl -fsSL "${url}" | bash`;
+    }
+  }, [tool, os, base]);
+
+  const [copiedUninstall, setCopiedUninstall] = useState(false);
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyUninstall = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedUninstall(true);
+    setTimeout(() => setCopiedUninstall(false), 2000);
+  };
+
   const setupCmd = getSetupCommand();
+  const uninstallCmd = getUninstallCommand();
 
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
@@ -222,6 +242,22 @@ export default function DocsPage() {
                 <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
                 <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">claude</code></p>
               </div>
+
+              {/* Uninstall */}
+              <details className="mt-4">
+                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="card-code flex-1">
+                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
+                  </div>
+                  <button
+                    onClick={() => copyUninstall(uninstallCmd)}
+                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
+                  >
+                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </details>
             </div>
           </>
         )}
@@ -322,6 +358,21 @@ export default function DocsPage() {
                 <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
                 <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">openclaw</code></p>
               </div>
+
+              <details className="mt-4">
+                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="card-code flex-1">
+                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
+                  </div>
+                  <button
+                    onClick={() => copyUninstall(uninstallCmd)}
+                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
+                  >
+                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </details>
             </div>
           </>
         )}
@@ -399,6 +450,21 @@ export default function DocsPage() {
                 <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
                 <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">codex</code></p>
               </div>
+
+              <details className="mt-4">
+                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="card-code flex-1">
+                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
+                  </div>
+                  <button
+                    onClick={() => copyUninstall(uninstallCmd)}
+                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
+                  >
+                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </details>
             </div>
           </>
         )}
@@ -460,6 +526,21 @@ export default function DocsPage() {
                 <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
                 <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">hermes</code></p>
               </div>
+
+              <details className="mt-4">
+                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="card-code flex-1">
+                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
+                  </div>
+                  <button
+                    onClick={() => copyUninstall(uninstallCmd)}
+                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
+                  >
+                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </details>
             </div>
           </>
         )}
