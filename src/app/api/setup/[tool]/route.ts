@@ -175,7 +175,8 @@ if ($existing["env"] -is [System.Collections.Specialized.OrderedDictionary]) {
 $existing["disableLoginPrompt"] = $true
 
 $merged = $existing | ConvertTo-Json -Depth 10
-[System.IO.File]::WriteAllText($settingsFile, $merged, [System.Text.Encoding]::UTF8)
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($settingsFile, $merged, $utf8NoBom)
 Write-Host "  OK Updated $settingsFile" -ForegroundColor Green
 Write-Host ""
 
@@ -442,8 +443,36 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
   const modelEntries = [p.small, p.medium, p.large].filter(Boolean).map((slug, i) => {
     const labels = ['Fast', 'Default', 'Powerful'];
     const label = labels[i] || 'Model';
-    return `    {\\n      \\"slug\\": \\"${slug}\\",\\n      \\"display_name\\": \\"${slug}\\",\\n      \\"description\\": \\"${slug} via Api4Cheap (${label})\\",\\n      \\"default_reasoning_level\\": \\"medium\\",\\n      \\"supported_reasoning_levels\\": [\\n        {\\"effort\\": \\"low\\", \\"description\\": \\"Minimal reasoning\\"},\\n        {\\"effort\\": \\"medium\\", \\"description\\": \\"Balanced reasoning\\"},\\n        {\\"effort\\": \\"high\\", \\"description\\": \\"Deep reasoning\\"},\\n        {\\"effort\\": \\"xhigh\\", \\"description\\": \\"Maximum reasoning\\"}\\n      ],\\n      \\"shell_type\\": \\"shell_command\\",\\n      \\"visibility\\": \\"list\\",\\n      \\"supported_in_api\\": true,\\n      \\"priority\\": ${i + 1},\\n      \\"supports_reasoning_summaries\\": false,\\n      \\"default_reasoning_summary\\": \\"auto\\",\\n      \\"support_verbosity\\": true,\\n      \\"web_search_tool_type\\": \\"text\\",\\n      \\"truncation_policy\\": {\\"mode\\": \\"tokens\\", \\"limit\\": 400000},\\n      \\"supports_parallel_tool_calls\\": true,\\n      \\"context_window\\": 400000,\\n      \\"effective_context_window_percent\\": 95,\\n      \\"input_modalities\\": [\\"text\\", \\"image\\"],\\n      \\"supports_search_tool\\": false\\n    }`;
+    return JSON.stringify({
+      slug,
+      display_name: slug,
+      description: `${slug} via Api4Cheap (${label})`,
+      default_reasoning_level: "medium",
+      supported_reasoning_levels: [
+        { effort: "low", description: "Minimal reasoning" },
+        { effort: "medium", description: "Balanced reasoning" },
+        { effort: "high", description: "Deep reasoning" },
+        { effort: "xhigh", description: "Maximum reasoning" },
+      ],
+      shell_type: "shell_command",
+      visibility: "list",
+      supported_in_api: true,
+      priority: i + 1,
+      supports_reasoning_summaries: false,
+      default_reasoning_summary: "auto",
+      support_verbosity: true,
+      web_search_tool_type: "text",
+      truncation_policy: { mode: "tokens", limit: 400000 },
+      supports_parallel_tool_calls: true,
+      context_window: 400000,
+      effective_context_window_percent: 95,
+      input_modalities: ["text", "image"],
+      supports_search_tool: false,
+    }, null, 4);
   });
+
+  const modelsJson = JSON.stringify({ models: JSON.parse(`[${modelEntries.join(',')}]`) }, null, 2);
+  const authJson = JSON.stringify({ auth_mode: "apikey", OPENAI_API_KEY: p.key }, null, 2);
 
   return [
     `Write-Host ""`,
@@ -496,7 +525,9 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
     `Write-Host "  OK Written config.toml" -ForegroundColor Green`,
     ``,
     `# Write models.json`,
-    `$modelsContent = "{\\n  \\"models\\": [\\n${modelEntries.join(',\\n')}\\n  ]\\n}"`,
+    `$modelsContent = @'`,
+    modelsJson,
+    `'@`,
     `[System.IO.File]::WriteAllText($modelsFile, $modelsContent, $utf8NoBom)`,
     `Write-Host "  OK Written models.json" -ForegroundColor Green`,
     ``,
@@ -504,7 +535,9 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
     `if (Test-Path $authFile) {`,
     `    Write-Host "  OK Kept existing auth.json" -ForegroundColor Green`,
     `} else {`,
-    `    $authContent = "{\\n  \\"auth_mode\\": \\"apikey\\",\\n  \\"OPENAI_API_KEY\\": \\"${p.key}\\"\\n}"`,
+    `    $authContent = @'`,
+    authJson,
+    `'@`,
     `    [System.IO.File]::WriteAllText($authFile, $authContent, $utf8NoBom)`,
     `    Write-Host "  OK Written auth.json" -ForegroundColor Green`,
     `}`,
