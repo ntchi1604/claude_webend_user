@@ -153,11 +153,12 @@ export async function POST(req: NextRequest) {
       pt = parsed?.usage?.input_tokens ?? promptTokens;
       ct = parsed?.usage?.output_tokens ?? 0;
       await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
-      return new Response(text, { status: upstream.status, headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' } });
+      const responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text;
+      return new Response(responseText, { status: upstream.status, headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' } });
     } else {
       pt = parsed?.usage?.prompt_tokens ?? promptTokens;
       ct = parsed?.usage?.completion_tokens ?? estimateCompletion(parsed);
-      const anthropic = openAIToAnthropic(parsed, resolved.upstreamName);
+      const anthropic = openAIToAnthropic(parsed, modelName);
       await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
       return new Response(JSON.stringify(anthropic), { status: upstream.status, headers: { 'content-type': 'application/json' } });
     }
@@ -217,6 +218,7 @@ const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 min idle = MITM likely dead
 function passthroughAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number) {
   const reader = upstream.body!.getReader();
   const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
   let completionBuf = '';
   let inputTokens = promptTokens;
   let outputTokens = 0;
@@ -242,6 +244,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           const parts = buf.split('\n\n');
           buf = parts.pop() || '';
           for (const evt of parts) {
+            const eventLine = evt.split('\n').find((l) => l.startsWith('event:'));
             const dataLine = evt.split('\n').find((l) => l.startsWith('data:'));
             if (dataLine) {
               const payload = dataLine.slice(5).trim();
@@ -251,11 +254,19 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                   if (j.type === 'content_block_delta' && j.delta?.text) completionBuf += j.delta.text;
                   if (j.type === 'message_start' && j.message?.usage?.input_tokens) inputTokens = j.message.usage.input_tokens;
                   if (j.type === 'message_delta' && j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
-                } catch { }
+                  if (j.type === 'message_start' && j.message?.model) j.message.model = modelName;
+                  const eventName = eventLine ? eventLine.slice(6).trim() : j.type;
+                  controller.enqueue(encoder.encode(`event: ${eventName}\ndata: ${JSON.stringify(j)}\n\n`));
+                } catch {
+                  controller.enqueue(encoder.encode(`${evt}\n\n`));
+                }
+              } else {
+                controller.enqueue(encoder.encode(`${evt}\n\n`));
               }
+            } else {
+              controller.enqueue(encoder.encode(`${evt}\n\n`));
             }
           }
-          controller.enqueue(value);
         }
         if (idleTimer) clearTimeout(idleTimer);
         controller.close();
@@ -299,7 +310,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         controller.enqueue(sse('message_start', {
           type: 'message_start',
           message: {
-            id: msgId, type: 'message', role: 'assistant', model: resolved.upstreamName,
+            id: msgId, type: 'message', role: 'assistant', model: modelName,
             content: [], stop_reason: null, stop_sequence: null,
             usage: { input_tokens: promptTokens, output_tokens: 0 }
           }

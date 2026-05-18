@@ -110,7 +110,8 @@ export async function POST(req: NextRequest) {
     console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=${!!usage})`);
     recordTokens(key.id, pt + ct);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
-    return new Response(text, {
+    const responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text;
+    return new Response(responseText, {
       status: upstream.status,
       headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' }
     });
@@ -124,6 +125,7 @@ export async function POST(req: NextRequest) {
 
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
   let completionBuf = '';
   let lastUsage: any = null;
 
@@ -147,11 +149,18 @@ export async function POST(req: NextRequest) {
                   const delta = j?.choices?.[0]?.delta?.content;
                   if (typeof delta === 'string') completionBuf += delta;
                   if (j?.usage) lastUsage = j.usage;
-                } catch {}
+                  if (j.model) j.model = modelName;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(j)}\n\n`));
+                } catch {
+                  controller.enqueue(encoder.encode(`${evt}\n\n`));
+                }
+              } else {
+                controller.enqueue(encoder.encode(`${evt}\n\n`));
               }
+            } else {
+              controller.enqueue(encoder.encode(`${evt}\n\n`));
             }
           }
-          controller.enqueue(value);
         }
         controller.close();
       } catch (e) {

@@ -29,7 +29,17 @@ export default function ChatPage() {
     try {
       const r = await fetch('/v1/models', { headers: { authorization: `Bearer ${key}` } });
       const d = await r.json();
-      if (d.data) setModels(d.data.map((m: any) => m.id));
+      if (d.data) {
+        const ids: string[] = d.data.map((m: any) => m.id);
+        setModels(ids);
+        setModel((prev) => {
+          if (ids.length === 0) return prev;
+          if (ids.includes(prev)) return prev;
+          const fallback = ids[0];
+          localStorage.setItem('chat_model', fallback);
+          return fallback;
+        });
+      }
     } catch {}
   }
 
