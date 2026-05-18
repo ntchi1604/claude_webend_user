@@ -39,6 +39,37 @@ export async function GET(
       script = generateClineScript({ baseUrl, key, keyShort, model, os });
       break;
     }
+    case 'openclaw': {
+      const small = url.searchParams.get('small') || '';
+      const medium = url.searchParams.get('medium') || '';
+      const high = url.searchParams.get('high') || '';
+      if (os === 'windows') {
+        script = generateOpenClawWindows({ baseUrl, key, keyShort, small, medium, high });
+      } else {
+        script = generateOpenClawUnix({ baseUrl, key, keyShort, small, medium, high });
+      }
+      break;
+    }
+    case 'codex-cli': {
+      const small = url.searchParams.get('small') || '';
+      const medium = url.searchParams.get('medium') || '';
+      const large = url.searchParams.get('large') || '';
+      if (os === 'windows') {
+        script = generateCodexCliWindows({ baseUrl, key, keyShort, small, medium, large });
+      } else {
+        script = generateCodexCliUnix({ baseUrl, key, keyShort, small, medium, large });
+      }
+      break;
+    }
+    case 'hermes-agent': {
+      const model = url.searchParams.get('model') || '';
+      if (os === 'windows') {
+        script = generateHermesWindows({ baseUrl, key, keyShort, model });
+      } else {
+        script = generateHermesUnix({ baseUrl, key, keyShort, model });
+      }
+      break;
+    }
     default:
       return NextResponse.json({ error: 'Unknown tool' }, { status: 404 });
   }
@@ -272,5 +303,275 @@ function generateClineScript(p: { baseUrl: string; key: string; keyShort: string
 # Base URL: ${p.baseUrl}/v1
 # API Key:  ${p.key}
 # Model:    ${p.model || 'claude-sonnet-4-5'}
+`;
+}
+
+// ─── OpenClaw (Windows) ───
+function generateOpenClawWindows(p: { baseUrl: string; key: string; keyShort: string; small: string; medium: string; high: string }) {
+  const models = [
+    p.small && `Write-Host "Small:    ${p.small}"`,
+    p.medium && `Write-Host "Medium:   ${p.medium}"`,
+    p.high && `Write-Host "High:     ${p.high}"`,
+  ].filter(Boolean).join('\n');
+
+  return `Write-Host ""
+Write-Host "================================" -ForegroundColor Cyan
+Write-Host "  Api4Cheap OpenClaw Setup" -ForegroundColor Cyan
+Write-Host "================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Endpoint: ${p.baseUrl}"
+Write-Host "API Key:  ${p.keyShort}"
+${models}
+Write-Host ""
+
+Write-Host "Configuring OpenClaw..."
+
+$configDir = Join-Path $env:USERPROFILE ".openclaw"
+if (-not (Test-Path $configDir)) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
+$configFile = Join-Path $configDir "config.json"
+
+if (Test-Path $configFile) {
+    $bk = Join-Path $configDir "config.json.api4cheap-backup"
+    Copy-Item $configFile $bk -Force
+    Write-Host "  Backed up: $configFile" -ForegroundColor Yellow
+}
+
+$config = @"
+{
+  "apiBase": "${p.baseUrl}/v1",
+  "apiKey": "${p.key}"${p.small ? `,\n  "smallModel": "${p.small}"` : ''}${p.medium ? `,\n  "mediumModel": "${p.medium}"` : ''}${p.high ? `,\n  "highModel": "${p.high}"` : ''}
+}
+"@
+[System.IO.File]::WriteAllText($configFile, $config, [System.Text.Encoding]::UTF8)
+Write-Host "  OK Updated $configFile" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "================================" -ForegroundColor Green
+Write-Host "  Configuration Complete!" -ForegroundColor Green
+Write-Host "================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  1. Restart PowerShell"
+Write-Host "  2. Run: openclaw"
+Write-Host ""
+`;
+}
+
+// ─── OpenClaw (macOS/Linux) ───
+function generateOpenClawUnix(p: { baseUrl: string; key: string; keyShort: string; small: string; medium: string; high: string }) {
+  return `#!/bin/bash
+echo ""
+echo "================================"
+echo "  Api4Cheap OpenClaw Setup"
+echo "================================"
+echo ""
+echo "Endpoint: ${p.baseUrl}"
+echo "API Key:  ${p.keyShort}"
+echo ""
+
+CONFIG_DIR="$HOME/.openclaw"
+mkdir -p "$CONFIG_DIR"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+  cp "$CONFIG_FILE" "$CONFIG_DIR/config.json.api4cheap-backup"
+  echo "  Backed up: $CONFIG_FILE"
+fi
+
+cat > "$CONFIG_FILE" << 'EOF'
+{
+  "apiBase": "${p.baseUrl}/v1",
+  "apiKey": "${p.key}"${p.small ? `,\n  "smallModel": "${p.small}"` : ''}${p.medium ? `,\n  "mediumModel": "${p.medium}"` : ''}${p.high ? `,\n  "highModel": "${p.high}"` : ''}
+}
+EOF
+
+echo "  OK Updated $CONFIG_FILE"
+echo ""
+echo "================================"
+echo "  Configuration Complete!"
+echo "================================"
+echo ""
+echo "Next steps:"
+echo "  1. Restart terminal"
+echo "  2. Run: openclaw"
+echo ""
+`;
+}
+
+// ─── Codex CLI (Windows) ───
+function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: string; small: string; medium: string; large: string }) {
+  const models = [
+    p.small && `Write-Host "Small:    ${p.small}"`,
+    p.medium && `Write-Host "Medium:   ${p.medium}"`,
+    p.large && `Write-Host "Large:    ${p.large}"`,
+  ].filter(Boolean).join('\n');
+
+  return `Write-Host ""
+Write-Host "================================" -ForegroundColor Cyan
+Write-Host "  Api4Cheap Codex CLI Setup" -ForegroundColor Cyan
+Write-Host "================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Endpoint: ${p.baseUrl}"
+Write-Host "API Key:  ${p.keyShort}"
+${models}
+Write-Host ""
+
+Write-Host "Configuring Codex CLI..."
+
+$configDir = Join-Path $env:USERPROFILE ".codex"
+if (-not (Test-Path $configDir)) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
+$configFile = Join-Path $configDir "config.json"
+
+if (Test-Path $configFile) {
+    $bk = Join-Path $configDir "config.json.api4cheap-backup"
+    Copy-Item $configFile $bk -Force
+    Write-Host "  Backed up: $configFile" -ForegroundColor Yellow
+}
+
+$config = @"
+{
+  "apiBase": "${p.baseUrl}/v1",
+  "apiKey": "${p.key}"${p.small ? `,\n  "smallModel": "${p.small}"` : ''}${p.medium ? `,\n  "mediumModel": "${p.medium}"` : ''}${p.large ? `,\n  "largeModel": "${p.large}"` : ''}
+}
+"@
+[System.IO.File]::WriteAllText($configFile, $config, [System.Text.Encoding]::UTF8)
+Write-Host "  OK Updated $configFile" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "================================" -ForegroundColor Green
+Write-Host "  Configuration Complete!" -ForegroundColor Green
+Write-Host "================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  1. Restart PowerShell"
+Write-Host "  2. Run: codex"
+Write-Host ""
+`;
+}
+
+// ─── Codex CLI (macOS/Linux) ───
+function generateCodexCliUnix(p: { baseUrl: string; key: string; keyShort: string; small: string; medium: string; large: string }) {
+  return `#!/bin/bash
+echo ""
+echo "================================"
+echo "  Api4Cheap Codex CLI Setup"
+echo "================================"
+echo ""
+echo "Endpoint: ${p.baseUrl}"
+echo "API Key:  ${p.keyShort}"
+echo ""
+
+CONFIG_DIR="$HOME/.codex"
+mkdir -p "$CONFIG_DIR"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+  cp "$CONFIG_FILE" "$CONFIG_DIR/config.json.api4cheap-backup"
+  echo "  Backed up: $CONFIG_FILE"
+fi
+
+cat > "$CONFIG_FILE" << 'EOF'
+{
+  "apiBase": "${p.baseUrl}/v1",
+  "apiKey": "${p.key}"${p.small ? `,\n  "smallModel": "${p.small}"` : ''}${p.medium ? `,\n  "mediumModel": "${p.medium}"` : ''}${p.large ? `,\n  "largeModel": "${p.large}"` : ''}
+}
+EOF
+
+echo "  OK Updated $CONFIG_FILE"
+echo ""
+echo "================================"
+echo "  Configuration Complete!"
+echo "================================"
+echo ""
+echo "Next steps:"
+echo "  1. Restart terminal"
+echo "  2. Run: codex"
+echo ""
+`;
+}
+
+// ─── Hermes (Windows) ───
+function generateHermesWindows(p: { baseUrl: string; key: string; keyShort: string; model: string }) {
+  return `Write-Host ""
+Write-Host "================================" -ForegroundColor Cyan
+Write-Host "  Api4Cheap Hermes Agent Setup" -ForegroundColor Cyan
+Write-Host "================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Endpoint: ${p.baseUrl}"
+Write-Host "API Key:  ${p.keyShort}"
+Write-Host "Model:    ${p.model}"
+Write-Host ""
+
+Write-Host "Configuring Hermes Agent..."
+
+$configDir = Join-Path $env:USERPROFILE ".hermes"
+if (-not (Test-Path $configDir)) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
+$configFile = Join-Path $configDir "config.json"
+
+if (Test-Path $configFile) {
+    $bk = Join-Path $configDir "config.json.api4cheap-backup"
+    Copy-Item $configFile $bk -Force
+    Write-Host "  Backed up: $configFile" -ForegroundColor Yellow
+}
+
+$config = @"
+{
+  "apiBase": "${p.baseUrl}/v1",
+  "apiKey": "${p.key}"${p.model ? `,\n  "model": "${p.model}"` : ''}
+}
+"@
+[System.IO.File]::WriteAllText($configFile, $config, [System.Text.Encoding]::UTF8)
+Write-Host "  OK Updated $configFile" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "================================" -ForegroundColor Green
+Write-Host "  Configuration Complete!" -ForegroundColor Green
+Write-Host "================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  1. Restart PowerShell"
+Write-Host "  2. Run: hermes"
+Write-Host ""
+`;
+}
+
+// ─── Hermes (macOS/Linux) ───
+function generateHermesUnix(p: { baseUrl: string; key: string; keyShort: string; model: string }) {
+  return `#!/bin/bash
+echo ""
+echo "================================"
+echo "  Api4Cheap Hermes Agent Setup"
+echo "================================"
+echo ""
+echo "Endpoint: ${p.baseUrl}"
+echo "API Key:  ${p.keyShort}"
+echo ""
+
+CONFIG_DIR="$HOME/.hermes"
+mkdir -p "$CONFIG_DIR"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+  cp "$CONFIG_FILE" "$CONFIG_DIR/config.json.api4cheap-backup"
+  echo "  Backed up: $CONFIG_FILE"
+fi
+
+cat > "$CONFIG_FILE" << 'EOF'
+{
+  "apiBase": "${p.baseUrl}/v1",
+  "apiKey": "${p.key}"${p.model ? `,\n  "model": "${p.model}"` : ''}
+}
+EOF
+
+echo "  OK Updated $CONFIG_FILE"
+echo ""
+echo "================================"
+echo "  Configuration Complete!"
+echo "================================"
+echo ""
+echo "Next steps:"
+echo "  1. Restart terminal"
+echo "  2. Run: hermes"
+echo ""
 `;
 }

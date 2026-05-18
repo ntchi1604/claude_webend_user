@@ -4,11 +4,14 @@ import { Copy, Check, Terminal, Monitor, Apple } from 'lucide-react';
 
 type ApiKeyItem = { id: string; keyPrefix: string; name: string | null };
 
-type Tool = 'claude-code' | 'cursor' | 'cline';
+type Tool = 'claude-code' | 'cursor' | 'openclaw' | 'codex-cli' | 'hermes-agent';
 
 const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: 'claude-code', label: 'Claude Code', icon: '✦' },
   { id: 'cursor', label: 'Cursor / Cline', icon: '⚡' },
+  { id: 'openclaw', label: 'OpenClaw', icon: '🐾' },
+  { id: 'codex-cli', label: 'Codex CLI', icon: '📟' },
+  { id: 'hermes-agent', label: 'Hermes', icon: '🪽' },
 ];
 
 export default function DocsPage() {
@@ -23,6 +26,13 @@ export default function DocsPage() {
   const [sonnet, setSonnet] = useState('');
   const [opus, setOpus] = useState('');
   const [cursorModel, setCursorModel] = useState('');
+  const [openclawSmall, setOpenclawSmall] = useState('');
+  const [openclawMedium, setOpenclawMedium] = useState('');
+  const [openclawHigh, setOpenclawHigh] = useState('');
+  const [codexSmall, setCodexSmall] = useState('');
+  const [codexMedium, setCodexMedium] = useState('');
+  const [codexLarge, setCodexLarge] = useState('');
+  const [hermesModel, setHermesModel] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -60,9 +70,43 @@ export default function DocsPage() {
         return `curl -fsSL "${url}" | bash`;
       }
     }
+    if (tool === 'openclaw') {
+      const params = new URLSearchParams({ key, os });
+      if (openclawSmall) params.set('small', openclawSmall);
+      if (openclawMedium) params.set('medium', openclawMedium);
+      if (openclawHigh) params.set('high', openclawHigh);
+      const url = `${base}/api/setup/openclaw?${params.toString()}`;
+      if (os === 'windows') {
+        return `irm "${url}" | iex`;
+      } else {
+        return `curl -fsSL "${url}" | bash`;
+      }
+    }
+    if (tool === 'codex-cli') {
+      const params = new URLSearchParams({ key, os });
+      if (codexSmall) params.set('small', codexSmall);
+      if (codexMedium) params.set('medium', codexMedium);
+      if (codexLarge) params.set('large', codexLarge);
+      const url = `${base}/api/setup/codex-cli?${params.toString()}`;
+      if (os === 'windows') {
+        return `irm "${url}" | iex`;
+      } else {
+        return `curl -fsSL "${url}" | bash`;
+      }
+    }
+    if (tool === 'hermes-agent') {
+      const params = new URLSearchParams({ key, os });
+      if (hermesModel) params.set('model', hermesModel);
+      const url = `${base}/api/setup/hermes-agent?${params.toString()}`;
+      if (os === 'windows') {
+        return `irm "${url}" | iex`;
+      } else {
+        return `curl -fsSL "${url}" | bash`;
+      }
+    }
     // Cursor/Cline — just show config
     return '';
-  }, [tool, os, selectedKey, haiku, sonnet, opus, cursorModel, base]);
+  }, [tool, os, selectedKey, haiku, sonnet, opus, cursorModel, base, openclawSmall, openclawMedium, openclawHigh, codexSmall, codexMedium, codexLarge, hermesModel]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -215,6 +259,221 @@ export default function DocsPage() {
             </div>
             <p className="caption mt-3">Paste thông tin trên vào Settings của Cursor / Cline / Continue / Roo Code.</p>
           </div>
+        )}
+
+        {/* OpenClaw */}
+        {tool === 'openclaw' && (
+          <>
+            <div className="mb-4">
+              <label className="form-label">Hệ điều hành</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setOs('windows')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'windows'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Monitor className="h-4 w-4" /> Windows
+                </button>
+                <button
+                  onClick={() => setOs('mac')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'mac'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Apple className="h-4 w-4" /> macOS / Linux
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div>
+                <label className="form-label">Small</label>
+                <select value={openclawSmall} onChange={e => setOpenclawSmall(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Medium</label>
+                <select value={openclawMedium} onChange={e => setOpenclawMedium(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">High</label>
+                <select value={openclawHigh} onChange={e => setOpenclawHigh(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
+                <button
+                  onClick={() => copyToClipboard(setupCmd)}
+                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Đã copy' : 'Copy'}
+                </button>
+              </div>
+              <div className="card-code">
+                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
+              </div>
+              <div className="mt-3 space-y-1">
+                <p className="caption">Hướng dẫn:</p>
+                <p className="caption">1. Copy lệnh ở trên</p>
+                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
+                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">openclaw</code></p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Codex CLI */}
+        {tool === 'codex-cli' && (
+          <>
+            <div className="mb-4">
+              <label className="form-label">Hệ điều hành</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setOs('windows')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'windows'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Monitor className="h-4 w-4" /> Windows
+                </button>
+                <button
+                  onClick={() => setOs('mac')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'mac'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Apple className="h-4 w-4" /> macOS / Linux
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div>
+                <label className="form-label">Small</label>
+                <select value={codexSmall} onChange={e => setCodexSmall(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Medium</label>
+                <select value={codexMedium} onChange={e => setCodexMedium(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Large</label>
+                <select value={codexLarge} onChange={e => setCodexLarge(e.target.value)} className="input">
+                  <option value="">Không dùng</option>
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
+                <button
+                  onClick={() => copyToClipboard(setupCmd)}
+                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Đã copy' : 'Copy'}
+                </button>
+              </div>
+              <div className="card-code">
+                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
+              </div>
+              <div className="mt-3 space-y-1">
+                <p className="caption">Hướng dẫn:</p>
+                <p className="caption">1. Copy lệnh ở trên</p>
+                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
+                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">codex</code></p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Hermes Agent */}
+        {tool === 'hermes-agent' && (
+          <>
+            <div className="mb-4">
+              <label className="form-label">Hệ điều hành</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setOs('windows')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'windows'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Monitor className="h-4 w-4" /> Windows
+                </button>
+                <button
+                  onClick={() => setOs('mac')}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                    os === 'mac'
+                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+                  }`}
+                >
+                  <Apple className="h-4 w-4" /> macOS / Linux
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label">Model</label>
+              <select value={hermesModel} onChange={e => setHermesModel(e.target.value)} className="input">
+                <option value="">Chọn model...</option>
+                {models.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
+                <button
+                  onClick={() => copyToClipboard(setupCmd)}
+                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Đã copy' : 'Copy'}
+                </button>
+              </div>
+              <div className="card-code">
+                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
+              </div>
+              <div className="mt-3 space-y-1">
+                <p className="caption">Hướng dẫn:</p>
+                <p className="caption">1. Copy lệnh ở trên</p>
+                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
+                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">hermes</code></p>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
