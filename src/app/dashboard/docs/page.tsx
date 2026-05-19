@@ -116,23 +116,20 @@ export default function DocsPage() {
         {tool === 'claude-code' ? <ClaudeSummary /> : <CodexSummary />}
 
         <div className="mt-6">
-          <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="flex items-center justify-between gap-3">
             <span className="label flex items-center gap-1.5">
               <Terminal className="h-3.5 w-3.5" /> Setup command
             </span>
             <button
               onClick={() => copy(setupCmd, setCopiedSetup)}
-              className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
+              className="btn-secondary py-2 px-3 text-[13px]"
             >
               {copiedSetup ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copiedSetup ? 'Copied' : 'Copy'}
             </button>
           </div>
-          <div className="card-code">
-            <code className="text-[13px] break-all leading-6">{setupCmd}</code>
-          </div>
           <div className="mt-3 space-y-1">
-            <p className="caption">1. Copy the command above.</p>
+            <p className="caption">1. Click Copy to copy the generated setup command for your selected OS.</p>
             <p className="caption">2. Run it in {os === 'windows' ? 'PowerShell' : 'Terminal'}.</p>
             <p className="caption">
               3. Restart the shell, then run{' '}
@@ -147,15 +144,14 @@ export default function DocsPage() {
         <details className="mt-5">
           <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Uninstall Api4Cheap config</summary>
           <div className="mt-2 flex items-center gap-2">
-            <div className="card-code flex-1">
-              <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
-            </div>
+            <p className="caption flex-1">Copy the uninstall command for the selected client and OS.</p>
             <button
               onClick={() => copy(uninstallCmd, setCopiedUninstall)}
-              className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
+              className="btn-secondary py-2 px-3 text-[13px]"
               aria-label="Copy uninstall command"
             >
               {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copiedUninstall ? 'Copied' : 'Copy'}
             </button>
           </div>
         </details>
@@ -187,8 +183,7 @@ function ClaudeSummary() {
     "ANTHROPIC_BASE_URL": "https://lccaptcha.io.vn",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
-  "permissions": { "allow": [], "deny": [] },
-  "apiKeyHelper": "echo 'YOUR_API_KEY'"
+  "permissions": { "allow": [], "deny": [] }
 }`}</pre>
     </div>
   );

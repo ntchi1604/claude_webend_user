@@ -62,12 +62,11 @@ If the `.claude` folder does not exist yet, run `claude` once to let it create t
   "permissions": {
     "allow": [],
     "deny": []
-  },
-  "apiKeyHelper": "echo 'YOUR_API_KEY'"
+  }
 }
 ```
 
-Replace both occurrences of `YOUR_API_KEY` with your API key.
+Replace `YOUR_API_KEY` with your API key.
 
 ## 06. Launch Claude Code
 

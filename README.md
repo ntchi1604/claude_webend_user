@@ -1,6 +1,6 @@
 # Api4Cheap Gateway Dashboard
 
-Next.js dashboard and API gateway for Api4Cheap. This repo now exposes setup and public docs only for two supported clients:
+Next.js dashboard and API gateway for Api4Cheap. Setup and public docs are focused on two supported clients:
 
 - Claude Code
 - Codex CLI
@@ -16,6 +16,7 @@ https://lccaptcha.io.vn
 ```text
 POST /v1/messages    Anthropic Messages API shape for Claude Code
 POST /v1/responses   OpenAI Responses API shape for Codex CLI
+POST /v1/chat/completions   Chat UI and upstream relay
 GET  /v1/models      Models allowed by the user's current plan
 ```
 
@@ -86,8 +87,7 @@ Create `~/.claude/settings.json`:
   "permissions": {
     "allow": [],
     "deny": []
-  },
-  "apiKeyHelper": "echo 'YOUR_API_KEY'"
+  }
 }
 ```
 
@@ -149,6 +149,7 @@ npm run db:seed
 ```text
 src/app/v1/responses       Codex-compatible Responses gateway
 src/app/v1/messages        Claude Code-compatible Messages gateway
+src/app/v1/chat/completions Chat UI and upstream relay
 src/app/api/setup/[tool]   Quick Setup script generator
 src/app/dashboard/docs     Setup documentation and generated commands
 prisma/schema.prisma       SQLite schema

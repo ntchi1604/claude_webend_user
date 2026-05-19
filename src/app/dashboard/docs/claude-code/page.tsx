@@ -68,8 +68,7 @@ export default function Page() {
   "permissions": {
     "allow": [],
     "deny": []
-  },
-  "apiKeyHelper": "echo 'YOUR_API_KEY'"
+  }
 }`}</Code>
 
       <Divider />
@@ -78,7 +77,7 @@ export default function Page() {
       <Ol>
         <Li>Nếu <Inline>~/.claude</Inline> chưa tồn tại, chạy <Inline>claude</Inline> một lần để client tạo thư mục.</Li>
         <Li>Tạo hoặc thay thế <Inline>~/.claude/settings.json</Inline> bằng JSON ở trên.</Li>
-        <Li>Thay cả hai vị trí <Inline>YOUR_API_KEY</Inline> bằng secret của bạn.</Li>
+        <Li>Thay <Inline>YOUR_API_KEY</Inline> bằng secret của bạn.</Li>
         <Li>Restart terminal.</Li>
       </Ol>
 

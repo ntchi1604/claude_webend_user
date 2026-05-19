@@ -95,8 +95,7 @@ $settingsContent = @'
     "permissions": {
         "allow": [],
         "deny": []
-    },
-    "apiKeyHelper": "echo '${p.key}'"
+    }
 }
 '@
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -160,8 +159,7 @@ cat > "$SETTINGS" << 'SETTINGSEOF'
     "permissions": {
         "allow": [],
         "deny": []
-    },
-    "apiKeyHelper": "echo '${p.key}'"
+    }
 }
 SETTINGSEOF
 
