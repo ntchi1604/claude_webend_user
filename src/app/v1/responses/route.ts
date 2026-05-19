@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashApiKey, verifySession } from '@/lib/auth';
 import { checkQuota } from '@/lib/quota';
-import { countMessagesTokens } from '@/lib/tokens';
+import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, recordTokens } from '@/lib/rate-limit';
 
@@ -56,40 +56,126 @@ async function authKey(req: NextRequest) {
   return null;
 }
 
-function inputToMessages(input: any, instructions?: string): any[] {
-  const messages: any[] = [];
+function contentToText(content: any): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return JSON.stringify(content ?? '');
+  return content
+    .map((part: any) => {
+      if (typeof part === 'string') return part;
+      if (part?.type === 'input_text' || part?.type === 'output_text' || part?.type === 'text') return part.text || '';
+      return JSON.stringify(part ?? '');
+    })
+    .filter(Boolean)
+    .join('\n');
+}
 
-  if (instructions) {
-    messages.push({ role: 'system', content: instructions });
+function contentToChatContent(content: any): any {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return JSON.stringify(content ?? '');
+  const parts = content.map((c: any) => {
+    if (c?.type === 'input_text' || c?.type === 'output_text') return { type: 'text', text: c.text || '' };
+    if (c?.type === 'input_image') return { type: 'image_url', image_url: { url: c.image_url || c.url } };
+    return c;
+  });
+  return parts.length === 1 && parts[0]?.type === 'text' ? parts[0].text : parts;
+}
+
+function chatToolName(name: string | undefined, fallback: string, toolNameToChat?: Map<string, string>) {
+  if (name && toolNameToChat?.has(name)) return toolNameToChat.get(name)!;
+  return codexToolName(name, fallback);
+}
+
+function responseItemToolName(item: any) {
+  if (item?.name) return item.name;
+  if (item?.type === 'local_shell_call') return 'shell_command';
+  if (item?.type === 'custom_tool_call') return 'custom_tool';
+  return item?.type || 'tool';
+}
+
+function responseItemToolArguments(item: any) {
+  const value = item?.arguments ?? item?.input ?? item?.action ?? {};
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function countResponsePromptTokens(messages: any[]) {
+  let total = 2;
+  for (const message of messages) {
+    total += 4;
+    if (typeof message.content === 'string') total += countTokens(message.content);
+    else if (Array.isArray(message.content)) {
+      for (const part of message.content) {
+        if (typeof part?.text === 'string') total += countTokens(part.text);
+        else if (part) total += countTokens(JSON.stringify(part));
+      }
+    }
+    if (Array.isArray(message.tool_calls)) {
+      for (const call of message.tool_calls) {
+        total += countTokens(`${call?.function?.name || ''}\n${call?.function?.arguments || ''}`);
+      }
+    }
+    if (typeof message.tool_call_id === 'string') total += countTokens(message.tool_call_id);
+  }
+  return total;
+}
+
+function inputToMessages(input: any, toolNameToChat?: Map<string, string>): any[] {
+  const messages: any[] = [];
+  const pendingToolCalls: any[] = [];
+
+  function flushToolCalls() {
+    if (pendingToolCalls.length === 0) return;
+    messages.push({
+      role: 'assistant',
+      content: null,
+      tool_calls: pendingToolCalls.splice(0)
+    });
   }
 
   if (typeof input === 'string') {
     messages.push({ role: 'user', content: input });
   } else if (Array.isArray(input)) {
     for (const item of input) {
-      if (item.role && item.content) {
-        if (typeof item.content === 'string') {
-          messages.push({ role: item.role, content: item.content });
-        } else if (Array.isArray(item.content)) {
-          const parts = item.content.map((c: any) => {
-            if (c.type === 'input_text') return { type: 'text', text: c.text };
-            if (c.type === 'input_image') return { type: 'image_url', image_url: { url: c.image_url || c.url } };
-            return c;
-          });
-          messages.push({ role: item.role, content: parts });
-        }
-      } else if (item.type === 'message') {
-        const content = item.content?.map((c: any) => {
-          if (c.type === 'input_text') return { type: 'text', text: c.text };
-          if (c.type === 'output_text') return { type: 'text', text: c.text };
-          return c;
+      if (item?.type === 'function_call' || item?.type === 'custom_tool_call' || item?.type === 'local_shell_call') {
+        const id = item.call_id || item.id || `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+        pendingToolCalls.push({
+          id,
+          type: 'function',
+          function: {
+            name: chatToolName(responseItemToolName(item), 'tool', toolNameToChat),
+            arguments: responseItemToolArguments(item)
+          }
         });
-        messages.push({ role: item.role, content: content?.length === 1 && content[0].type === 'text' ? content[0].text : content });
+      } else if (
+        item?.type === 'function_call_output' ||
+        item?.type === 'custom_tool_call_output' ||
+        item?.type === 'local_shell_call_output'
+      ) {
+        flushToolCalls();
+        messages.push({
+          role: 'tool',
+          tool_call_id: item.call_id || item.id || item.output_id,
+          content: contentToText(item.output ?? item.content ?? '')
+        });
+      } else if (item?.type === 'message') {
+        flushToolCalls();
+        messages.push({ role: item.role || 'user', content: contentToChatContent(item.content) });
+      } else if (item?.role && item?.content) {
+        flushToolCalls();
+        messages.push({ role: item.role, content: contentToChatContent(item.content) });
       }
     }
   }
 
+  flushToolCalls();
   return messages;
+}
+
+function responseId() {
+  return `resp_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+}
+
+function messageId() {
+  return `msg_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
 }
 
 function buildResponseObject(id: string, model: string, content: string, usage: any) {
@@ -112,6 +198,128 @@ function buildResponseObject(id: string, model: string, content: string, usage: 
   };
 }
 
+function codexToolName(name: string | undefined, fallback: string) {
+  if (!name) return fallback;
+  return name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || fallback;
+}
+
+function responsesToolsToChatTools(tools: any[] | undefined) {
+  const nameToChat = new Map<string, string>();
+  const chatToResponse = new Map<string, string>();
+  if (!Array.isArray(tools)) return { tools: undefined, nameToChat, chatToResponse };
+  const converted = tools
+    .map((tool, index) => {
+      if (tool?.type === 'function') {
+        const originalName = tool.name || tool.function?.name;
+        const name = codexToolName(originalName, `tool_${index}`);
+        if (originalName) {
+          nameToChat.set(originalName, name);
+          chatToResponse.set(name, originalName);
+        }
+        return {
+          type: 'function',
+          function: {
+            name,
+            description: tool.description || tool.function?.description || '',
+            parameters: tool.parameters || tool.function?.parameters || { type: 'object', properties: {} }
+          }
+        };
+      }
+
+      // Codex exposes local shell/custom tools as Responses API tools. Most
+      // OpenAI-compatible upstreams only support Chat Completions functions.
+      if (tool?.name || tool?.type === 'local_shell') {
+        const originalName = tool.name || tool.type;
+        const name = codexToolName(originalName, `tool_${index}`);
+        nameToChat.set(originalName, name);
+        chatToResponse.set(name, originalName);
+        return {
+          type: 'function',
+          function: {
+            name,
+            description: tool.description || `Call ${originalName}`,
+            parameters: tool.parameters || { type: 'object', properties: {}, additionalProperties: true }
+          }
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+  return { tools: converted.length > 0 ? converted : undefined, nameToChat, chatToResponse };
+}
+
+function responsesToolChoiceToChat(toolChoice: any, nameToChat: Map<string, string>) {
+  if (!toolChoice || typeof toolChoice === 'string') return toolChoice || 'auto';
+  if (toolChoice.type === 'function') {
+    const name = toolChoice.name || toolChoice.function?.name;
+    if (name) return { type: 'function', function: { name: nameToChat.get(name) || codexToolName(name, 'tool') } };
+  }
+  if (toolChoice.type === 'auto' || toolChoice.type === 'none' || toolChoice.type === 'required') return toolChoice.type;
+  return toolChoice;
+}
+
+function responseToolName(name: string, chatToResponse?: Map<string, string>) {
+  return chatToResponse?.get(name) || name;
+}
+
+function chatMessageToResponseOutput(message: any, model: string, chatToResponse?: Map<string, string>) {
+  const content = message?.content || '';
+  const toolCalls = message?.tool_calls || [];
+  const output: any[] = [];
+  if (content) {
+    output.push({
+      type: 'message',
+      id: messageId(),
+      role: 'assistant',
+      content: [{ type: 'output_text', text: content }],
+      status: 'completed'
+    });
+  }
+  for (const call of toolCalls) {
+    const name = responseToolName(call?.function?.name || call?.name || 'tool', chatToResponse);
+    const id = call.id || `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+    output.push({
+      type: 'function_call',
+      id,
+      call_id: id,
+      name,
+      arguments: call?.function?.arguments || '',
+      status: 'completed'
+    });
+  }
+  if (output.length === 0) {
+    output.push({
+      type: 'message',
+      id: messageId(),
+      role: 'assistant',
+      content: [{ type: 'output_text', text: '' }],
+      status: 'completed'
+    });
+  }
+  return {
+    id: responseId(),
+    object: 'response',
+    created_at: Math.floor(Date.now() / 1000),
+    model,
+    output,
+    status: 'completed'
+  };
+}
+
+function estimateToolCallTokens(toolCalls: Iterable<{ name: string; arguments: string }>) {
+  let total = 0;
+  for (const call of toolCalls) total += countTokens(`${call.name}\n${call.arguments}`);
+  return total;
+}
+
+async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
+  if (apiKeyId.startsWith('session_')) return;
+  await prisma.usageLog.create({
+    data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
+  });
+}
+
 export async function POST(req: NextRequest) {
   const key = await authKey(req);
   if (!key) return errJson('Invalid API key', 401);
@@ -127,15 +335,19 @@ export async function POST(req: NextRequest) {
   if (!modelName) return errJson('Field "model" is required');
   if (!input) return errJson('Field "input" is required');
 
-  const messages = inputToMessages(input, instructions);
-
+  const convertedTools = responsesToolsToChatTools(body.tools);
+  const messages = inputToMessages(input, convertedTools.nameToChat);
+  const identity = `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product.`;
+  const instructionText = typeof instructions === 'string' && instructions.trim()
+    ? `${instructions}\n\n${identity}`
+    : identity;
   const systemMsg = {
     role: 'system',
-    content: `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product.`
+    content: instructionText
   };
   const finalMessages = [systemMsg, ...messages.filter((m: any) => m.role !== 'system')];
 
-  const promptTokens = countMessagesTokens(finalMessages);
+  const promptTokens = countResponsePromptTokens(finalMessages);
   const rl = checkRateLimit(key.id);
   if (!rl.ok) return errJson(`Rate limit exceeded (${rl.reason})`, 429);
 
@@ -150,6 +362,10 @@ export async function POST(req: NextRequest) {
   if (body.max_output_tokens != null) upstreamBody.max_tokens = body.max_output_tokens;
   else if (body.max_tokens != null) upstreamBody.max_tokens = body.max_tokens;
   if (body.top_p != null) upstreamBody.top_p = body.top_p;
+  if (convertedTools.tools) {
+    upstreamBody.tools = convertedTools.tools;
+    upstreamBody.tool_choice = responsesToolChoiceToChat(body.tool_choice, convertedTools.nameToChat);
+  }
 
   const url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
   const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
@@ -160,6 +376,7 @@ export async function POST(req: NextRequest) {
     upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody) });
   } catch (e: any) {
     console.error('[responses] upstream fetch error:', e?.message);
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch(() => {});
     return errJson(`Upstream error: ${e?.message}`, 502);
   }
 
@@ -168,13 +385,14 @@ export async function POST(req: NextRequest) {
   if (!upstream.ok) {
     const text = await upstream.text();
     console.error('[responses] upstream error body:', text.slice(0, 300));
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 500)).catch(() => {});
     return new Response(JSON.stringify({ error: { message: text.slice(0, 500), type: 'upstream_error' } }), {
       status: upstream.status, headers: { 'content-type': 'application/json' }
     });
   }
 
-  const respId = `resp_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-  const msgId = `msg_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+  const respId = responseId();
+  const msgId = messageId();
 
   // --- STREAMING PATH ---
   if (stream) {
@@ -182,7 +400,8 @@ export async function POST(req: NextRequest) {
     const readableStream = new ReadableStream({
       async start(controller) {
         function send(event: string, data: any) {
-          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          const payload = data?.type ? data : { type: event, ...data };
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
         }
 
         // Send response.created
@@ -194,29 +413,36 @@ export async function POST(req: NextRequest) {
           }
         });
 
-        // Send output_item.added
-        send('response.output_item.added', {
-          type: 'response.output_item.added',
-          output_index: 0,
-          item: { type: 'message', id: msgId, role: 'assistant', content: [], status: 'in_progress' }
-        });
-
-        // Send content_part.added
-        send('response.content_part.added', {
-          type: 'response.content_part.added',
-          item_id: msgId,
-          output_index: 0,
-          content_index: 0,
-          part: { type: 'output_text', text: '' }
-        });
-
         let fullContent = '';
+        let messageStarted = false;
+        let textOutputIndex: number | null = null;
+        let nextOutputIndex = 0;
+        const toolCalls = new Map<number, { id: string; outputIndex: number; name: string; arguments: string; emitted: boolean }>();
         let completionTokens = 0;
+
+        function ensureTextItem() {
+          if (messageStarted) return;
+          textOutputIndex = nextOutputIndex++;
+          messageStarted = true;
+          send('response.output_item.added', {
+            type: 'response.output_item.added',
+            response_id: respId,
+            output_index: textOutputIndex,
+            item: { type: 'message', id: msgId, role: 'assistant', content: [], status: 'in_progress' }
+          });
+          send('response.content_part.added', {
+            type: 'response.content_part.added',
+            response_id: respId,
+            item_id: msgId,
+            output_index: textOutputIndex,
+            content_index: 0,
+            part: { type: 'output_text', text: '' }
+          });
+        }
 
         try {
           if (!upstream.body) {
-            // No body - treat as empty
-            send('response.output_text.done', { type: 'response.output_text.done', item_id: msgId, output_index: 0, content_index: 0, text: '' });
+            // No body - treat as empty after the stream bookkeeping below.
           } else {
             const reader = upstream.body.getReader();
             const decoder = new TextDecoder();
@@ -237,16 +463,63 @@ export async function POST(req: NextRequest) {
 
                 try {
                   const chunk = JSON.parse(payload);
-                  const delta = chunk?.choices?.[0]?.delta?.content;
+                  const choice = chunk?.choices?.[0];
+                  const delta = choice?.delta?.content;
                   if (delta) {
+                    ensureTextItem();
                     fullContent += delta;
                     send('response.output_text.delta', {
                       type: 'response.output_text.delta',
                       item_id: msgId,
-                      output_index: 0,
+                      output_index: textOutputIndex,
                       content_index: 0,
                       delta
                     });
+                  }
+                  const deltaToolCalls = choice?.delta?.tool_calls || [];
+                  for (const tc of deltaToolCalls) {
+                    const idx = typeof tc.index === 'number' ? tc.index : 0;
+                    let state = toolCalls.get(idx);
+                    if (!state) {
+                      const id = tc.id || `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+                      state = {
+                        id,
+                        outputIndex: nextOutputIndex++,
+                        name: responseToolName(tc?.function?.name || 'tool', convertedTools.chatToResponse),
+                        arguments: '',
+                        emitted: false
+                      };
+                      toolCalls.set(idx, state);
+                    }
+                    if (tc.id) state.id = tc.id;
+                    if (tc?.function?.name) state.name = responseToolName(tc.function.name, convertedTools.chatToResponse);
+                    if (!state.emitted) {
+                      send('response.output_item.added', {
+                        type: 'response.output_item.added',
+                        response_id: respId,
+                        output_index: state.outputIndex,
+                        item: {
+                          id: state.id,
+                          type: 'function_call',
+                          call_id: state.id,
+                          name: state.name,
+                          arguments: '',
+                          status: 'in_progress'
+                        }
+                      });
+                      state.emitted = true;
+                    }
+                    const argsDelta = tc?.function?.arguments || '';
+                    if (argsDelta) {
+                      state.arguments += argsDelta;
+                      send('response.function_call_arguments.delta', {
+                        type: 'response.function_call_arguments.delta',
+                        response_id: respId,
+                        item_id: state.id,
+                        output_index: state.outputIndex,
+                        delta: argsDelta
+                      });
+                    }
                   }
                   // Check for usage in final chunk
                   if (chunk?.usage) {
@@ -257,40 +530,98 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          if (!completionTokens) completionTokens = Math.ceil(fullContent.length / 4);
+          if (!completionTokens) completionTokens = Math.max(countTokens(fullContent), estimateToolCallTokens(toolCalls.values()));
           const totalTokens = promptTokens + completionTokens;
           const usage = { input_tokens: promptTokens, output_tokens: completionTokens, total_tokens: totalTokens };
 
-          if (completionTokens) recordTokens(key.id, completionTokens);
+          recordTokens(key.id, totalTokens);
 
           // Send output_text.done
-          send('response.output_text.done', {
-            type: 'response.output_text.done',
-            item_id: msgId,
-            output_index: 0,
-            content_index: 0,
-            text: fullContent
-          });
+          if (messageStarted && textOutputIndex !== null) {
+            send('response.output_text.done', {
+              type: 'response.output_text.done',
+              response_id: respId,
+              item_id: msgId,
+              output_index: textOutputIndex,
+              content_index: 0,
+              text: fullContent
+            });
 
-          // Send content_part.done
-          send('response.content_part.done', {
-            type: 'response.content_part.done',
-            item_id: msgId,
-            output_index: 0,
-            content_index: 0,
-            part: { type: 'output_text', text: fullContent }
-          });
+            // Send content_part.done
+            send('response.content_part.done', {
+              type: 'response.content_part.done',
+              response_id: respId,
+              item_id: msgId,
+              output_index: textOutputIndex,
+              content_index: 0,
+              part: { type: 'output_text', text: fullContent }
+            });
 
-          // Send output_item.done
-          send('response.output_item.done', {
-            type: 'response.output_item.done',
-            output_index: 0,
-            item: {
+            // Send output_item.done
+            send('response.output_item.done', {
+              type: 'response.output_item.done',
+              response_id: respId,
+              output_index: textOutputIndex,
+              item: {
+                type: 'message', id: msgId, role: 'assistant',
+                content: [{ type: 'output_text', text: fullContent }],
+                status: 'completed'
+              }
+            });
+          }
+
+          for (const state of toolCalls.values()) {
+            send('response.function_call_arguments.done', {
+              type: 'response.function_call_arguments.done',
+              response_id: respId,
+              item_id: state.id,
+              output_index: state.outputIndex,
+              arguments: state.arguments
+            });
+            send('response.output_item.done', {
+              type: 'response.output_item.done',
+              response_id: respId,
+              output_index: state.outputIndex,
+              item: {
+                id: state.id,
+                type: 'function_call',
+                call_id: state.id,
+                name: state.name,
+                arguments: state.arguments,
+                status: 'completed'
+              }
+            });
+          }
+
+          const completedOutput = [
+            ...(messageStarted && textOutputIndex !== null ? [{
+              index: textOutputIndex,
+              item: {
+                type: 'message', id: msgId, role: 'assistant',
+                content: [{ type: 'output_text', text: fullContent }],
+                status: 'completed'
+              }
+            }] : []),
+            ...Array.from(toolCalls.values()).map((state) => ({
+              index: state.outputIndex,
+              item: {
+                type: 'function_call',
+                id: state.id,
+                call_id: state.id,
+                name: state.name,
+                arguments: state.arguments,
+                status: 'completed'
+              }
+            }))
+          ].sort((a, b) => a.index - b.index).map((entry) => entry.item);
+
+          if (completedOutput.length === 0) {
+            completedOutput.push({
               type: 'message', id: msgId, role: 'assistant',
-              content: [{ type: 'output_text', text: fullContent }],
+              content: [{ type: 'output_text', text: '' }],
               status: 'completed'
-            }
-          });
+            });
+          }
 
           // Send response.completed
           send('response.completed', {
@@ -298,15 +629,12 @@ export async function POST(req: NextRequest) {
             response: {
               id: respId, object: 'response', status: 'completed',
               model: modelName,
-              output: [{
-                type: 'message', id: msgId, role: 'assistant',
-                content: [{ type: 'output_text', text: fullContent }],
-                status: 'completed'
-              }],
+              output: completedOutput,
               usage
             }
           });
 
+          await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, completionTokens, 200, null).catch(() => {});
           console.log(`[responses] stream done model=${modelName} content_length=${fullContent.length}`);
         } catch (e: any) {
           console.error('[responses] stream error:', e?.message);
@@ -329,15 +657,24 @@ export async function POST(req: NextRequest) {
 
   // --- NON-STREAMING PATH ---
   const data = await upstream.json();
-  const content = data?.choices?.[0]?.message?.content || '';
+  const message = data?.choices?.[0]?.message || {};
+  const content = message?.content || '';
   const upstreamUsage = data?.usage;
-  const completionTokens = upstreamUsage?.completion_tokens || Math.ceil(content.length / 4);
+  const completionTokens = upstreamUsage?.completion_tokens || Math.max(countTokens(content), estimateToolCallTokens((message?.tool_calls || []).map((call: any) => ({
+    name: call?.function?.name || call?.name || 'tool',
+    arguments: call?.function?.arguments || ''
+  }))));
   const totalTokens = (upstreamUsage?.prompt_tokens || promptTokens) + completionTokens;
   const usage = { input_tokens: upstreamUsage?.prompt_tokens || promptTokens, output_tokens: completionTokens, total_tokens: totalTokens };
 
-  if (completionTokens) recordTokens(key.id, completionTokens);
+  recordTokens(key.id, totalTokens);
+  await logUsage(key.id, key.userId, resolved.model.id, modelName, usage.input_tokens, usage.output_tokens, upstream.status, null).catch(() => {});
 
   console.log(`[responses] done model=${modelName} content_length=${content.length} stream_requested=${stream}`);
 
+  if (message?.tool_calls?.length) {
+    const response = chatMessageToResponseOutput(message, modelName, convertedTools.chatToResponse);
+    return Response.json({ ...response, usage });
+  }
   return Response.json(buildResponseObject(respId, modelName, content, usage));
 }

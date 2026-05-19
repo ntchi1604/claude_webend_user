@@ -500,7 +500,7 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
     `$codexPath = Get-Command codex -ErrorAction SilentlyContinue`,
     `if ($codexPath) { Write-Host "" ; Write-Host "Codex CLI already installed" -ForegroundColor Green } else {`,
     `    Write-Host "" ; Write-Host "Installing Codex CLI..." -ForegroundColor Yellow`,
-    `    npm install -g @openai/codex-cli@latest 2>$null`,
+    `    npm install -g @openai/codex@latest 2>$null`,
     `    if ($?) { Write-Host "  OK Installed" -ForegroundColor Green } else { Write-Host "  FAIL Install failed" -ForegroundColor Red }`,
     `}`,
     ``,
@@ -596,7 +596,7 @@ if command -v codex &>/dev/null; then
     echo ""; echo "Codex CLI already installed"
 else
     echo ""; echo "Installing Codex CLI..."
-    npm install -g @openai/codex-cli@latest 2>/dev/null
+    npm install -g @openai/codex@latest 2>/dev/null
     if [ $? -eq 0 ]; then echo "  OK Installed"; else echo "  FAIL Install failed"; fi
 fi
 
