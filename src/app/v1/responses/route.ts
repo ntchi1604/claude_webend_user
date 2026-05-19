@@ -183,70 +183,67 @@ export async function POST(req: NextRequest) {
     return Response.json(buildResponseObject(respId, modelName, content, usage));
   }
 
-  // Streaming via TransformStream - sends initial events immediately
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
 
-  const ev = (event: string, data: any) =>
-    writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+  const respStream = new ReadableStream({
+    async start(controller) {
+      const send = (event: string, data: any) => {
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+      };
 
-  // Start processing in background - don't await
-  (async () => {
-    try {
-      // Send initial events immediately so client knows connection is alive
-      await ev('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
-      await ev('response.in_progress', { id: respId, object: 'response', status: 'in_progress' });
-      await ev('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
-      await ev('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
+      try {
+        send('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
+        send('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
+        send('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
 
-      const reader = upstream.body!.getReader();
-      const decoder = new TextDecoder();
-      let buf = '', full = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const parts = buf.split('\n\n');
-        buf = parts.pop() || '';
-        for (const part of parts) {
-          const line = part.split('\n').find((l) => l.startsWith('data:'));
-          if (!line) continue;
-          const payload = line.slice(5).trim();
-          if (!payload || payload === '[DONE]') continue;
-          try {
-            const j = JSON.parse(payload);
-            if (j?.error) {
-              const errText = j.error.message || JSON.stringify(j.error);
-              full += errText;
-              await ev('response.output_text.delta', { output_index: 0, content_index: 0, delta: errText });
-            } else {
-              const delta = j?.choices?.[0]?.delta?.content;
-              if (typeof delta === 'string' && delta) {
-                full += delta;
-                await ev('response.output_text.delta', { output_index: 0, content_index: 0, delta });
+        let buf = '', full = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const parts = buf.split('\n\n');
+          buf = parts.pop() || '';
+          for (const part of parts) {
+            const line = part.split('\n').find((l) => l.startsWith('data:'));
+            if (!line) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
+            try {
+              const j = JSON.parse(payload);
+              if (j?.error) {
+                const errText = j.error.message || JSON.stringify(j.error);
+                full += errText;
+                send('response.output_text.delta', { output_index: 0, content_index: 0, delta: errText });
+              } else {
+                const delta = j?.choices?.[0]?.delta?.content;
+                if (typeof delta === 'string' && delta) {
+                  full += delta;
+                  send('response.output_text.delta', { output_index: 0, content_index: 0, delta });
+                }
               }
-            }
-          } catch {}
+            } catch {}
+          }
         }
+
+        const completionTokens = Math.ceil(full.length / 4);
+        const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
+
+        send('response.output_text.done', { output_index: 0, content_index: 0, text: full });
+        send('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
+        send('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] } });
+        send('response.completed', buildResponseObject(respId, modelName, full, usage));
+        controller.close();
+      } catch (e: any) {
+        console.error('[responses] stream error:', e?.message, e?.stack);
+        controller.error(e);
       }
-
-      const completionTokens = Math.ceil(full.length / 4);
-      const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
-
-      await ev('response.output_text.done', { output_index: 0, content_index: 0, text: full });
-      await ev('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
-      await ev('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] } });
-      await ev('response.completed', buildResponseObject(respId, modelName, full, usage));
-    } catch (e: any) {
-      console.error('[responses] stream error:', e?.message);
-    } finally {
-      await writer.close();
     }
-  })();
+  });
 
-  return new Response(readable, {
+  return new Response(respStream, {
+    status: 200,
     headers: {
       'content-type': 'text/event-stream; charset=utf-8',
       'cache-control': 'no-cache, no-transform',
