@@ -102,43 +102,46 @@ export default function ChatInput({
 
   return (
     <div className="chat-input-area">
-      <AttachmentPreview attachments={attachments} onRemove={removeAttachment} />
       <div
         className="chat-input-box"
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
       >
-        <div className="chat-input-actions">
-          <button onClick={() => fileRef.current?.click()} className="chat-input-btn" title="Attach file">
-            <Paperclip className="h-4 w-4" />
-          </button>
-          <button onClick={() => imgRef.current?.click()} className="chat-input-btn" title="Add image">
-            <ImagePlus className="h-4 w-4" />
-          </button>
-        </div>
+        <AttachmentPreview attachments={attachments} onRemove={removeAttachment} />
         <TextareaAutosize
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Message..."
+          placeholder="Message Claude..."
           className="chat-textarea"
           maxRows={6}
           disabled={streaming || disabled}
         />
-        {streaming ? (
-          <button onClick={onStop} className="chat-send-btn">
-            <Square className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            onClick={onSend}
-            disabled={(!input.trim() && attachments.length === 0) || disabled}
-            className="chat-send-btn"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-        )}
+        <div className="chat-input-bottom">
+          <div className="chat-input-actions">
+            <button onClick={() => fileRef.current?.click()} className="chat-input-btn" title="Attach file">
+              <Paperclip className="h-4 w-4" />
+            </button>
+            <button onClick={() => imgRef.current?.click()} className="chat-input-btn" title="Add image">
+              <ImagePlus className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="chat-input-spacer" />
+          {streaming ? (
+            <button onClick={onStop} className="chat-send-btn">
+              <Square className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onSend}
+              disabled={(!input.trim() && attachments.length === 0) || disabled}
+              className="chat-send-btn"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
       <input ref={fileRef} type="file" hidden multiple accept=".txt,.md,.py,.js,.ts,.json,.csv,.html,.css,.pdf,.xml,.yaml,.yml,.toml,.rs,.go,.java,.c,.cpp,.h" onChange={handleFileSelect} />
       <input ref={imgRef} type="file" hidden multiple accept="image/*" onChange={handleImageSelect} />

@@ -50,7 +50,6 @@ export default function ChatPage() {
     } catch {}
   }
 
-  // PLACEHOLDER_LOAD_CONV
 
   async function loadConversation(id: string) {
     try {
@@ -228,7 +227,7 @@ export default function ChatPage() {
           </button>
           <ModelSelector models={models} selected={model} onChange={handleModelChange} />
         </header>
-        <ChatArea messages={messages} streaming={streaming} model={model} />
+        <ChatArea messages={messages} streaming={streaming} model={model} onSuggestion={(text) => { setInput(text); }} />
         <ChatInput
           input={input}
           setInput={setInput}

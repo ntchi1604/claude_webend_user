@@ -9,16 +9,17 @@ interface Props {
   messages: ChatMsg[];
   streaming: boolean;
   model: string;
+  onSuggestion?: (text: string) => void;
 }
 
-export default function ChatArea({ messages, streaming, model }: Props) {
+export default function ChatArea({ messages, streaming, model, onSuggestion }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  if (messages.length === 0) return <EmptyState model={model} />;
+  if (messages.length === 0) return <EmptyState model={model} onSuggestion={onSuggestion} />;
 
   return (
     <div className="chat-area">

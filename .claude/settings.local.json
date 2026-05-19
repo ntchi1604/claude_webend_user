@@ -7,7 +7,9 @@
       "PowerShell(npx next build 2>&1 | Select-Object -Last 40)",
       "Bash(npm install *)",
       "Bash(npx prisma *)",
-      "PowerShell(New-Item *)"
+      "PowerShell(New-Item *)",
+      "WebSearch",
+      "PowerShell(npm run *)"
     ]
   }
 }

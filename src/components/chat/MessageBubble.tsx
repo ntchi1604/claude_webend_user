@@ -52,9 +52,11 @@ export default function MessageBubble({ role, content, streaming }: Props) {
           <div className="msg-user-text">{textContent}</div>
         )}
         {role === 'assistant' && !streaming && textContent && (
-          <button onClick={copyText} className="msg-copy-btn" title="Copy">
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          </button>
+          <div className="msg-actions">
+            <button onClick={copyText} className="msg-copy-btn" title="Copy">
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
         )}
       </div>
     </div>
