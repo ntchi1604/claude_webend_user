@@ -1,11 +1,11 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashApiKey, verifySession } from '@/lib/auth';
 import { parseModelIds } from '@/lib/json';
 
 export const runtime = 'nodejs';
 
-async function resolveKey(req: NextRequest) {
+async function resolveUser(req: NextRequest) {
   const auth = req.headers.get('authorization') || '';
   const m = auth.match(/^Bearer\s+(.+)$/i);
   if (m) {
@@ -13,31 +13,31 @@ async function resolveKey(req: NextRequest) {
       where: { keyHash: hashApiKey(m[1].trim()) },
       include: { user: { include: { subscriptions: { where: { active: true, expiresAt: { gt: new Date() } }, include: { plan: true } } } } }
     });
-    if (key && key.active) return key;
+    if (key && key.active) return { user: key.user, sub: key.user.subscriptions[0] || null };
   }
   const cookieHeader = req.headers.get('cookie') || '';
   const sessionMatch = cookieHeader.match(/cw_session=([^;]+)/);
   if (sessionMatch) {
     const payload = await verifySession(sessionMatch[1]);
     if (!payload) return null;
-    const key = await prisma.apiKey.findFirst({
-      where: { userId: payload.uid, active: true },
-      include: { user: { include: { subscriptions: { where: { active: true, expiresAt: { gt: new Date() } }, include: { plan: true } } } } },
-      orderBy: { createdAt: 'asc' }
+    const user = await prisma.user.findUnique({
+      where: { id: payload.uid },
+      include: { subscriptions: { where: { active: true, expiresAt: { gt: new Date() } }, include: { plan: true } } }
     });
-    if (key) return key;
+    if (!user || user.banned) return null;
+    return { user, sub: user.subscriptions[0] || null };
   }
   return null;
 }
 
 export async function GET(req: NextRequest) {
-  const key = await resolveKey(req);
-  if (!key) return new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), { status: 401 });
+  const result = await resolveUser(req);
+  if (!result) return NextResponse.json({ error: { message: 'Invalid API key' } }, { status: 401 });
 
-  const sub = key.user.subscriptions[0];
+  const { sub } = result;
   const allowedIds = sub ? parseModelIds(sub.plan.modelIds) : [];
   const models = await prisma.model.findMany({
-    where: { enabled: true, ...(sub ? { id: { in: allowedIds } } : {}) }
+    where: { enabled: true, ...(allowedIds.length > 0 ? { id: { in: allowedIds } } : {}) }
   });
 
   return Response.json({

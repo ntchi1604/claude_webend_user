@@ -63,8 +63,13 @@ async function authKey(req: NextRequest) {
       include: { user: true },
       orderBy: { createdAt: 'asc' }
     });
-    if (!key || key.user.banned) return null;
-    return key;
+    if (key) {
+      if (key.user.banned) return null;
+      return key;
+    }
+    const user = await prisma.user.findUnique({ where: { id: payload.uid } });
+    if (!user || user.banned) return null;
+    return { id: `session_${user.id}`, userId: user.id, user, active: true } as any;
   }
   return null;
 }

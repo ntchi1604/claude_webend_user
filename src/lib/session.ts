@@ -1,13 +1,18 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { verifySession, type SessionPayload } from './auth';
 import { prisma } from './prisma';
 
 export const SESSION_COOKIE = 'cw_session';
 
 export async function getSession(): Promise<SessionPayload | null> {
-  const c = (await cookies()).get(SESSION_COOKIE);
-  if (!c?.value) return null;
-  return verifySession(c.value);
+  try {
+    const c = (await cookies()).get(SESSION_COOKIE);
+    if (c?.value) return verifySession(c.value);
+  } catch {}
+  const cookieHeader = (await headers()).get('cookie') || '';
+  const m = cookieHeader.match(/cw_session=([^;]+)/);
+  if (m) return verifySession(m[1]);
+  return null;
 }
 
 export async function getCurrentUser() {
