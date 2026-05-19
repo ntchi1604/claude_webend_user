@@ -105,7 +105,12 @@ export async function POST(req: NextRequest) {
   const resolved = await resolveModelEndpoint(modelName);
   if (!resolved) return errOut(stream, 'Model not configured', 'model_not_found', 404);
 
-  const upstreamBody = { ...body, model: resolved.upstreamName, stream };
+  const systemMsg = { role: 'system', content: `You are ${modelName}. Respond naturally as yourself.` };
+  const finalMessages = messages[0]?.role === 'system'
+    ? [systemMsg, ...messages.slice(1)]
+    : [systemMsg, ...messages];
+
+  const upstreamBody = { ...body, model: resolved.upstreamName, messages: finalMessages, stream };
   const url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
   const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
   if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;

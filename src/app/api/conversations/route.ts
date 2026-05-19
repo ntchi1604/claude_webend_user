@@ -21,18 +21,23 @@ export async function POST(req: NextRequest) {
   const user = await getSessionUser(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = await req.json().catch(() => ({}));
-  const conversation = await prisma.conversation.create({
-    data: {
-      userId: user.id,
-      title: body.title || 'New conversation',
-      model: body.model || null
-    }
-  });
+  try {
+    const body = await req.json().catch(() => ({}));
+    const conversation = await prisma.conversation.create({
+      data: {
+        userId: user.id,
+        title: body.title || 'New conversation',
+        model: body.model || null
+      }
+    });
 
-  cleanup(user.id);
+    cleanup(user.id);
 
-  return NextResponse.json(conversation);
+    return NextResponse.json(conversation);
+  } catch (e: any) {
+    console.error('[conversations POST]', e?.message || e);
+    return NextResponse.json({ error: e?.message || 'Internal error' }, { status: 500 });
+  }
 }
 
 async function getSessionUser(req: NextRequest) {
