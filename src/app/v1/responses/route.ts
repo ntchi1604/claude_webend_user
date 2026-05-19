@@ -159,12 +159,18 @@ export async function POST(req: NextRequest) {
   try {
     upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody) });
   } catch (e: any) {
+    console.error('[responses] upstream fetch error:', e?.message);
     return errJson(`Upstream error: ${e?.message}`, 502);
   }
 
+  console.log(`[responses] upstream status=${upstream.status} model=${modelName} -> ${resolved.upstreamName}`);
+
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
-    return new Response(text, { status: upstream.status, headers: { 'content-type': 'application/json' } });
+    console.error('[responses] upstream error body:', text.slice(0, 300));
+    return new Response(JSON.stringify({ error: { message: text.slice(0, 500), type: 'upstream_error' } }), {
+      status: upstream.status, headers: { 'content-type': 'application/json' }
+    });
   }
 
   const respId = `resp_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
@@ -177,95 +183,63 @@ export async function POST(req: NextRequest) {
     return Response.json(buildResponseObject(respId, modelName, content, usage));
   }
 
-  const encoder = new TextEncoder();
+  // Read entire upstream stream first, then emit Responses API events
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
+  let buf = '', full = '';
 
-  const responseStream = new ReadableStream({
-    async start(controller) {
-      const send = (event: string, data: any) => {
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
-      };
-
-      send('response.created', {
-        id: respId, object: 'response', status: 'in_progress', model: modelName,
-        output: [], created_at: Math.floor(Date.now() / 1000)
-      });
-      send('response.in_progress', { id: respId, object: 'response', status: 'in_progress' });
-      send('response.output_item.added', {
-        output_index: 0,
-        item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] }
-      });
-      send('response.content_part.added', {
-        output_index: 0, content_index: 0,
-        part: { type: 'output_text', text: '' }
-      });
-
-      let buf = '', full = '';
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const parts = buf.split('\n\n');
-          buf = parts.pop() || '';
-          for (const evt of parts) {
-            const line = evt.split('\n').find((l) => l.startsWith('data:'));
-            if (!line) continue;
-            const payload = line.slice(5).trim();
-            if (!payload || payload === '[DONE]') continue;
-            try {
-              const j = JSON.parse(payload);
-              if (j?.error) {
-                full += `\nError: ${j.error.message || JSON.stringify(j.error)}`;
-                continue;
-              }
-              const delta = j?.choices?.[0]?.delta?.content;
-              if (typeof delta === 'string' && delta) {
-                full += delta;
-                send('response.output_text.delta', { output_index: 0, content_index: 0, delta });
-              }
-            } catch {}
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop() || '';
+      for (const evt of parts) {
+        const line = evt.split('\n').find((l) => l.startsWith('data:'));
+        if (!line) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try {
+          const j = JSON.parse(payload);
+          if (j?.error) {
+            full += `Error: ${j.error.message || JSON.stringify(j.error)}`;
+          } else {
+            const delta = j?.choices?.[0]?.delta?.content;
+            if (typeof delta === 'string') full += delta;
           }
-        }
-      } catch (e: any) {
-        if (full === '') full = `Error: ${e?.message || 'stream failed'}`;
+        } catch {}
       }
-
-      // Process remaining buffer
-      if (buf.trim()) {
-        const line = buf.split('\n').find((l) => l.startsWith('data:'));
-        if (line) {
-          const payload = line.slice(5).trim();
-          if (payload && payload !== '[DONE]') {
-            try {
-              const j = JSON.parse(payload);
-              const delta = j?.choices?.[0]?.delta?.content;
-              if (typeof delta === 'string' && delta) {
-                full += delta;
-                send('response.output_text.delta', { output_index: 0, content_index: 0, delta });
-              }
-            } catch {}
-          }
-        }
-      }
-
-      const completionTokens = Math.ceil(full.length / 4);
-      const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
-
-      send('response.output_text.done', { output_index: 0, content_index: 0, text: full });
-      send('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
-      send('response.output_item.done', {
-        output_index: 0,
-        item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] }
-      });
-      send('response.completed', buildResponseObject(respId, modelName, full, usage));
-
-      controller.close();
     }
-  });
+  } catch (e: any) {
+    console.error('[responses] stream read error:', e?.message);
+    if (!full) full = `Error: ${e?.message || 'stream read failed'}`;
+  }
 
-  return new Response(responseStream, {
+  console.log(`[responses] stream done, content length=${full.length}`);
+
+  const completionTokens = Math.ceil(full.length / 4);
+  const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
+
+  // Emit all events at once (buffered approach - more reliable)
+  const encoder = new TextEncoder();
+  const events: string[] = [];
+
+  const ev = (event: string, data: any) => events.push(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  ev('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
+  ev('response.in_progress', { id: respId, object: 'response', status: 'in_progress' });
+  ev('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
+  ev('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
+  ev('response.output_text.delta', { output_index: 0, content_index: 0, delta: full });
+  ev('response.output_text.done', { output_index: 0, content_index: 0, text: full });
+  ev('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
+  ev('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] } });
+  ev('response.completed', buildResponseObject(respId, modelName, full, usage));
+
+  const body_out = encoder.encode(events.join(''));
+
+  return new Response(body_out, {
     headers: {
       'content-type': 'text/event-stream; charset=utf-8',
       'cache-control': 'no-cache, no-transform',
