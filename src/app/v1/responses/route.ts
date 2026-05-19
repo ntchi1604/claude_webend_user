@@ -145,7 +145,12 @@ export async function POST(req: NextRequest) {
   const resolved = await resolveModelEndpoint(modelName);
   if (!resolved) return errJson('Model not configured', 404);
 
-  const upstreamBody = { model: resolved.upstreamName, messages: finalMessages, stream };
+  const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
+  if (body.temperature != null) upstreamBody.temperature = body.temperature;
+  if (body.max_output_tokens != null) upstreamBody.max_tokens = body.max_output_tokens;
+  else if (body.max_tokens != null) upstreamBody.max_tokens = body.max_tokens;
+  if (body.top_p != null) upstreamBody.top_p = body.top_p;
+
   const url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
   const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
   if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
@@ -157,7 +162,7 @@ export async function POST(req: NextRequest) {
     return errJson(`Upstream error: ${e?.message}`, 502);
   }
 
-  if (!upstream.ok) {
+  if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
     return new Response(text, { status: upstream.status, headers: { 'content-type': 'application/json' } });
   }
@@ -172,16 +177,29 @@ export async function POST(req: NextRequest) {
     return Response.json(buildResponseObject(respId, modelName, content, usage));
   }
 
-  // Streaming: convert SSE chat completions → Responses API streaming format
   const encoder = new TextEncoder();
-  const reader = upstream.body!.getReader();
+  const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
 
   const responseStream = new ReadableStream({
     async start(controller) {
-      controller.enqueue(encoder.encode(`event: response.created\ndata: ${JSON.stringify({ id: respId, object: 'response', status: 'in_progress' })}\n\n`));
-      controller.enqueue(encoder.encode(`event: response.output_item.added\ndata: ${JSON.stringify({ output_index: 0, item: { type: 'message', role: 'assistant', id: `msg_${respId}` } })}\n\n`));
-      controller.enqueue(encoder.encode(`event: response.content_part.added\ndata: ${JSON.stringify({ output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } })}\n\n`));
+      const send = (event: string, data: any) => {
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+      };
+
+      send('response.created', {
+        id: respId, object: 'response', status: 'in_progress', model: modelName,
+        output: [], created_at: Math.floor(Date.now() / 1000)
+      });
+      send('response.in_progress', { id: respId, object: 'response', status: 'in_progress' });
+      send('response.output_item.added', {
+        output_index: 0,
+        item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] }
+      });
+      send('response.content_part.added', {
+        output_index: 0, content_index: 0,
+        part: { type: 'output_text', text: '' }
+      });
 
       let buf = '', full = '';
       try {
@@ -198,18 +216,51 @@ export async function POST(req: NextRequest) {
             if (!payload || payload === '[DONE]') continue;
             try {
               const j = JSON.parse(payload);
+              if (j?.error) {
+                full += `\nError: ${j.error.message || JSON.stringify(j.error)}`;
+                continue;
+              }
               const delta = j?.choices?.[0]?.delta?.content;
               if (typeof delta === 'string' && delta) {
                 full += delta;
-                controller.enqueue(encoder.encode(`event: response.output_text.delta\ndata: ${JSON.stringify({ output_index: 0, content_index: 0, delta })}\n\n`));
+                send('response.output_text.delta', { output_index: 0, content_index: 0, delta });
               }
             } catch {}
           }
         }
-      } catch {}
+      } catch (e: any) {
+        if (full === '') full = `Error: ${e?.message || 'stream failed'}`;
+      }
 
-      controller.enqueue(encoder.encode(`event: response.output_text.done\ndata: ${JSON.stringify({ output_index: 0, content_index: 0, text: full })}\n\n`));
-      controller.enqueue(encoder.encode(`event: response.completed\ndata: ${JSON.stringify(buildResponseObject(respId, modelName, full, { prompt_tokens: promptTokens, completion_tokens: Math.ceil(full.length / 4), total_tokens: promptTokens + Math.ceil(full.length / 4) }))}\n\n`));
+      // Process remaining buffer
+      if (buf.trim()) {
+        const line = buf.split('\n').find((l) => l.startsWith('data:'));
+        if (line) {
+          const payload = line.slice(5).trim();
+          if (payload && payload !== '[DONE]') {
+            try {
+              const j = JSON.parse(payload);
+              const delta = j?.choices?.[0]?.delta?.content;
+              if (typeof delta === 'string' && delta) {
+                full += delta;
+                send('response.output_text.delta', { output_index: 0, content_index: 0, delta });
+              }
+            } catch {}
+          }
+        }
+      }
+
+      const completionTokens = Math.ceil(full.length / 4);
+      const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
+
+      send('response.output_text.done', { output_index: 0, content_index: 0, text: full });
+      send('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
+      send('response.output_item.done', {
+        output_index: 0,
+        item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] }
+      });
+      send('response.completed', buildResponseObject(respId, modelName, full, usage));
+
       controller.close();
     }
   });
