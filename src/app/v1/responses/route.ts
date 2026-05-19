@@ -186,37 +186,7 @@ export async function POST(req: NextRequest) {
 
   console.log(`[responses] done model=${modelName} content_length=${content.length} stream_requested=${stream}`);
 
-  if (!stream) {
-    return Response.json(buildResponseObject(respId, modelName, content, usage));
-  }
-
-  // Client requested streaming - emit all events from completed response
-  const encoder = new TextEncoder();
-  const events: string[] = [];
-  const ev = (event: string, d: any) => { events.push(`event: ${event}\ndata: ${JSON.stringify(d)}\n\n`); };
-
-  ev('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
-  ev('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
-  ev('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
-
-  // Send content in chunks to simulate streaming
-  const chunkSize = 100;
-  for (let i = 0; i < content.length; i += chunkSize) {
-    const delta = content.slice(i, i + chunkSize);
-    ev('response.output_text.delta', { output_index: 0, content_index: 0, delta });
-  }
-
-  ev('response.output_text.done', { output_index: 0, content_index: 0, text: content });
-  ev('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: content } });
-  ev('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: content }] } });
-  ev('response.completed', buildResponseObject(respId, modelName, content, usage));
-
-  return new Response(events.join(''), {
-    status: 200,
-    headers: {
-      'content-type': 'text/event-stream; charset=utf-8',
-      'cache-control': 'no-cache, no-transform',
-      'x-accel-buffering': 'no'
-    }
-  });
+  // Always return non-streaming JSON response
+  // Codex supports both streaming and non-streaming Responses API
+  return Response.json(buildResponseObject(respId, modelName, content, usage));
 }
