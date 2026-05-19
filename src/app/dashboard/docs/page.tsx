@@ -113,23 +113,24 @@ export default function DocsPage() {
           </div>
         </div>
 
-        {tool === 'claude-code' ? <ClaudeSummary /> : <CodexSummary />}
-
         <div className="mt-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 mb-2">
             <span className="label flex items-center gap-1.5">
               <Terminal className="h-3.5 w-3.5" /> Setup command
             </span>
             <button
               onClick={() => copy(setupCmd, setCopiedSetup)}
-              className="btn-secondary py-2 px-3 text-[13px]"
+              className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
             >
               {copiedSetup ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copiedSetup ? 'Copied' : 'Copy'}
             </button>
           </div>
+          <div className="card-code">
+            <code className="text-[13px] break-all leading-6">{setupCmd}</code>
+          </div>
           <div className="mt-3 space-y-1">
-            <p className="caption">1. Click Copy to copy the generated setup command for your selected OS.</p>
+            <p className="caption">1. Copy the command above.</p>
             <p className="caption">2. Run it in {os === 'windows' ? 'PowerShell' : 'Terminal'}.</p>
             <p className="caption">
               3. Restart the shell, then run{' '}
@@ -144,14 +145,15 @@ export default function DocsPage() {
         <details className="mt-5">
           <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Uninstall Api4Cheap config</summary>
           <div className="mt-2 flex items-center gap-2">
-            <p className="caption flex-1">Copy the uninstall command for the selected client and OS.</p>
+            <div className="card-code flex-1">
+              <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
+            </div>
             <button
               onClick={() => copy(uninstallCmd, setCopiedUninstall)}
-              className="btn-secondary py-2 px-3 text-[13px]"
+              className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
               aria-label="Copy uninstall command"
             >
               {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copiedUninstall ? 'Copied' : 'Copy'}
             </button>
           </div>
         </details>
@@ -168,42 +170,6 @@ Codex Responses API:  POST ${BASE_URL}/v1/responses
 Models:               GET  ${BASE_URL}/v1/models`}</pre>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ClaudeSummary() {
-  return (
-    <div className="card-code">
-      <pre className="whitespace-pre-wrap text-[13px] leading-5">{`~/.claude/settings.json
-
-{
-  "env": {
-    "ANTHROPIC_API_KEY": "YOUR_API_KEY",
-    "ANTHROPIC_BASE_URL": "https://lccaptcha.io.vn",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
-  },
-  "permissions": { "allow": [], "deny": [] }
-}`}</pre>
-    </div>
-  );
-}
-
-function CodexSummary() {
-  return (
-    <div className="card-code">
-      <pre className="whitespace-pre-wrap text-[13px] leading-5">{`~/.codex/config.toml
-
-model_provider = "api4cheap"
-model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
-disable_response_storage = true
-preferred_auth_method = "apikey"
-
-[model_providers.api4cheap]
-name = "Api4Cheap"
-base_url = "https://lccaptcha.io.vn"
-wire_api = "responses"`}</pre>
     </div>
   );
 }
