@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
   const resolved = await resolveModelEndpoint(modelName);
   if (!resolved) return errJson('Model not configured', 404);
 
-  const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream: false };
+  const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
   if (body.temperature != null) upstreamBody.temperature = body.temperature;
   if (body.max_output_tokens != null) upstreamBody.max_tokens = body.max_output_tokens;
   else if (body.max_tokens != null) upstreamBody.max_tokens = body.max_tokens;
@@ -173,6 +173,161 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const respId = `resp_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+  const msgId = `msg_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
+
+  // --- STREAMING PATH ---
+  if (stream) {
+    const encoder = new TextEncoder();
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        function send(event: string, data: any) {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        }
+
+        // Send response.created
+        send('response.created', {
+          type: 'response.created',
+          response: {
+            id: respId, object: 'response', status: 'in_progress',
+            model: modelName, output: []
+          }
+        });
+
+        // Send output_item.added
+        send('response.output_item.added', {
+          type: 'response.output_item.added',
+          output_index: 0,
+          item: { type: 'message', id: msgId, role: 'assistant', content: [], status: 'in_progress' }
+        });
+
+        // Send content_part.added
+        send('response.content_part.added', {
+          type: 'response.content_part.added',
+          item_id: msgId,
+          output_index: 0,
+          content_index: 0,
+          part: { type: 'output_text', text: '' }
+        });
+
+        let fullContent = '';
+        let completionTokens = 0;
+
+        try {
+          if (!upstream.body) {
+            // No body - treat as empty
+            send('response.output_text.done', { type: 'response.output_text.done', item_id: msgId, output_index: 0, content_index: 0, text: '' });
+          } else {
+            const reader = upstream.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const payload = line.slice(6).trim();
+                if (payload === '[DONE]') continue;
+
+                try {
+                  const chunk = JSON.parse(payload);
+                  const delta = chunk?.choices?.[0]?.delta?.content;
+                  if (delta) {
+                    fullContent += delta;
+                    send('response.output_text.delta', {
+                      type: 'response.output_text.delta',
+                      item_id: msgId,
+                      output_index: 0,
+                      content_index: 0,
+                      delta
+                    });
+                  }
+                  // Check for usage in final chunk
+                  if (chunk?.usage) {
+                    completionTokens = chunk.usage.completion_tokens || 0;
+                  }
+                } catch { /* skip malformed chunks */ }
+              }
+            }
+          }
+
+          if (!completionTokens) completionTokens = Math.ceil(fullContent.length / 4);
+          const totalTokens = promptTokens + completionTokens;
+          const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens };
+
+          if (completionTokens) recordTokens(key.id, completionTokens);
+
+          // Send output_text.done
+          send('response.output_text.done', {
+            type: 'response.output_text.done',
+            item_id: msgId,
+            output_index: 0,
+            content_index: 0,
+            text: fullContent
+          });
+
+          // Send content_part.done
+          send('response.content_part.done', {
+            type: 'response.content_part.done',
+            item_id: msgId,
+            output_index: 0,
+            content_index: 0,
+            part: { type: 'output_text', text: fullContent }
+          });
+
+          // Send output_item.done
+          send('response.output_item.done', {
+            type: 'response.output_item.done',
+            output_index: 0,
+            item: {
+              type: 'message', id: msgId, role: 'assistant',
+              content: [{ type: 'output_text', text: fullContent }],
+              status: 'completed'
+            }
+          });
+
+          // Send response.completed
+          send('response.completed', {
+            type: 'response.completed',
+            response: {
+              id: respId, object: 'response', status: 'completed',
+              model: modelName,
+              output: [{
+                type: 'message', id: msgId, role: 'assistant',
+                content: [{ type: 'output_text', text: fullContent }],
+                status: 'completed'
+              }],
+              usage
+            }
+          });
+
+          console.log(`[responses] stream done model=${modelName} content_length=${fullContent.length}`);
+        } catch (e: any) {
+          console.error('[responses] stream error:', e?.message);
+          send('error', { type: 'error', message: e?.message || 'Stream error' });
+        }
+
+        controller.close();
+      }
+    });
+
+    return new Response(readableStream, {
+      headers: {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+        'connection': 'keep-alive',
+        'x-accel-buffering': 'no'
+      }
+    });
+  }
+
+  // --- NON-STREAMING PATH ---
   const data = await upstream.json();
   const content = data?.choices?.[0]?.message?.content || '';
   const upstreamUsage = data?.usage;
@@ -182,11 +337,7 @@ export async function POST(req: NextRequest) {
 
   if (completionTokens) recordTokens(key.id, completionTokens);
 
-  const respId = `resp_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-
   console.log(`[responses] done model=${modelName} content_length=${content.length} stream_requested=${stream}`);
 
-  // Always return non-streaming JSON response
-  // Codex supports both streaming and non-streaming Responses API
   return Response.json(buildResponseObject(respId, modelName, content, usage));
 }
