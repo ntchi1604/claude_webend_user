@@ -183,63 +183,70 @@ export async function POST(req: NextRequest) {
     return Response.json(buildResponseObject(respId, modelName, content, usage));
   }
 
-  // Read entire upstream stream first, then emit Responses API events
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '', full = '';
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const parts = buf.split('\n\n');
-      buf = parts.pop() || '';
-      for (const evt of parts) {
-        const line = evt.split('\n').find((l) => l.startsWith('data:'));
-        if (!line) continue;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === '[DONE]') continue;
-        try {
-          const j = JSON.parse(payload);
-          if (j?.error) {
-            full += `Error: ${j.error.message || JSON.stringify(j.error)}`;
-          } else {
-            const delta = j?.choices?.[0]?.delta?.content;
-            if (typeof delta === 'string') full += delta;
-          }
-        } catch {}
-      }
-    }
-  } catch (e: any) {
-    console.error('[responses] stream read error:', e?.message);
-    if (!full) full = `Error: ${e?.message || 'stream read failed'}`;
-  }
-
-  console.log(`[responses] stream done, content length=${full.length}`);
-
-  const completionTokens = Math.ceil(full.length / 4);
-  const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
-
-  // Emit all events at once (buffered approach - more reliable)
+  // Streaming via TransformStream - sends initial events immediately
   const encoder = new TextEncoder();
-  const events: string[] = [];
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
 
-  const ev = (event: string, data: any) => events.push(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  const ev = (event: string, data: any) =>
+    writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 
-  ev('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
-  ev('response.in_progress', { id: respId, object: 'response', status: 'in_progress' });
-  ev('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
-  ev('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
-  ev('response.output_text.delta', { output_index: 0, content_index: 0, delta: full });
-  ev('response.output_text.done', { output_index: 0, content_index: 0, text: full });
-  ev('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
-  ev('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] } });
-  ev('response.completed', buildResponseObject(respId, modelName, full, usage));
+  // Start processing in background - don't await
+  (async () => {
+    try {
+      // Send initial events immediately so client knows connection is alive
+      await ev('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
+      await ev('response.in_progress', { id: respId, object: 'response', status: 'in_progress' });
+      await ev('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
+      await ev('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
 
-  const body_out = encoder.encode(events.join(''));
+      const reader = upstream.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = '', full = '';
 
-  return new Response(body_out, {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() || '';
+        for (const part of parts) {
+          const line = part.split('\n').find((l) => l.startsWith('data:'));
+          if (!line) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const j = JSON.parse(payload);
+            if (j?.error) {
+              const errText = j.error.message || JSON.stringify(j.error);
+              full += errText;
+              await ev('response.output_text.delta', { output_index: 0, content_index: 0, delta: errText });
+            } else {
+              const delta = j?.choices?.[0]?.delta?.content;
+              if (typeof delta === 'string' && delta) {
+                full += delta;
+                await ev('response.output_text.delta', { output_index: 0, content_index: 0, delta });
+              }
+            }
+          } catch {}
+        }
+      }
+
+      const completionTokens = Math.ceil(full.length / 4);
+      const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
+
+      await ev('response.output_text.done', { output_index: 0, content_index: 0, text: full });
+      await ev('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
+      await ev('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] } });
+      await ev('response.completed', buildResponseObject(respId, modelName, full, usage));
+    } catch (e: any) {
+      console.error('[responses] stream error:', e?.message);
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  return new Response(readable, {
     headers: {
       'content-type': 'text/event-stream; charset=utf-8',
       'cache-control': 'no-cache, no-transform',
