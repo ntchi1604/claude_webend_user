@@ -1,17 +1,20 @@
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
+import { NextRequest } from 'next/server';
 import { verifySession, type SessionPayload } from './auth';
 import { prisma } from './prisma';
 
 export const SESSION_COOKIE = 'cw_session';
 
 export async function getSession(): Promise<SessionPayload | null> {
-  try {
-    const c = (await cookies()).get(SESSION_COOKIE);
-    if (c?.value) return verifySession(c.value);
-  } catch {}
-  const cookieHeader = (await headers()).get('cookie') || '';
-  const m = cookieHeader.match(/cw_session=([^;]+)/);
-  if (m) return verifySession(m[1]);
+  const store = cookies();
+  const c = store.get(SESSION_COOKIE);
+  if (!c?.value) return null;
+  return verifySession(c.value);
+}
+
+export async function getSessionFromRequest(req: NextRequest): Promise<SessionPayload | null> {
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  if (token) return verifySession(token);
   return null;
 }
 
