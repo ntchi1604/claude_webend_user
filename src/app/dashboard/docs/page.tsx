@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Apple,
   Bot,
@@ -22,6 +22,8 @@ import {
 type Tool = 'claude-code' | 'codex-cli' | 'openclaw' | 'hermes';
 type ActiveTool = 'claude-code' | 'codex-cli';
 type Os = 'windows' | 'mac';
+type AllowedModel = { id: string; name: string; provider: string };
+type ModelOption = { label: string; value: string };
 
 const BASE_URL = 'https://lccaptcha.io.vn';
 const SETUP_BASE = `${BASE_URL}/api/v1/setup`;
@@ -60,6 +62,34 @@ const CODEX_MODEL_OPTIONS = [
   { label: 'GPT-5.5', value: 'gpt-5.5' },
 ];
 
+function labelFromModelName(name: string) {
+  return name
+    .split('-')
+    .filter(Boolean)
+    .map((part) => (part.length <= 3 ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)))
+    .join(' ');
+}
+
+function modelToOption(model: AllowedModel): ModelOption {
+  return { label: labelFromModelName(model.name), value: model.name };
+}
+
+function firstValue(options: ModelOption[], fallback: string) {
+  return options[0]?.value || fallback;
+}
+
+function pickByKeyword(options: ModelOption[], keyword: string, fallback: string) {
+  return options.find((option) => option.value.toLowerCase().includes(keyword))?.value || firstValue(options, fallback);
+}
+
+function ensureAllowed(value: string, options: ModelOption[], fallback: string) {
+  return options.some((option) => option.value === value) ? value : firstValue(options, fallback);
+}
+
+function fallbackOptions(loading: boolean, allowed: AllowedModel[], options: ModelOption[]) {
+  return loading && allowed.length === 0 ? options : [];
+}
+
 function copyLabel(copied: boolean) {
   return copied ? 'Copied' : 'Copy';
 }
@@ -88,6 +118,60 @@ export default function DocsPage() {
   const [large, setLarge] = useState(CODEX_MODEL_OPTIONS[0].value);
   const [copiedSetup, setCopiedSetup] = useState(false);
   const [copiedUninstall, setCopiedUninstall] = useState(false);
+  const [allowedModels, setAllowedModels] = useState<AllowedModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadModels() {
+      try {
+        const response = await fetch('/api/models', { credentials: 'include' });
+        if (!response.ok) throw new Error('failed');
+        const data = await response.json();
+        if (!cancelled) setAllowedModels(Array.isArray(data.models) ? data.models : []);
+      } catch {
+        if (!cancelled) setAllowedModels([]);
+      } finally {
+        if (!cancelled) setModelsLoading(false);
+      }
+    }
+    loadModels();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const claudeAllowedOptions = useMemo(() => {
+    const options = allowedModels
+      .filter((model) => model.provider === 'anthropic' || model.name.toLowerCase().includes('claude'))
+      .map(modelToOption);
+    return options.length > 0 ? options : fallbackOptions(modelsLoading, allowedModels, [
+      ...CLAUDE_MODEL_OPTIONS.haiku,
+      ...CLAUDE_MODEL_OPTIONS.sonnet,
+      ...CLAUDE_MODEL_OPTIONS.opus,
+    ]);
+  }, [allowedModels, modelsLoading]);
+
+  const codexAllowedOptions = useMemo(() => {
+    const options = allowedModels
+      .filter((model) => model.provider !== 'anthropic' && !model.name.toLowerCase().includes('claude'))
+      .map(modelToOption);
+    return options.length > 0 ? options : fallbackOptions(modelsLoading, allowedModels, CODEX_MODEL_OPTIONS);
+  }, [allowedModels, modelsLoading]);
+
+  useEffect(() => {
+    setHaiku((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'haiku', CLAUDE_MODEL_OPTIONS.haiku[0].value)));
+    setSonnet((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'sonnet', CLAUDE_MODEL_OPTIONS.sonnet[0].value)));
+    setOpus((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'opus', CLAUDE_MODEL_OPTIONS.opus[0].value)));
+  }, [claudeAllowedOptions]);
+
+  useEffect(() => {
+    setSmall((value) => ensureAllowed(value, codexAllowedOptions, CODEX_MODEL_OPTIONS[0].value));
+    setMedium((value) => ensureAllowed(value, codexAllowedOptions, CODEX_MODEL_OPTIONS[0].value));
+    setLarge((value) => ensureAllowed(value, codexAllowedOptions, CODEX_MODEL_OPTIONS[0].value));
+  }, [codexAllowedOptions]);
+
+  const canCreateSetup = tool === 'claude-code' ? claudeAllowedOptions.length > 0 : codexAllowedOptions.length > 0;
 
   const params = useMemo(() => {
     const query = new URLSearchParams({ key: apiKey || 'YOUR_API_KEY', os });
@@ -105,7 +189,9 @@ export default function DocsPage() {
 
   const setupUrl = `${SETUP_BASE}/${tool}?${params.toString()}`;
   const uninstallUrl = `${SETUP_BASE}/${tool}/uninstall?os=${os}`;
-  const setupCmd = os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`;
+  const setupCmd = canCreateSetup
+    ? os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`
+    : 'Goi hien tai chua co model phu hop de tao lenh cai dat.';
   const uninstallCmd = os === 'windows' ? `irm "${uninstallUrl}" | iex` : `curl -fsSL "${uninstallUrl}" | bash`;
 
   const copy = useCallback(async (text: string, setter: (value: boolean) => void) => {
@@ -234,17 +320,24 @@ export default function DocsPage() {
           <p className="mb-2 text-[12px] font-medium text-[var(--stone-600)]">
             Model Mapping {tool === 'claude-code' ? '(Claude Code alias -> model thuc te)' : '(Codex size -> model thuc te)'}
           </p>
+          <p className="mb-2 text-[11px] leading-4 text-[var(--stone-600)]">
+            {modelsLoading
+              ? 'Dang tai model trong goi...'
+              : canCreateSetup
+                ? 'Chi hien thi model ma goi hien tai cho phep su dung.'
+                : 'Goi hien tai chua cho phep model phu hop voi cong cu nay.'}
+          </p>
           {tool === 'claude-code' ? (
             <div className="grid grid-cols-3 gap-2">
-              <ModelSelect label="Haiku (Fast)" value={haiku} onChange={setHaiku} options={CLAUDE_MODEL_OPTIONS.haiku} />
-              <ModelSelect label="Sonnet (Default)" value={sonnet} onChange={setSonnet} options={CLAUDE_MODEL_OPTIONS.sonnet} />
-              <ModelSelect label="Opus (Powerful)" value={opus} onChange={setOpus} options={CLAUDE_MODEL_OPTIONS.opus} />
+              <ModelSelect label="Haiku (Fast)" value={haiku} onChange={setHaiku} options={claudeAllowedOptions} />
+              <ModelSelect label="Sonnet (Default)" value={sonnet} onChange={setSonnet} options={claudeAllowedOptions} />
+              <ModelSelect label="Opus (Powerful)" value={opus} onChange={setOpus} options={claudeAllowedOptions} />
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              <ModelSelect label="Small" value={small} onChange={setSmall} options={CODEX_MODEL_OPTIONS} />
-              <ModelSelect label="Medium" value={medium} onChange={setMedium} options={CODEX_MODEL_OPTIONS} />
-              <ModelSelect label="Large" value={large} onChange={setLarge} options={CODEX_MODEL_OPTIONS} />
+              <ModelSelect label="Small" value={small} onChange={setSmall} options={codexAllowedOptions} />
+              <ModelSelect label="Medium" value={medium} onChange={setMedium} options={codexAllowedOptions} />
+              <ModelSelect label="Large" value={large} onChange={setLarge} options={codexAllowedOptions} />
             </div>
           )}
         </div>
@@ -255,6 +348,7 @@ export default function DocsPage() {
           copied={copiedSetup}
           onCopy={() => copy(setupCmd, setCopiedSetup)}
           tone="setup"
+          disabled={!canCreateSetup}
         />
 
         <div className="mt-4 rounded-[18px] border border-[#e8e8e4] bg-white px-4 py-3 shadow-sm dark:border-[#30302E] dark:bg-[#222221]">
@@ -309,11 +403,14 @@ function ModelSelect({
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-9 w-full appearance-none rounded-[15px] border border-[#e8e8e4] bg-white px-3 pr-7 text-[11px] font-medium text-[#222220] outline-none transition focus:border-[#2C84DB] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:border-[#30302E] dark:bg-[#222221] dark:text-[#FAF9F5]"
+          disabled={options.length === 0}
+          className="h-9 w-full appearance-none rounded-[15px] border border-[#e8e8e4] bg-white px-3 pr-7 text-[11px] font-medium text-[#222220] outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#2C84DB] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:border-[#30302E] dark:bg-[#222221] dark:text-[#FAF9F5]"
         >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
+          {options.length > 0
+            ? options.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))
+            : <option value={value}>Khong co model</option>}
         </select>
         <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--stone-600)]" />
       </span>
@@ -328,6 +425,7 @@ function CommandSection({
   onCopy,
   tone,
   compact = false,
+  disabled = false,
 }: {
   title: string;
   command: string;
@@ -335,6 +433,7 @@ function CommandSection({
   onCopy: () => void;
   tone: 'setup' | 'uninstall';
   compact?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <section>
@@ -346,7 +445,8 @@ function CommandSection({
         <button
           type="button"
           onClick={onCopy}
-          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] font-medium text-[var(--stone-600)] transition hover:bg-black/5 hover:text-[var(--charcoal-900)] dark:hover:bg-white/10"
+          disabled={disabled}
+          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] font-medium text-[var(--stone-600)] transition hover:bg-black/5 hover:text-[var(--charcoal-900)] disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-white/10"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           {copyLabel(copied)}

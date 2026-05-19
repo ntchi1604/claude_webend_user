@@ -13,8 +13,12 @@ export async function GET() {
       include: { plan: true }
     });
 
+    if (!sub) {
+      return NextResponse.json({ models: [] });
+    }
+
     let modelFilter: string[] = [];
-    if (sub?.plan.modelIds) {
+    if (sub.plan.modelIds) {
       try {
         modelFilter = JSON.parse(sub.plan.modelIds);
       } catch { }
