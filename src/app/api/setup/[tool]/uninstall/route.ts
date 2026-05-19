@@ -116,20 +116,25 @@ function uninstallCodexCliWindows() {
     `Write-Host "  OK Removed OPENAI_API_KEY" -ForegroundColor Green`,
     ``,
     `$codexDir = Join-Path $env:USERPROFILE ".codex"`,
-    `$backupDir = "$codexDir.api4cheap-backup"`,
     `$configFile = Join-Path $codexDir "config.toml"`,
-    `$oldBackup = Join-Path $codexDir "config.toml.api4cheap-backup"`,
-    `if (Test-Path $backupDir) {`,
-    `    if (Test-Path $codexDir) { Remove-Item -LiteralPath $codexDir -Recurse -Force }`,
-    `    Move-Item -LiteralPath $backupDir -Destination $codexDir -Force`,
-    `    Write-Host "  OK Restored .codex backup" -ForegroundColor Green`,
-    `} elseif (Test-Path $oldBackup) {`,
-    `    Copy-Item $oldBackup $configFile -Force`,
-    `    Remove-Item $oldBackup -Force`,
+    `$authFile = Join-Path $codexDir "auth.json"`,
+    `$configBackup = Join-Path $codexDir "config.toml.api4cheap-backup"`,
+    `$authBackup = Join-Path $codexDir "auth.json.api4cheap-backup"`,
+    `if (Test-Path $configBackup) {`,
+    `    Copy-Item -LiteralPath $configBackup -Destination $configFile -Force`,
+    `    Remove-Item -LiteralPath $configBackup -Force`,
     `    Write-Host "  OK Restored config.toml" -ForegroundColor Green`,
-    `} elseif (Test-Path $codexDir) {`,
-    `    Remove-Item -LiteralPath $codexDir -Recurse -Force`,
-    `    Write-Host "  OK Removed .codex" -ForegroundColor Green`,
+    `} elseif (Test-Path $configFile) {`,
+    `    Remove-Item -LiteralPath $configFile -Force`,
+    `    Write-Host "  OK Removed config.toml" -ForegroundColor Green`,
+    `}`,
+    `if (Test-Path $authBackup) {`,
+    `    Copy-Item -LiteralPath $authBackup -Destination $authFile -Force`,
+    `    Remove-Item -LiteralPath $authBackup -Force`,
+    `    Write-Host "  OK Restored auth.json" -ForegroundColor Green`,
+    `} elseif (Test-Path $authFile) {`,
+    `    Remove-Item -LiteralPath $authFile -Force`,
+    `    Write-Host "  OK Removed auth.json" -ForegroundColor Green`,
     `}`,
     ``,
     `Write-Host ""`,
@@ -147,18 +152,22 @@ echo ""
 
 CODEX_DIR="$HOME/.codex"
 CONFIG_FILE="$CODEX_DIR/config.toml"
-BACKUP_DIR="$HOME/.codex.api4cheap-backup"
-OLD_BACKUP="$CODEX_DIR/config.toml.api4cheap-backup"
-if [ -d "$BACKUP_DIR" ]; then
-  rm -rf "$CODEX_DIR"
-  mv "$BACKUP_DIR" "$CODEX_DIR"
-  echo "  OK Restored .codex backup"
-elif [ -f "$OLD_BACKUP" ]; then
-  mv "$OLD_BACKUP" "$CONFIG_FILE"
+AUTH_FILE="$CODEX_DIR/auth.json"
+CONFIG_BACKUP="$CODEX_DIR/config.toml.api4cheap-backup"
+AUTH_BACKUP="$CODEX_DIR/auth.json.api4cheap-backup"
+if [ -f "$CONFIG_BACKUP" ]; then
+  mv "$CONFIG_BACKUP" "$CONFIG_FILE"
   echo "  OK Restored config.toml"
-elif [ -d "$CODEX_DIR" ]; then
-  rm -rf "$CODEX_DIR"
-  echo "  OK Removed .codex"
+elif [ -f "$CONFIG_FILE" ]; then
+  rm -f "$CONFIG_FILE"
+  echo "  OK Removed config.toml"
+fi
+if [ -f "$AUTH_BACKUP" ]; then
+  mv "$AUTH_BACKUP" "$AUTH_FILE"
+  echo "  OK Restored auth.json"
+elif [ -f "$AUTH_FILE" ]; then
+  rm -f "$AUTH_FILE"
+  echo "  OK Removed auth.json"
 fi
 
 echo ""

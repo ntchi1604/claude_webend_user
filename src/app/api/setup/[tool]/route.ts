@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/setup/:tool?key=...&os=windows|mac
+ * GET /api/v1/setup/:tool?key=...&os=windows|mac
  * Returns a PowerShell or Bash script for Claude Code or Codex CLI.
  */
 export async function GET(
@@ -10,25 +11,35 @@ export async function GET(
 ) {
   const { tool } = await params;
   const url = new URL(req.url);
-  const key = url.searchParams.get('key') || 'YOUR_API_KEY';
+  const key = clean(url.searchParams.get('key'), 'YOUR_API_KEY');
   const os = url.searchParams.get('os') || 'windows';
-  const baseUrl = process.env.GATEWAY_BASE_URL || process.env.APP_URL || 'https://lccaptcha.io.vn';
-  const claudeBaseUrl = process.env.CLAUDE_CODE_BASE_URL || baseUrl;
-  const codexBaseUrl = process.env.CODEX_BASE_URL || baseUrl;
+  const baseUrl = 'https://lccaptcha.io.vn';
+  const claudeBaseUrl = baseUrl;
+  const codexBaseUrl = baseUrl;
   const keyShort = key.slice(0, 8) + '...';
+  const claudeModels = {
+    haiku: clean(url.searchParams.get('haiku'), 'claude-haiku-4-5-20251001'),
+    sonnet: clean(url.searchParams.get('sonnet'), 'claude-sonnet-4-6'),
+    opus: clean(url.searchParams.get('opus'), 'claude-opus-4-6'),
+  };
+  const codexModels = {
+    small: clean(url.searchParams.get('small'), 'gpt-5-nano'),
+    medium: clean(url.searchParams.get('medium'), 'gpt-5-nano'),
+    large: clean(url.searchParams.get('large'), 'gpt-5-nano'),
+  };
 
   let script = '';
 
   switch (tool) {
     case 'claude-code':
       script = os === 'windows'
-        ? generateClaudeCodeWindows({ baseUrl: claudeBaseUrl, key, keyShort })
-        : generateClaudeCodeUnix({ baseUrl: claudeBaseUrl, key, keyShort });
+        ? generateClaudeCodeWindows({ baseUrl: claudeBaseUrl, key, keyShort, ...claudeModels })
+        : generateClaudeCodeUnix({ baseUrl: claudeBaseUrl, key, keyShort, ...claudeModels });
       break;
     case 'codex-cli':
       script = os === 'windows'
-        ? generateCodexCliWindows({ baseUrl: codexBaseUrl, key, keyShort })
-        : generateCodexCliUnix({ baseUrl: codexBaseUrl, key, keyShort });
+        ? generateCodexCliWindows({ baseUrl: codexBaseUrl, key, keyShort, ...codexModels })
+        : generateCodexCliUnix({ baseUrl: codexBaseUrl, key, keyShort, ...codexModels });
       break;
     default:
       return NextResponse.json({ error: 'Unknown tool' }, { status: 404 });
@@ -39,7 +50,19 @@ export async function GET(
   });
 }
 
-function generateClaudeCodeWindows(p: { baseUrl: string; key: string; keyShort: string }) {
+function clean(value: string | null, fallback: string) {
+  const cleaned = (value || fallback).replace(/[\r\n]/g, '').trim();
+  return cleaned || fallback;
+}
+
+function generateClaudeCodeWindows(p: {
+  baseUrl: string;
+  key: string;
+  keyShort: string;
+  haiku: string;
+  sonnet: string;
+  opus: string;
+}) {
   return `Write-Host ""
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host "  Api4Cheap Claude Code Setup" -ForegroundColor Cyan
@@ -47,6 +70,9 @@ Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Endpoint: ${p.baseUrl}"
 Write-Host "API Key:  ${p.keyShort}"
+Write-Host "Haiku:    ${p.haiku}"
+Write-Host "Sonnet:   ${p.sonnet}"
+Write-Host "Opus:     ${p.opus}"
 Write-Host ""
 
 Write-Host "Checking prerequisites..."
@@ -87,9 +113,14 @@ if (Test-Path $settingsFile) {
 
 $settingsContent = @'
 {
+    "model": "sonnet",
     "env": {
         "ANTHROPIC_API_KEY": "${p.key}",
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
+        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
     },
     "permissions": {
@@ -115,7 +146,14 @@ Write-Host ""
 `;
 }
 
-function generateClaudeCodeUnix(p: { baseUrl: string; key: string; keyShort: string }) {
+function generateClaudeCodeUnix(p: {
+  baseUrl: string;
+  key: string;
+  keyShort: string;
+  haiku: string;
+  sonnet: string;
+  opus: string;
+}) {
   return `#!/bin/bash
 echo ""
 echo "================================"
@@ -124,6 +162,9 @@ echo "================================"
 echo ""
 echo "Endpoint: ${p.baseUrl}"
 echo "API Key:  ${p.keyShort}"
+echo "Haiku:    ${p.haiku}"
+echo "Sonnet:   ${p.sonnet}"
+echo "Opus:     ${p.opus}"
 echo ""
 
 echo "Checking prerequisites..."
@@ -151,9 +192,14 @@ fi
 
 cat > "$SETTINGS" << 'SETTINGSEOF'
 {
+    "model": "sonnet",
     "env": {
         "ANTHROPIC_API_KEY": "${p.key}",
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
+        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
     },
     "permissions": {
@@ -177,7 +223,14 @@ echo ""
 `;
 }
 
-function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: string }) {
+function generateCodexCliWindows(p: {
+  baseUrl: string;
+  key: string;
+  keyShort: string;
+  small: string;
+  medium: string;
+  large: string;
+}) {
   return [
     `Write-Host ""`,
     `Write-Host "================================" -ForegroundColor Cyan`,
@@ -186,8 +239,9 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
     `Write-Host ""`,
     `Write-Host "Endpoint:          ${p.baseUrl}"`,
     `Write-Host "API Key:           ${p.keyShort}"`,
-    `Write-Host "Model:             gpt-5.5"`,
-    `Write-Host "Reasoning effort:  xhigh"`,
+    `Write-Host "Small model:       ${p.small}"`,
+    `Write-Host "Medium model:      ${p.medium}"`,
+    `Write-Host "Large model:       ${p.large}"`,
     `Write-Host ""`,
     ``,
     `Write-Host "Checking prerequisites..."`,
@@ -208,13 +262,17 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
     `$codexDir = Join-Path $env:USERPROFILE ".codex"`,
     `$configFile = Join-Path $codexDir "config.toml"`,
     `$authFile = Join-Path $codexDir "auth.json"`,
-    `$backupDir = "$codexDir.api4cheap-backup"`,
-    `if (Test-Path $backupDir) { Remove-Item -LiteralPath $backupDir -Recurse -Force }`,
-    `if (Test-Path $codexDir) {`,
-    `    Move-Item -LiteralPath $codexDir -Destination $backupDir -Force`,
-    `    Write-Host "  Backed up existing .codex to $backupDir" -ForegroundColor Yellow`,
-    `}`,
     `New-Item -ItemType Directory -Path $codexDir -Force | Out-Null`,
+    `$configBackup = Join-Path $codexDir "config.toml.api4cheap-backup"`,
+    `$authBackup = Join-Path $codexDir "auth.json.api4cheap-backup"`,
+    `if (Test-Path $configFile) {`,
+    `    Copy-Item -LiteralPath $configFile -Destination $configBackup -Force`,
+    `    Write-Host "  Backed up config.toml" -ForegroundColor Yellow`,
+    `}`,
+    `if (Test-Path $authFile) {`,
+    `    Copy-Item -LiteralPath $authFile -Destination $authBackup -Force`,
+    `    Write-Host "  Backed up auth.json" -ForegroundColor Yellow`,
+    `}`,
     ``,
     `$utf8NoBom = New-Object System.Text.UTF8Encoding $false`,
     `$authContent = @'`,
@@ -225,8 +283,8 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
     ``,
     `$tomlContent = @'`,
     `model_provider = "api4cheap"`,
-    `model = "gpt-5.5"`,
-    `model_reasoning_effort = "xhigh"`,
+    `model = "${p.medium}"`,
+    `model_reasoning_effort = "medium"`,
     `disable_response_storage = true`,
     `preferred_auth_method = "apikey"`,
     ``,
@@ -234,6 +292,21 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
     `name = "Api4Cheap"`,
     `base_url = "${p.baseUrl}"`,
     `wire_api = "responses"`,
+    ``,
+    `[profiles.small]`,
+    `model_provider = "api4cheap"`,
+    `model = "${p.small}"`,
+    `model_reasoning_effort = "low"`,
+    ``,
+    `[profiles.medium]`,
+    `model_provider = "api4cheap"`,
+    `model = "${p.medium}"`,
+    `model_reasoning_effort = "medium"`,
+    ``,
+    `[profiles.large]`,
+    `model_provider = "api4cheap"`,
+    `model = "${p.large}"`,
+    `model_reasoning_effort = "xhigh"`,
     `'@`,
     `[System.IO.File]::WriteAllText($configFile, $tomlContent, $utf8NoBom)`,
     `Write-Host "  OK Written config.toml" -ForegroundColor Green`,
@@ -251,7 +324,14 @@ function generateCodexCliWindows(p: { baseUrl: string; key: string; keyShort: st
   ].filter(Boolean).join('\n');
 }
 
-function generateCodexCliUnix(p: { baseUrl: string; key: string; keyShort: string }) {
+function generateCodexCliUnix(p: {
+  baseUrl: string;
+  key: string;
+  keyShort: string;
+  small: string;
+  medium: string;
+  large: string;
+}) {
   return `#!/bin/bash
 echo ""
 echo "================================"
@@ -260,8 +340,9 @@ echo "================================"
 echo ""
 echo "Endpoint:          ${p.baseUrl}"
 echo "API Key:           ${p.keyShort}"
-echo "Model:             gpt-5.5"
-echo "Reasoning effort:  xhigh"
+echo "Small model:       ${p.small}"
+echo "Medium model:      ${p.medium}"
+echo "Large model:       ${p.large}"
 echo ""
 
 echo "Checking prerequisites..."
@@ -286,14 +367,18 @@ echo "Configuring Codex CLI..."
 CODEX_DIR="$HOME/.codex"
 CONFIG_FILE="$CODEX_DIR/config.toml"
 AUTH_FILE="$CODEX_DIR/auth.json"
-BACKUP_DIR="$HOME/.codex.api4cheap-backup"
-
-rm -rf "$BACKUP_DIR"
-if [ -d "$CODEX_DIR" ]; then
-  mv "$CODEX_DIR" "$BACKUP_DIR"
-  echo "  Backed up existing .codex to $BACKUP_DIR"
-fi
 mkdir -p "$CODEX_DIR"
+
+CONFIG_BACKUP="$CODEX_DIR/config.toml.api4cheap-backup"
+AUTH_BACKUP="$CODEX_DIR/auth.json.api4cheap-backup"
+if [ -f "$CONFIG_FILE" ]; then
+  cp "$CONFIG_FILE" "$CONFIG_BACKUP"
+  echo "  Backed up config.toml"
+fi
+if [ -f "$AUTH_FILE" ]; then
+  cp "$AUTH_FILE" "$AUTH_BACKUP"
+  echo "  Backed up auth.json"
+fi
 
 cat > "$AUTH_FILE" << 'AUTHEOF'
 {
@@ -304,8 +389,8 @@ echo "  OK Written auth.json"
 
 cat > "$CONFIG_FILE" << 'TOMLEOF'
 model_provider = "api4cheap"
-model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model = "${p.medium}"
+model_reasoning_effort = "medium"
 disable_response_storage = true
 preferred_auth_method = "apikey"
 
@@ -313,6 +398,21 @@ preferred_auth_method = "apikey"
 name = "Api4Cheap"
 base_url = "${p.baseUrl}"
 wire_api = "responses"
+
+[profiles.small]
+model_provider = "api4cheap"
+model = "${p.small}"
+model_reasoning_effort = "low"
+
+[profiles.medium]
+model_provider = "api4cheap"
+model = "${p.medium}"
+model_reasoning_effort = "medium"
+
+[profiles.large]
+model_provider = "api4cheap"
+model = "${p.large}"
+model_reasoning_effort = "xhigh"
 TOMLEOF
 echo "  OK Written config.toml"
 

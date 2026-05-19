@@ -22,19 +22,17 @@ Both commands install the official Codex CLI. Use whichever matches your setup.
 
 ## 02. Create the `.codex` Directory
 
-Delete the existing directory if present, then recreate it.
+Create the directory if it does not exist. Do not delete the whole `.codex` folder; Codex may keep log databases open while it is running.
 
 PowerShell:
 
 ```powershell
-Remove-Item -Recurse -Force ~/.codex -ErrorAction SilentlyContinue
-New-Item -ItemType Directory ~/.codex
+New-Item -ItemType Directory ~/.codex -Force
 ```
 
 macOS / Linux:
 
 ```bash
-rm -rf ~/.codex
 mkdir -p ~/.codex
 ```
 
