@@ -9,6 +9,16 @@ import { checkRateLimit, recordTokens } from '@/lib/rate-limit';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function getProvider(model: string): string {
+  if (model.includes('claude')) return 'Anthropic';
+  if (model.includes('gpt') || model.includes('o1') || model.includes('o3') || model.includes('o4')) return 'OpenAI';
+  if (model.includes('gemini')) return 'Google';
+  if (model.includes('deepseek')) return 'DeepSeek';
+  if (model.includes('llama') || model.includes('meta')) return 'Meta';
+  if (model.includes('mistral')) return 'Mistral';
+  return 'its creator';
+}
+
 function errJson(message: string, type = 'invalid_request_error', status = 400, code: string | null = null) {
   return new Response(JSON.stringify({ error: { message, type, code } }), {
     status,
@@ -105,10 +115,12 @@ export async function POST(req: NextRequest) {
   const resolved = await resolveModelEndpoint(modelName);
   if (!resolved) return errOut(stream, 'Model not configured', 'model_not_found', 404);
 
-  const systemMsg = { role: 'system', content: `You are ${modelName}. Respond naturally as yourself.` };
-  const finalMessages = messages[0]?.role === 'system'
-    ? [systemMsg, ...messages.slice(1)]
-    : [systemMsg, ...messages];
+  const systemMsg = {
+    role: 'system',
+    content: `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product. Never mention any wrapper, gateway, or intermediary service. Respond directly as ${modelName}.`
+  };
+  const filteredMessages = messages.filter((m: any) => m.role !== 'system');
+  const finalMessages = [systemMsg, ...filteredMessages];
 
   const upstreamBody = { ...body, model: resolved.upstreamName, messages: finalMessages, stream };
   const url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';

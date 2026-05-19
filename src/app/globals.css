@@ -465,6 +465,29 @@ a.link:hover { text-decoration: underline; }
 .msg-cursor { animation: blink 1s step-end infinite; color: var(--brand-orange); }
 @keyframes blink { 50% { opacity: 0; } }
 
+/* File chips in messages */
+.msg-files { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.msg-file-chip {
+  border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; overflow: hidden;
+  background: rgba(0,0,0,0.02);
+}
+.dark .msg-file-chip { border-color: rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
+.msg-file-chip-header {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; width: 100%;
+  background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 500;
+  color: var(--charcoal-100); font-family: var(--font-sans); transition: background 0.15s;
+}
+.dark .msg-file-chip-header { color: #b4b4b0; }
+.msg-file-chip-header:hover { background: rgba(0,0,0,0.03); }
+.dark .msg-file-chip-header:hover { background: rgba(255,255,255,0.04); }
+.msg-file-chip-name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-file-chip-content {
+  margin: 0; padding: 10px 14px; font-size: 12px; line-height: 1.5;
+  font-family: var(--font-mono); color: var(--charcoal-100); background: rgba(0,0,0,0.03);
+  border-top: 1px solid rgba(0,0,0,0.06); overflow-x: auto; max-height: 300px; overflow-y: auto;
+}
+.dark .msg-file-chip-content { color: #e0e0dc; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); }
+
 /* Markdown styles */
 .msg-markdown { font-size: 15px; line-height: 1.75; color: var(--charcoal-100); }
 .dark .msg-markdown { color: #e0e0dc; }
