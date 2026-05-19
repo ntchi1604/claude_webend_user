@@ -5,7 +5,7 @@ import { prisma } from './prisma';
 export const SESSION_COOKIE = 'cw_session';
 
 export async function getSession(): Promise<SessionPayload | null> {
-  const c = cookies().get(SESSION_COOKIE);
+  const c = (await cookies()).get(SESSION_COOKIE);
   if (!c?.value) return null;
   return verifySession(c.value);
 }
