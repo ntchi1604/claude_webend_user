@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
 
           if (!completionTokens) completionTokens = Math.ceil(fullContent.length / 4);
           const totalTokens = promptTokens + completionTokens;
-          const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens };
+          const usage = { input_tokens: promptTokens, output_tokens: completionTokens, total_tokens: totalTokens };
 
           if (completionTokens) recordTokens(key.id, completionTokens);
 
@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
   const upstreamUsage = data?.usage;
   const completionTokens = upstreamUsage?.completion_tokens || Math.ceil(content.length / 4);
   const totalTokens = (upstreamUsage?.prompt_tokens || promptTokens) + completionTokens;
-  const usage = { prompt_tokens: upstreamUsage?.prompt_tokens || promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens };
+  const usage = { input_tokens: upstreamUsage?.prompt_tokens || promptTokens, output_tokens: completionTokens, total_tokens: totalTokens };
 
   if (completionTokens) recordTokens(key.id, completionTokens);
 
