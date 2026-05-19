@@ -55,7 +55,7 @@ export default function KeysPage() {
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label className="form-label">Tên key (tuỳ chọn)</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="My Cursor key" />
+            <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="My Claude Code key" />
           </div>
           <button onClick={createKey} disabled={loading} className="btn-cta whitespace-nowrap">
             <Plus className="h-4 w-4" /> Tạo key

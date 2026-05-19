@@ -1,12 +1,11 @@
 import './globals.css';
-import 'highlight.js/styles/github-dark.css';
 import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
-  title: 'Api4Cheap — AI API Gateway',
-  description: 'Cloud AI gateway: Claude & GPT theo gói, reset mỗi 5 giờ. Tương thích OpenAI & Anthropic.',
-  icons: [{ rel: 'icon', url: '/favicon.ico' }]
+  title: 'Api4Cheap - Claude Code and Codex CLI Gateway',
+  description: 'Api4Cheap gateway for Claude Code and Codex CLI with base URL https://lccaptcha.io.vn.',
+  icons: [{ rel: 'icon', url: '/favicon.ico' }],
 };
 
 const themeScript = `(()=>{try{const t=localStorage.getItem('theme');const d=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;

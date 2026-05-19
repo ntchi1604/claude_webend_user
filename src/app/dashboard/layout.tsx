@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
-import { LogOut, Key, BarChart3, CreditCard, Package, BookOpen, MessageSquare } from 'lucide-react';
+import { LogOut, Key, BarChart3, CreditCard, Package, BookOpen } from 'lucide-react';
 import ThemeToggle from '@/components/theme-toggle';
 import MobileNav from '@/components/mobile-nav';
 
@@ -16,7 +16,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     { href: '/dashboard/billing', label: 'Nạp gói', icon: CreditCard },
     { href: '/dashboard/plans', label: 'Gói cước', icon: Package },
     { href: '/dashboard/docs', label: 'Tài liệu', icon: BookOpen },
-    { href: '/chat', label: 'Chat', icon: MessageSquare }
   ];
 
   return (

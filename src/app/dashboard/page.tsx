@@ -92,14 +92,16 @@ export default async function DashboardPage() {
       {/* Quick start */}
       <div className="card-code">
         <div className="caption mb-2" style={{ color: '#629987' }}>Quick start</div>
-        <pre className="whitespace-pre-wrap text-[13px] leading-5">{`# Cursor / Cline / Continue
-Base URL: ${process.env.APP_URL || 'http://localhost:3000'}/v1
-API Key:  sk-cw-...
+        <pre className="whitespace-pre-wrap text-[13px] leading-5">{`# Codex CLI
+Base URL: https://lccaptcha.io.vn
+API Key:  YOUR_API_KEY
 
 # Claude Code
-$env:ANTHROPIC_BASE_URL="${process.env.APP_URL || 'http://localhost:3000'}"
-$env:ANTHROPIC_AUTH_TOKEN="sk-cw-..."
-claude`}</pre>
+ANTHROPIC_BASE_URL=https://lccaptcha.io.vn
+ANTHROPIC_API_KEY=YOUR_API_KEY
+
+# Setup scripts
+Open Dashboard -> Docs -> Quick Setup`}</pre>
       </div>
     </div>
   );

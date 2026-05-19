@@ -6,8 +6,6 @@ import { Zap, BookOpen } from 'lucide-react';
 const DOCS = [
   { href: '/dashboard/docs', label: 'Quick Setup', icon: Zap },
   { href: '/dashboard/docs/claude-code', label: 'Claude Code', icon: BookOpen },
-  { href: '/dashboard/docs/openclaw-9router', label: 'OpenClaw + 9Router', icon: BookOpen },
-  { href: '/dashboard/docs/opencode', label: 'OpenCode', icon: BookOpen },
   { href: '/dashboard/docs/codex-cli', label: 'Codex CLI', icon: BookOpen },
 ];
 

@@ -1,84 +1,92 @@
 import { DocLayout, H2, P, Code, Inline, Callout, Ol, Li, Ul, Divider } from '@/components/doc-elements';
 import Link from 'next/link';
 
-export const metadata = { title: 'Codex CLI — Tài liệu' };
+export const metadata = { title: 'Codex CLI — Api4Cheap' };
 
 export default function Page() {
   return (
     <DocLayout
-      title="Hướng dẫn cấu hình Codex CLI với Api4Cheap"
-      description="Cấu hình Codex CLI (OpenAI) với Api4Cheap API"
+      title="Codex CLI Setup Guide"
+      description="Cài đặt Codex CLI chính thức và cấu hình provider Api4Cheap theo Codex Setup Guide."
     >
-      <H2>Codex CLI là gì?</H2>
+      <H2>Tổng quan</H2>
       <P>
-        <strong>Codex CLI</strong> là AI coding agent của OpenAI — chạy trực tiếp trong terminal, hỗ trợ viết code, debug, chạy lệnh và tự động hoàn thành task. Api4Cheap Platform hỗ trợ Codex CLI thông qua endpoint OpenAI-compatible.
+        <strong>Codex CLI</strong> là AI coding agent chính thức của OpenAI. Cấu hình bên dưới dùng package
+        <Inline>@openai/codex</Inline>, xác thực bằng API key và route qua endpoint
+        <Inline>https://lccaptcha.io.vn</Inline> với Responses API.
       </P>
-      <Callout kind="tip">
-        💡 Khi dùng Codex CLI qua Api4Cheap, bạn có thể dùng <strong>các model OpenAI</strong> (GPT-4.1, o3, o4-mini...) với giá tối ưu và thanh toán bằng VND.
+
+      <Callout kind="important">
+        Cấu hình Codex yêu cầu tạo lại thư mục <Inline>~/.codex</Inline>. Quick Setup sẽ backup cấu hình cũ vào
+        <Inline>~/.codex.api4cheap-backup</Inline> trước khi ghi file mới.
       </Callout>
 
       <Divider />
 
       <H2>Yêu cầu</H2>
       <Ul>
-        <Li>Node.js <strong>22+</strong> (<a className="link" href="https://nodejs.org/" target="_blank" rel="noreferrer">nodejs.org</a>)</Li>
-        <Li>API Key từ <Link className="link" href="/dashboard/keys">Api4Cheap Platform</Link></Li>
+        <Li>Windows 10 build 17763 / version 1809 trở lên, macOS hoặc Linux.</Li>
+        <Li>Node.js và npm nếu cài qua npm; macOS có thể cài bằng Homebrew.</Li>
+        <Li>API key từ Api4Cheap dashboard.</Li>
       </Ul>
 
       <Divider />
 
-      <H2>📌 Bước 1: Cài đặt Codex CLI</H2>
-      <Code lang="bash">{`npm install -g @openai/codex`}</Code>
-      <P>Kiểm tra cài đặt thành công:</P>
-      <Code lang="bash">{`codex --version`}</Code>
+      <H2>Bước 1: Cài Codex CLI</H2>
+      <P>Chạy một trong hai lệnh sau:</P>
+      <Code lang="bash">{`npm install -g @openai/codex
+# or
+brew install codex`}</Code>
+      <P>Kiểm tra cài đặt:</P>
+      <Code lang="bash">{`codex -V`}</Code>
 
       <Divider />
 
-      <H2>📌 Bước 2: Tạo API Key</H2>
+      <H2>Bước 2: Lấy API key</H2>
+      <P>Mở trang API Keys trên dashboard Api4Cheap, tạo key mới và copy secret.</P>
+      <Callout kind="warn">Treat your key like a password. Không chia sẻ key trong log, chat công khai hoặc repo.</Callout>
+
+      <Divider />
+
+      <H2>Bước 3: Quick Setup</H2>
       <Ol>
-        <Li>Truy cập <Link className="link" href="/dashboard/keys">trang API Keys</Link></Li>
-        <Li>Đăng nhập bằng tài khoản Google</Li>
-        <Li>Nhấn <strong>&quot;Tạo API Key&quot;</strong></Li>
-        <Li>Copy API Key (dạng <Inline>sk-cw-xxxx...</Inline>)</Li>
+        <Li>Vào <Link className="link" href="/dashboard/docs">Quick Setup</Link>.</Li>
+        <Li>Chọn tab <strong>Codex CLI</strong>.</Li>
+        <Li>Paste API key đầy đủ vào ô <strong>API Key</strong>.</Li>
+        <Li>Chọn hệ điều hành.</Li>
+        <Li>Copy lệnh cài đặt và chạy trong PowerShell hoặc terminal.</Li>
       </Ol>
-      <Callout kind="warn">⚠️ API key chỉ hiển thị 24 giờ đầu — copy và lưu ngay!</Callout>
+      <P>Script tự động cài <Inline>@openai/codex</Inline> nếu chưa có, backup <Inline>~/.codex</Inline>, rồi tạo hai file:</P>
+      <Code lang="json">{`{
+  "OPENAI_API_KEY": "YOUR_API_KEY"
+}`}</Code>
+      <Code lang="toml">{`model_provider = "api4cheap"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+preferred_auth_method = "apikey"
+
+[model_providers.api4cheap]
+name = "Api4Cheap"
+base_url = "https://lccaptcha.io.vn"
+wire_api = "responses"`}</Code>
 
       <Divider />
 
-      <H2>🚀 Bước 3: Cấu hình qua Quick Setup (khuyên dùng)</H2>
-      <P>Cách nhanh nhất — hệ thống tự sinh lệnh cài đặt cho bạn:</P>
+      <H2>Cấu hình thủ công</H2>
       <Ol>
-        <Li>Vào trang <Link className="link" href="/dashboard/docs">Quick Setup</Link></Li>
-        <Li>Chọn tab <strong>Codex CLI</strong></Li>
-        <Li>Paste <strong>API Key</strong> đầy đủ vào ô</Li>
-        <Li><strong>Chọn hệ điều hành</strong> — Windows hoặc macOS / Linux</Li>
-        <Li>
-          <strong>Chọn Model Mapping</strong> (tuỳ chọn):
-          <Ul>
-            <Li><strong>Small (Fast)</strong>: Model nhẹ, nhanh — task đơn giản (ví dụ: <Inline>o4-mini</Inline>)</Li>
-            <Li><strong>Medium (Default)</strong>: Model mặc định — cân bằng tốc độ/chất lượng (ví dụ: <Inline>gpt-4.1</Inline>)</Li>
-            <Li><strong>Large (Powerful)</strong>: Model mạnh nhất — task phức tạp (ví dụ: <Inline>o3</Inline>)</Li>
-          </Ul>
-          <Callout kind="tip">💡 Chỉ hiện các model OpenAI. Nếu không biết chọn gì, giữ mặc định là ổn!</Callout>
-        </Li>
-        <Li><strong>Copy lệnh</strong> — nhấn nút <strong>Copy</strong> bên cạnh khung lệnh</Li>
-        <Li>Mở <strong>PowerShell</strong> (Windows) hoặc <strong>Terminal</strong> (macOS/Linux)</Li>
-        <Li>Dán lệnh và nhấn <strong>Enter</strong></Li>
-        <Li>Sau khi cài xong, gõ <Inline>codex</Inline> để bắt đầu</Li>
+        <Li>Xóa thư mục <Inline>~/.codex</Inline> nếu tồn tại, sau đó tạo lại thư mục này.</Li>
+        <Li>Tạo <Inline>auth.json</Inline> với nội dung JSON ở trên.</Li>
+        <Li>Tạo <Inline>config.toml</Inline> với nội dung TOML ở trên.</Li>
+        <Li>Restart terminal.</Li>
       </Ol>
-      <P>Script tự động thực hiện:</P>
-      <Ul>
-        <Li>✅ Set <Inline>OPENAI_BASE_URL</Inline> + <Inline>OPENAI_API_KEY</Inline></Li>
-        <Li>✅ Tạo <Inline>~/.codex/config.toml</Inline> với model mapping</Li>
-        <Li>✅ Backup cấu hình cũ (<Inline>.api4cheap-backup</Inline>)</Li>
-      </Ul>
 
       <Divider />
 
-      <H2>📌 Bước 4: Kiểm tra kết nối</H2>
-      <Code lang="bash">{`cd /path/to/your/project
+      <H2>Bắt đầu dùng</H2>
+      <Code lang="bash">{`cd your-project-folder
 codex`}</Code>
-      <P>Codex CLI sẽ tự kết nối đến Api4Cheap và sẵn sàng nhận lệnh.</P>
+      <P>VS Code extension chính thức của Codex vẫn dùng được với cấu hình này.</P>
     </DocLayout>
   );
 }

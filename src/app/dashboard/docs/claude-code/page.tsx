@@ -1,96 +1,100 @@
 import { DocLayout, H2, P, Code, Inline, Callout, Ol, Li, Ul, Divider } from '@/components/doc-elements';
 import Link from 'next/link';
 
-export const metadata = { title: 'Claude Code — Tài liệu' };
+export const metadata = { title: 'Claude Code — Api4Cheap' };
 
 export default function Page() {
   return (
     <DocLayout
-      title="Hướng dẫn cấu hình Claude Code với Api4Cheap"
-      description="Cấu hình Claude Code (Anthropic) với Api4Cheap API"
+      title="Claude Code Setup Guide"
+      description="Cài đặt Claude Code client và cấu hình endpoint Api4Cheap theo Claude Code Setup Guide."
     >
-      <H2>Claude Code là gì?</H2>
+      <H2>Tổng quan</H2>
       <P>
-        <strong>Claude Code</strong> là AI coding assistant của Anthropic — chạy trực tiếp trong terminal, hỗ trợ viết code, debug, quản lý file và chạy lệnh. Api4Cheap Platform hỗ trợ Claude Code thông qua endpoint Anthropic Messages API tương thích.
+        <strong>Claude Code</strong> là coding client chạy trong terminal. Cấu hình bên dưới dùng package
+        <Inline>@anthropic-ai/claude-code</Inline>, xác thực bằng API key và route qua
+        <Inline>https://lccaptcha.io.vn</Inline>.
       </P>
+
       <Callout kind="tip">
-        💡 Khi dùng Claude Code qua Api4Cheap, bạn có thể gọi <strong>tất cả 32+ models</strong> (không chỉ Claude) — hệ thống tự route phù hợp.
+        Trên Windows nên chạy Claude Code trong Git Bash để việc xử lý path và quoting ổn định hơn CMD/PowerShell.
       </Callout>
 
       <Divider />
 
       <H2>Yêu cầu</H2>
       <Ul>
-        <Li>Node.js <strong>18+</strong> (<a className="link" href="https://nodejs.org/" target="_blank" rel="noreferrer">nodejs.org</a>)</Li>
-        <Li>API Key từ <Link className="link" href="/dashboard/keys">Api4Cheap Platform</Link></Li>
+        <Li>Windows 10 trở lên, macOS hoặc Linux.</Li>
+        <Li>Node.js <strong>18+</strong>.</Li>
+        <Li>API key từ Api4Cheap dashboard.</Li>
       </Ul>
 
       <Divider />
 
-      <H2>📌 Bước 1: Cài đặt Claude Code</H2>
+      <H2>Bước 1: Cài Git Bash và Node.js</H2>
+      <P>Windows nên cài Git for Windows với tùy chọn mặc định. Kiểm tra Node.js:</P>
+      <Code lang="bash">{`node --version`}</Code>
+      <P>Nếu version nhỏ hơn 18.0.0, cài Node.js LTS rồi mở lại terminal.</P>
+
+      <Divider />
+
+      <H2>Bước 2: Cài Claude Code</H2>
       <Code lang="bash">{`npm install -g @anthropic-ai/claude-code`}</Code>
-      <P>Kiểm tra cài đặt thành công:</P>
-      <Code lang="bash">{`claude --version`}</Code>
+      <P>Sau khi cài, đóng và mở lại terminal để PATH nhận lệnh <Inline>claude</Inline>.</P>
 
       <Divider />
 
-      <H2>📌 Bước 2: Tạo API Key</H2>
+      <H2>Bước 3: Lấy API key</H2>
+      <P>Mở trang API Keys trong dashboard Api4Cheap, tạo key mới và copy secret.</P>
+      <Callout kind="warn">API key chỉ nên lưu ở máy của bạn. Bất kỳ ai có key đều có thể dùng credit của bạn.</Callout>
+
+      <Divider />
+
+      <H2>Bước 4: Quick Setup</H2>
       <Ol>
-        <Li>Truy cập <Link className="link" href="/dashboard/keys">trang API Keys</Link></Li>
-        <Li>Đăng nhập bằng tài khoản Google</Li>
-        <Li>Nhấn <strong>&quot;Tạo API Key&quot;</strong></Li>
-        <Li>Copy API Key (dạng <Inline>sk-cw-xxxx...</Inline>)</Li>
+        <Li>Vào <Link className="link" href="/dashboard/docs">Quick Setup</Link>.</Li>
+        <Li>Chọn tab <strong>Claude Code</strong>.</Li>
+        <Li>Paste API key đầy đủ vào ô <strong>API Key</strong>.</Li>
+        <Li>Chọn hệ điều hành.</Li>
+        <Li>Copy lệnh cài đặt và chạy trong PowerShell, Git Bash hoặc terminal.</Li>
       </Ol>
-      <Callout kind="warn">⚠️ API key chỉ hiển thị 24 giờ đầu — copy và lưu ngay!</Callout>
+      <P>Script sẽ tạo <Inline>~/.claude/settings.json</Inline> theo mẫu sau:</P>
+      <Code lang="json">{`{
+  "env": {
+    "ANTHROPIC_API_KEY": "YOUR_API_KEY",
+    "ANTHROPIC_BASE_URL": "https://lccaptcha.io.vn",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": []
+  },
+  "apiKeyHelper": "echo 'YOUR_API_KEY'"
+}`}</Code>
 
       <Divider />
 
-      <H2>🚀 Bước 3: Cấu hình qua Quick Setup (khuyên dùng)</H2>
-      <P>Cách nhanh nhất — hệ thống tự sinh lệnh cài đặt cho bạn:</P>
+      <H2>Cấu hình thủ công</H2>
       <Ol>
-        <Li>Vào trang <Link className="link" href="/dashboard/docs">Quick Setup</Link></Li>
-        <Li>Chọn tab <strong>Claude Code</strong> (mặc định đã chọn)</Li>
-        <Li>Paste <strong>API Key</strong> đầy đủ vào ô</Li>
-        <Li><strong>Chọn hệ điều hành</strong> — Windows hoặc macOS / Linux</Li>
-        <Li>
-          <strong>Chọn Model Mapping</strong> (tuỳ chọn):
-          <Ul>
-            <Li><strong>Haiku (Fast)</strong>: Model nhanh, nhẹ — dùng cho task đơn giản</Li>
-            <Li><strong>Sonnet (Default)</strong>: Model mặc định khi gõ <Inline>claude</Inline> — cân bằng tốc độ/chất lượng</Li>
-            <Li><strong>Opus (Powerful)</strong>: Model mạnh nhất — dùng cho task phức tạp</Li>
-          </Ul>
-          <Callout kind="tip">💡 Nếu không biết chọn gì, giữ mặc định là ổn!</Callout>
-        </Li>
-        <Li><strong>Copy lệnh</strong> — nhấn nút <strong>Copy</strong> bên cạnh khung lệnh</Li>
-        <Li>Mở <strong>PowerShell</strong> (Windows) hoặc <strong>Terminal</strong> (macOS/Linux)</Li>
-        <Li>Dán lệnh và nhấn <strong>Enter</strong></Li>
-        <Li>Sau khi cài xong, gõ <Inline>claude</Inline> để bắt đầu</Li>
+        <Li>Nếu <Inline>~/.claude</Inline> chưa tồn tại, chạy <Inline>claude</Inline> một lần để client tạo thư mục.</Li>
+        <Li>Tạo hoặc thay thế <Inline>~/.claude/settings.json</Inline> bằng JSON ở trên.</Li>
+        <Li>Thay cả hai vị trí <Inline>YOUR_API_KEY</Inline> bằng secret của bạn.</Li>
+        <Li>Restart terminal.</Li>
       </Ol>
-      <P>Script tự động thực hiện:</P>
-      <Ul>
-        <Li>✅ Set <Inline>ANTHROPIC_BASE_URL</Inline> + <Inline>ANTHROPIC_API_KEY</Inline></Li>
-        <Li>✅ Smart merge <Inline>settings.json</Inline> (giữ nguyên cấu hình cũ)</Li>
-        <Li>✅ Bypass onboarding</Li>
-        <Li>✅ Backup cấu hình cũ (<Inline>.api4cheap-backup</Inline>)</Li>
-      </Ul>
 
       <Divider />
 
-      <H2>📌 Bước 4: Kiểm tra kết nối</H2>
-      <Code lang="bash">{`cd /path/to/your/project
-claude`}</Code>
-      <H2>Trust workspace → Chọn Yes</H2>
-      <Code>{`Quick safety check: Is this a project you created or one you trust?
+      <H2>Launch và kiểm tra</H2>
+      <Code lang="bash">{`claude`}</Code>
+      <P>Trong Claude Code, có thể gõ <Inline>/status</Inline> để kiểm tra base URL và thông tin auth.</P>
 
-> 1. Yes, I trust this folder
-  2. No, exit`}</Code>
-      <P>👉 Chọn <strong>1. Yes, I trust this folder</strong> → Enter</P>
+      <Divider />
 
-      <H2>Xem trạng thái</H2>
-      <P>Trong Claude Code, gõ <Inline>/status</Inline> để xem:</P>
+      <H2>FAQ ngắn</H2>
       <Ul>
-        <Li><strong>Anthropic base URL</strong> → phải là endpoint của Api4Cheap</Li>
-        <Li><strong>Auth</strong> → phải hiện API key</Li>
+        <Li>Update: chay lai <Inline>npm install -g @anthropic-ai/claude-code</Inline>.</Li>
+        <Li>Uninstall client: <Inline>npm uninstall -g @anthropic-ai/claude-code</Inline>.</Li>
+        <Li>Neu npm loi network, thu registry mirror: <Inline>npm install -g @anthropic-ai/claude-code --registry https://registry.npmmirror.com</Inline>.</Li>
       </Ul>
     </DocLayout>
   );

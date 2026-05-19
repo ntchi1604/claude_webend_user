@@ -1,129 +1,48 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, Terminal, Monitor, Apple } from 'lucide-react';
 
-type Tool = 'claude-code' | 'cursor' | 'openclaw' | 'codex-cli' | 'hermes-agent';
+import { useCallback, useState } from 'react';
+import { Apple, Check, Copy, Monitor, Terminal } from 'lucide-react';
 
-const TOOLS: { id: Tool; label: string; icon: string }[] = [
-  { id: 'claude-code', label: 'Claude Code', icon: '✦' },
-  { id: 'cursor', label: 'Cursor / Cline', icon: '⚡' },
-  { id: 'openclaw', label: 'OpenClaw', icon: '🐾' },
-  { id: 'codex-cli', label: 'Codex CLI', icon: '📟' },
-  { id: 'hermes-agent', label: 'Hermes', icon: '🪽' },
+type Tool = 'claude-code' | 'codex-cli';
+type Os = 'windows' | 'mac';
+
+const BASE_URL = 'https://lccaptcha.io.vn';
+
+const TOOLS: { id: Tool; label: string; summary: string }[] = [
+  {
+    id: 'claude-code',
+    label: 'Claude Code',
+    summary: 'Configure ANTHROPIC_BASE_URL and settings.json for Claude Code.',
+  },
+  {
+    id: 'codex-cli',
+    label: 'Codex CLI',
+    summary: 'Configure Api4Cheap as the Codex provider with Responses API.',
+  },
 ];
 
 export default function DocsPage() {
-  const base = 'https://lccaptcha.io.vn';
-
   const [tool, setTool] = useState<Tool>('claude-code');
-  const [os, setOs] = useState<'windows' | 'mac'>('windows');
-  const [selectedKey, setSelectedKey] = useState('');
-  const [models, setModels] = useState<string[]>([]);
-  const [haiku, setHaiku] = useState('');
-  const [sonnet, setSonnet] = useState('');
-  const [opus, setOpus] = useState('');
-  const [cursorModel, setCursorModel] = useState('');
-  const [openclawSmall, setOpenclawSmall] = useState('');
-  const [openclawMedium, setOpenclawMedium] = useState('');
-  const [openclawHigh, setOpenclawHigh] = useState('');
-  const [codexSmall, setCodexSmall] = useState('');
-  const [codexMedium, setCodexMedium] = useState('');
-  const [codexLarge, setCodexLarge] = useState('');
-  const [hermesModel, setHermesModel] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/models').then(r => r.json()).then(d => {
-      const m = (d.models || d || []).map((x: any) => x.name || x.id || x);
-      setModels(m);
-      if (m.length > 0) {
-        // Auto-select defaults
-        const s = m.find((x: string) => x.includes('sonnet')) || m[0];
-        const h = m.find((x: string) => x.includes('haiku')) || '';
-        const o = m.find((x: string) => x.includes('opus')) || '';
-        setSonnet(s);
-        setHaiku(h);
-        setOpus(o);
-        setCursorModel(s);
-      }
-    }).catch(() => {});
-  }, []);
-
-  const getSetupCommand = useCallback(() => {
-    const key = selectedKey || 'sk-cw-xxxx';
-    if (tool === 'claude-code') {
-      const params = new URLSearchParams({ key, os });
-      if (haiku) params.set('haiku', haiku);
-      if (sonnet) params.set('sonnet', sonnet);
-      if (opus) params.set('opus', opus);
-      const url = `${base}/api/setup/claude-code?${params.toString()}`;
-      if (os === 'windows') {
-        return `irm "${url}" | iex`;
-      } else {
-        return `curl -fsSL "${url}" | bash`;
-      }
-    }
-    if (tool === 'openclaw') {
-      const params = new URLSearchParams({ key, os });
-      if (openclawSmall) params.set('small', openclawSmall);
-      if (openclawMedium) params.set('medium', openclawMedium);
-      if (openclawHigh) params.set('high', openclawHigh);
-      const url = `${base}/api/setup/openclaw?${params.toString()}`;
-      if (os === 'windows') {
-        return `irm "${url}" | iex`;
-      } else {
-        return `curl -fsSL "${url}" | bash`;
-      }
-    }
-    if (tool === 'codex-cli') {
-      const params = new URLSearchParams({ key, os });
-      if (codexSmall) params.set('small', codexSmall);
-      if (codexMedium) params.set('medium', codexMedium);
-      if (codexLarge) params.set('large', codexLarge);
-      const url = `${base}/api/setup/codex-cli?${params.toString()}`;
-      if (os === 'windows') {
-        return `irm "${url}" | iex`;
-      } else {
-        return `curl -fsSL "${url}" | bash`;
-      }
-    }
-    if (tool === 'hermes-agent') {
-      const params = new URLSearchParams({ key, os });
-      if (hermesModel) params.set('model', hermesModel);
-      const url = `${base}/api/setup/hermes-agent?${params.toString()}`;
-      if (os === 'windows') {
-        return `irm "${url}" | iex`;
-      } else {
-        return `curl -fsSL "${url}" | bash`;
-      }
-    }
-    // Cursor/Cline — just show config
-    return '';
-  }, [tool, os, selectedKey, haiku, sonnet, opus, cursorModel, base, openclawSmall, openclawMedium, openclawHigh, codexSmall, codexMedium, codexLarge, hermesModel]);
-
-  const getUninstallCommand = useCallback(() => {
-    if (tool === 'cursor') return '';
-    const toolSlug = tool === 'claude-code' ? 'claude-code' : tool;
-    const url = `${base}/api/setup/${toolSlug}/uninstall?os=${os}`;
-    if (os === 'windows') {
-      return `irm "${url}" | iex`;
-    } else {
-      return `curl -fsSL "${url}" | bash`;
-    }
-  }, [tool, os, base]);
-
+  const [os, setOs] = useState<Os>('windows');
+  const [apiKey, setApiKey] = useState('');
+  const [copiedSetup, setCopiedSetup] = useState(false);
   const [copiedUninstall, setCopiedUninstall] = useState(false);
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const getSetupCommand = useCallback(() => {
+    const params = new URLSearchParams({ key: apiKey || 'YOUR_API_KEY', os });
+    const url = `${BASE_URL}/api/setup/${tool}?${params.toString()}`;
+    return os === 'windows' ? `irm "${url}" | iex` : `curl -fsSL "${url}" | bash`;
+  }, [apiKey, os, tool]);
 
-  const copyUninstall = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedUninstall(true);
-    setTimeout(() => setCopiedUninstall(false), 2000);
+  const getUninstallCommand = useCallback(() => {
+    const url = `${BASE_URL}/api/setup/${tool}/uninstall?os=${os}`;
+    return os === 'windows' ? `irm "${url}" | iex` : `curl -fsSL "${url}" | bash`;
+  }, [os, tool]);
+
+  const copy = async (text: string, setter: (value: boolean) => void) => {
+    await navigator.clipboard.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
   };
 
   const setupCmd = getSetupCommand();
@@ -132,466 +51,164 @@ export default function DocsPage() {
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
       <div>
-        <h1 className="heading-1">Cấu hình API Key</h1>
-        <p className="body-sm text-[var(--stone-600)] mt-1">Thiết lập nhanh cho công cụ AI hoặc cấu hình thủ công.</p>
+        <h1 className="heading-1">Quick Setup</h1>
+        <p className="body-sm text-[var(--stone-600)] mt-1">
+          Configure Api4Cheap for Claude Code or Codex CLI using the live base URL.
+        </p>
       </div>
 
-      {/* Tool tabs */}
       <div className="card">
-        <div className="flex gap-1 p-1 rounded-lg bg-[var(--cream-50)] mb-6">
-          {TOOLS.map(t => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 rounded-lg bg-[var(--cream-50)] mb-6">
+          {TOOLS.map((item) => (
             <button
-              key={t.id}
-              onClick={() => setTool(t.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-[14px] font-medium transition-all ${
-                tool === t.id
+              key={item.id}
+              onClick={() => setTool(item.id)}
+              className={`flex min-h-[72px] flex-col items-start justify-center gap-1 rounded-md px-4 py-3 text-left transition-all ${
+                tool === item.id
                   ? 'bg-white dark:bg-[#2a2a29] shadow-sm text-[var(--charcoal-900)]'
                   : 'text-[var(--stone-600)] hover:text-[var(--charcoal-900)]'
               }`}
             >
-              <span>{t.icon}</span> {t.label}
+              <span className="text-[14px] font-medium">{item.label}</span>
+              <span className="text-[12px] leading-4 text-[var(--stone-600)]">{item.summary}</span>
             </button>
           ))}
         </div>
 
-        {/* API Key input */}
         <div className="mb-4">
           <label className="form-label">API Key</label>
           <input
             type="text"
-            value={selectedKey}
-            onChange={e => setSelectedKey(e.target.value)}
-            placeholder="sk-cw-xxxx"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder="YOUR_API_KEY"
             className="input"
           />
-          <p className="caption mt-1">Paste API Key đầy đủ từ trang API Keys.</p>
+          <p className="caption mt-1">Paste the full Api4Cheap API key. The setup script writes it only to local config files.</p>
         </div>
 
-        {/* OS toggle (for claude-code) */}
-        {tool === 'claude-code' && (
-          <>
-            <div className="mb-4">
-              <label className="form-label">Hệ điều hành</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setOs('windows')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'windows'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Monitor className="h-4 w-4" /> Windows
-                </button>
-                <button
-                  onClick={() => setOs('mac')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'mac'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Apple className="h-4 w-4" /> macOS / Linux
-                </button>
-              </div>
-            </div>
-
-            {/* Model selectors */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              <div>
-                <label className="form-label">Haiku (fast)</label>
-                <select value={haiku} onChange={e => setHaiku(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Sonnet (default)</label>
-                <select value={sonnet} onChange={e => setSonnet(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Opus (powerful)</label>
-                <select value={opus} onChange={e => setOpus(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Setup command */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
-                <button
-                  onClick={() => copyToClipboard(setupCmd)}
-                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
-                >
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? 'Đã copy' : 'Copy'}
-                </button>
-              </div>
-              <div className="card-code">
-                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
-              </div>
-              <div className="mt-3 space-y-1">
-                <p className="caption">Hướng dẫn:</p>
-                <p className="caption">1. Copy lệnh ở trên</p>
-                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
-                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">claude</code></p>
-              </div>
-
-              {/* Uninstall */}
-              <details className="mt-4">
-                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="card-code flex-1">
-                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
-                  </div>
-                  <button
-                    onClick={() => copyUninstall(uninstallCmd)}
-                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
-                  >
-                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </details>
-            </div>
-          </>
-        )}
-
-        {/* Cursor / Cline config */}
-        {tool === 'cursor' && (
-          <div>
-            <div className="mb-4">
-              <label className="form-label">Model</label>
-              <select value={cursorModel} onChange={e => setCursorModel(e.target.value)} className="input">
-                <option value="">Chọn model...</option>
-                {models.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-
-            <div className="card-code">
-              <div className="space-y-1 text-[13px]">
-                <div><span style={{ color: '#629987' }}>Provider:</span> OpenAI Compatible</div>
-                <div><span style={{ color: '#629987' }}>Base URL:</span> {base}/v1</div>
-                <div><span style={{ color: '#629987' }}>API Key:</span>  {selectedKey || 'sk-cw-xxxx'}</div>
-                <div><span style={{ color: '#629987' }}>Model:</span>   {cursorModel || 'claude-sonnet-4-5'}</div>
-              </div>
-            </div>
-            <p className="caption mt-3">Paste thông tin trên vào Settings của Cursor / Cline / Continue / Roo Code.</p>
+        <div className="mb-4">
+          <label className="form-label">Operating system</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setOs('windows')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                os === 'windows'
+                  ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                  : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+              }`}
+            >
+              <Monitor className="h-4 w-4" /> Windows
+            </button>
+            <button
+              onClick={() => setOs('mac')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
+                os === 'mac'
+                  ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
+                  : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
+              }`}
+            >
+              <Apple className="h-4 w-4" /> macOS / Linux
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* OpenClaw */}
-        {tool === 'openclaw' && (
-          <>
-            <div className="mb-4">
-              <label className="form-label">Hệ điều hành</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setOs('windows')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'windows'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Monitor className="h-4 w-4" /> Windows
-                </button>
-                <button
-                  onClick={() => setOs('mac')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'mac'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Apple className="h-4 w-4" /> macOS / Linux
-                </button>
-              </div>
+        {tool === 'claude-code' ? <ClaudeSummary /> : <CodexSummary />}
+
+        <div className="mt-6">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <span className="label flex items-center gap-1.5">
+              <Terminal className="h-3.5 w-3.5" /> Setup command
+            </span>
+            <button
+              onClick={() => copy(setupCmd, setCopiedSetup)}
+              className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
+            >
+              {copiedSetup ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copiedSetup ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <div className="card-code">
+            <code className="text-[13px] break-all leading-6">{setupCmd}</code>
+          </div>
+          <div className="mt-3 space-y-1">
+            <p className="caption">1. Copy the command above.</p>
+            <p className="caption">2. Run it in {os === 'windows' ? 'PowerShell' : 'Terminal'}.</p>
+            <p className="caption">
+              3. Restart the shell, then run{' '}
+              <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">
+                {tool === 'claude-code' ? 'claude' : 'codex'}
+              </code>
+              .
+            </p>
+          </div>
+        </div>
+
+        <details className="mt-5">
+          <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Uninstall Api4Cheap config</summary>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="card-code flex-1">
+              <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              <div>
-                <label className="form-label">Small</label>
-                <select value={openclawSmall} onChange={e => setOpenclawSmall(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Medium</label>
-                <select value={openclawMedium} onChange={e => setOpenclawMedium(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">High</label>
-                <select value={openclawHigh} onChange={e => setOpenclawHigh(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
-                <button
-                  onClick={() => copyToClipboard(setupCmd)}
-                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
-                >
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? 'Đã copy' : 'Copy'}
-                </button>
-              </div>
-              <div className="card-code">
-                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
-              </div>
-              <div className="mt-3 space-y-1">
-                <p className="caption">Hướng dẫn:</p>
-                <p className="caption">1. Copy lệnh ở trên</p>
-                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
-                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">openclaw</code></p>
-              </div>
-
-              <details className="mt-4">
-                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="card-code flex-1">
-                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
-                  </div>
-                  <button
-                    onClick={() => copyUninstall(uninstallCmd)}
-                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
-                  >
-                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </details>
-            </div>
-          </>
-        )}
-
-        {/* Codex CLI */}
-        {tool === 'codex-cli' && (
-          <>
-            <div className="mb-4">
-              <label className="form-label">Hệ điều hành</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setOs('windows')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'windows'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Monitor className="h-4 w-4" /> Windows
-                </button>
-                <button
-                  onClick={() => setOs('mac')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'mac'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Apple className="h-4 w-4" /> macOS / Linux
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              <div>
-                <label className="form-label">Small</label>
-                <select value={codexSmall} onChange={e => setCodexSmall(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Medium</label>
-                <select value={codexMedium} onChange={e => setCodexMedium(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Large</label>
-                <select value={codexLarge} onChange={e => setCodexLarge(e.target.value)} className="input">
-                  <option value="">Không dùng</option>
-                  {models.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
-                <button
-                  onClick={() => copyToClipboard(setupCmd)}
-                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
-                >
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? 'Đã copy' : 'Copy'}
-                </button>
-              </div>
-              <div className="card-code">
-                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
-              </div>
-              <div className="mt-3 space-y-1">
-                <p className="caption">Hướng dẫn:</p>
-                <p className="caption">1. Copy lệnh ở trên</p>
-                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
-                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">codex</code></p>
-              </div>
-
-              <details className="mt-4">
-                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="card-code flex-1">
-                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
-                  </div>
-                  <button
-                    onClick={() => copyUninstall(uninstallCmd)}
-                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
-                  >
-                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </details>
-            </div>
-          </>
-        )}
-
-        {/* Hermes Agent */}
-        {tool === 'hermes-agent' && (
-          <>
-            <div className="mb-4">
-              <label className="form-label">Hệ điều hành</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setOs('windows')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'windows'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Monitor className="h-4 w-4" /> Windows
-                </button>
-                <button
-                  onClick={() => setOs('mac')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-[14px] transition-all ${
-                    os === 'mac'
-                      ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)] font-medium'
-                      : 'border-[var(--lavender-100)] text-[var(--stone-600)] hover:border-[var(--stone-600)]'
-                  }`}
-                >
-                  <Apple className="h-4 w-4" /> macOS / Linux
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="form-label">Model</label>
-              <select value={hermesModel} onChange={e => setHermesModel(e.target.value)} className="input">
-                <option value="">Chọn model...</option>
-                {models.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="label flex items-center gap-1.5"><Terminal className="h-3.5 w-3.5" /> Lệnh cài đặt</span>
-                <button
-                  onClick={() => copyToClipboard(setupCmd)}
-                  className="flex items-center gap-1.5 text-[12px] text-[var(--brand-blue)] hover:underline cursor-pointer"
-                >
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? 'Đã copy' : 'Copy'}
-                </button>
-              </div>
-              <div className="card-code">
-                <code className="text-[13px] break-all leading-6">{setupCmd}</code>
-              </div>
-              <div className="mt-3 space-y-1">
-                <p className="caption">Hướng dẫn:</p>
-                <p className="caption">1. Copy lệnh ở trên</p>
-                <p className="caption">2. Mở <b>{os === 'windows' ? 'PowerShell' : 'Terminal'}</b>, dán lệnh và nhấn Enter</p>
-                <p className="caption">3. Sau đó chạy: <code className="font-mono text-[12px] bg-[var(--cream-50)] px-1 rounded">hermes</code></p>
-              </div>
-
-              <details className="mt-4">
-                <summary className="text-[13px] text-red-500 cursor-pointer hover:underline">Gỡ cài đặt</summary>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="card-code flex-1">
-                    <code className="text-[13px] break-all leading-6">{uninstallCmd}</code>
-                  </div>
-                  <button
-                    onClick={() => copyUninstall(uninstallCmd)}
-                    className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
-                  >
-                    {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </details>
-            </div>
-          </>
-        )}
+            <button
+              onClick={() => copy(uninstallCmd, setCopiedUninstall)}
+              className="shrink-0 p-1.5 text-[var(--stone-600)] hover:text-[var(--charcoal-900)]"
+              aria-label="Copy uninstall command"
+            >
+              {copiedUninstall ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </details>
       </div>
 
-      {/* Manual API docs */}
       <div className="card">
-        <h2 className="heading-5 mb-4">API Reference</h2>
-        <div className="space-y-4">
-          <div>
-            <span className="label">Endpoints</span>
-            <div className="card-code mt-2">
-              <pre className="whitespace-pre-wrap text-[13px] leading-5">{`Base URL:  ${base}
-OpenAI:    POST ${base}/v1/chat/completions
-           GET  ${base}/v1/models
-Anthropic: POST ${base}/v1/messages
+        <h2 className="heading-5 mb-4">Live endpoints</h2>
+        <div className="card-code">
+          <pre className="whitespace-pre-wrap text-[13px] leading-5">{`Claude Code base URL: ${BASE_URL}
+Claude Messages API:  POST ${BASE_URL}/v1/messages
 
-Streaming: stream: true — SSE đúng format từng provider.`}</pre>
-            </div>
-          </div>
-
-          <div>
-            <span className="label">cURL — OpenAI</span>
-            <div className="card-code mt-2">
-              <pre className="whitespace-pre-wrap text-[13px] leading-5">{`curl ${base}/v1/chat/completions \\
-  -H "Authorization: Bearer ${selectedKey || 'sk-cw-xxxx'}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "${cursorModel || 'claude-sonnet-4-5'}",
-    "messages": [{"role":"user","content":"Xin chào"}],
-    "stream": true
-  }'`}</pre>
-            </div>
-          </div>
-
-          <div>
-            <span className="label">cURL — Anthropic</span>
-            <div className="card-code mt-2">
-              <pre className="whitespace-pre-wrap text-[13px] leading-5">{`curl ${base}/v1/messages \\
-  -H "x-api-key: ${selectedKey || 'sk-cw-xxxx'}" \\
-  -H "anthropic-version: 2023-06-01" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "${sonnet || 'claude-sonnet-4-5'}",
-    "max_tokens": 1024,
-    "messages": [{"role":"user","content":"Hi"}]
-  }'`}</pre>
-            </div>
-          </div>
+Codex base URL:       ${BASE_URL}
+Codex Responses API:  POST ${BASE_URL}/v1/responses
+Models:               GET  ${BASE_URL}/v1/models`}</pre>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ClaudeSummary() {
+  return (
+    <div className="card-code">
+      <pre className="whitespace-pre-wrap text-[13px] leading-5">{`~/.claude/settings.json
+
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "YOUR_API_KEY",
+    "ANTHROPIC_BASE_URL": "https://lccaptcha.io.vn",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": { "allow": [], "deny": [] },
+  "apiKeyHelper": "echo 'YOUR_API_KEY'"
+}`}</pre>
+    </div>
+  );
+}
+
+function CodexSummary() {
+  return (
+    <div className="card-code">
+      <pre className="whitespace-pre-wrap text-[13px] leading-5">{`~/.codex/config.toml
+
+model_provider = "api4cheap"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+preferred_auth_method = "apikey"
+
+[model_providers.api4cheap]
+name = "Api4Cheap"
+base_url = "https://lccaptcha.io.vn"
+wire_api = "responses"`}</pre>
     </div>
   );
 }
