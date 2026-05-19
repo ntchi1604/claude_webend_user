@@ -9,7 +9,8 @@
       "Bash(npx prisma *)",
       "PowerShell(New-Item *)",
       "WebSearch",
-      "PowerShell(npm run *)"
+      "PowerShell(npm run *)",
+      "WebFetch(domain:platform.openai.com)"
     ]
   }
 }
