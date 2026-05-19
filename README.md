@@ -56,7 +56,7 @@ preferred_auth_method = "apikey"
 
 [model_providers.api4cheap]
 name = "Api4Cheap"
-base_url = "https://lccaptcha.io.vn"
+base_url = "https://lccaptcha.io.vn/v1"
 wire_api = "responses"
 ```
 

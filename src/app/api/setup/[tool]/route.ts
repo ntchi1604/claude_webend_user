@@ -15,7 +15,7 @@ export async function GET(
   const os = url.searchParams.get('os') || 'windows';
   const baseUrl = 'https://lccaptcha.io.vn';
   const claudeBaseUrl = baseUrl;
-  const codexBaseUrl = baseUrl;
+  const codexBaseUrl = `${baseUrl}/v1`;
   const keyShort = key.slice(0, 8) + '...';
   const claudeModels = {
     haiku: clean(url.searchParams.get('haiku'), 'claude-haiku-4-5-20251001'),

@@ -3,23 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Apple,
-  Bot,
   Check,
   ChevronDown,
   Code2,
   Copy,
-  Cpu,
   KeyRound,
   Monitor,
-  Settings,
-  Sparkles,
   Terminal,
   Trash2,
-  X,
   Zap,
 } from 'lucide-react';
 
-type Tool = 'claude-code' | 'codex-cli' | 'openclaw' | 'hermes';
 type ActiveTool = 'claude-code' | 'codex-cli';
 type Os = 'windows' | 'mac';
 type AllowedModel = { id: string; name: string; provider: string };
@@ -29,18 +23,26 @@ const BASE_URL = 'https://lccaptcha.io.vn';
 const SETUP_BASE = `${BASE_URL}/api/v1/setup`;
 
 const TOOL_OPTIONS: {
-  id: Tool;
+  id: ActiveTool;
   label: string;
+  description: string;
   icon: React.ComponentType<{ className?: string }>;
-  disabled?: boolean;
 }[] = [
-  { id: 'claude-code', label: 'Claude Code', icon: Sparkles },
-  { id: 'openclaw', label: 'OpenClaw', icon: Bot, disabled: true },
-  { id: 'codex-cli', label: 'Codex CLI', icon: Code2 },
-  { id: 'hermes', label: 'Hermes', icon: Cpu, disabled: true },
+  {
+    id: 'claude-code',
+    label: 'Claude Code',
+    description: 'Thiết lập endpoint, API key và model Claude được gói cho phép.',
+    icon: Zap,
+  },
+  {
+    id: 'codex-cli',
+    label: 'Codex CLI',
+    description: 'Thiết lập provider Api4Cheap cho Codex CLI và Responses API.',
+    icon: Code2,
+  },
 ];
 
-const CLAUDE_MODEL_OPTIONS = {
+const CLAUDE_FALLBACK_OPTIONS = {
   haiku: [
     { label: 'Claude Haiku 4.5', value: 'claude-haiku-4-5-20251001' },
     { label: 'Claude Haiku 4', value: 'claude-haiku-4' },
@@ -55,7 +57,7 @@ const CLAUDE_MODEL_OPTIONS = {
   ],
 };
 
-const CODEX_MODEL_OPTIONS = [
+const CODEX_FALLBACK_OPTIONS = [
   { label: 'GPT-5 Nano', value: 'gpt-5-nano' },
   { label: 'GPT-5 Mini', value: 'gpt-5-mini' },
   { label: 'GPT-5', value: 'gpt-5' },
@@ -66,7 +68,11 @@ function labelFromModelName(name: string) {
   return name
     .split('-')
     .filter(Boolean)
-    .map((part) => (part.length <= 3 ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)))
+    .map((part) => {
+      if (part.toLowerCase() === 'gpt') return 'GPT';
+      if (/^\d/.test(part)) return part;
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
     .join(' ');
 }
 
@@ -90,32 +96,26 @@ function fallbackOptions(loading: boolean, allowed: AllowedModel[], options: Mod
   return loading && allowed.length === 0 ? options : [];
 }
 
-function copyLabel(copied: boolean) {
-  return copied ? 'Copied' : 'Copy';
-}
-
-function codeBlockTone(kind: 'setup' | 'uninstall') {
-  return kind === 'setup'
-    ? 'text-[#7ee6a1] selection:bg-emerald-300/20'
-    : 'text-[#ff9ca8] selection:bg-rose-300/20';
-}
-
 function maskedKey(key: string) {
   if (!key) return 'sk-bee-...';
   if (key.length <= 18) return key;
   return `${key.slice(0, 10)}...${key.slice(-6)}`;
 }
 
+function copiedLabel(copied: boolean) {
+  return copied ? 'Đã sao chép' : 'Sao chép';
+}
+
 export default function DocsPage() {
   const [tool, setTool] = useState<ActiveTool>('claude-code');
   const [os, setOs] = useState<Os>('windows');
   const [apiKey, setApiKey] = useState('');
-  const [haiku, setHaiku] = useState(CLAUDE_MODEL_OPTIONS.haiku[0].value);
-  const [sonnet, setSonnet] = useState(CLAUDE_MODEL_OPTIONS.sonnet[0].value);
-  const [opus, setOpus] = useState(CLAUDE_MODEL_OPTIONS.opus[0].value);
-  const [small, setSmall] = useState(CODEX_MODEL_OPTIONS[0].value);
-  const [medium, setMedium] = useState(CODEX_MODEL_OPTIONS[0].value);
-  const [large, setLarge] = useState(CODEX_MODEL_OPTIONS[0].value);
+  const [haiku, setHaiku] = useState(CLAUDE_FALLBACK_OPTIONS.haiku[0].value);
+  const [sonnet, setSonnet] = useState(CLAUDE_FALLBACK_OPTIONS.sonnet[0].value);
+  const [opus, setOpus] = useState(CLAUDE_FALLBACK_OPTIONS.opus[0].value);
+  const [small, setSmall] = useState(CODEX_FALLBACK_OPTIONS[0].value);
+  const [medium, setMedium] = useState(CODEX_FALLBACK_OPTIONS[0].value);
+  const [large, setLarge] = useState(CODEX_FALLBACK_OPTIONS[0].value);
   const [copiedSetup, setCopiedSetup] = useState(false);
   const [copiedUninstall, setCopiedUninstall] = useState(false);
   const [allowedModels, setAllowedModels] = useState<AllowedModel[]>([]);
@@ -126,7 +126,7 @@ export default function DocsPage() {
     async function loadModels() {
       try {
         const response = await fetch('/api/models', { credentials: 'include' });
-        if (!response.ok) throw new Error('failed');
+        if (!response.ok) throw new Error('Không tải được model');
         const data = await response.json();
         if (!cancelled) setAllowedModels(Array.isArray(data.models) ? data.models : []);
       } catch {
@@ -146,9 +146,9 @@ export default function DocsPage() {
       .filter((model) => model.provider === 'anthropic' || model.name.toLowerCase().includes('claude'))
       .map(modelToOption);
     return options.length > 0 ? options : fallbackOptions(modelsLoading, allowedModels, [
-      ...CLAUDE_MODEL_OPTIONS.haiku,
-      ...CLAUDE_MODEL_OPTIONS.sonnet,
-      ...CLAUDE_MODEL_OPTIONS.opus,
+      ...CLAUDE_FALLBACK_OPTIONS.haiku,
+      ...CLAUDE_FALLBACK_OPTIONS.sonnet,
+      ...CLAUDE_FALLBACK_OPTIONS.opus,
     ]);
   }, [allowedModels, modelsLoading]);
 
@@ -156,19 +156,19 @@ export default function DocsPage() {
     const options = allowedModels
       .filter((model) => model.provider !== 'anthropic' && !model.name.toLowerCase().includes('claude'))
       .map(modelToOption);
-    return options.length > 0 ? options : fallbackOptions(modelsLoading, allowedModels, CODEX_MODEL_OPTIONS);
+    return options.length > 0 ? options : fallbackOptions(modelsLoading, allowedModels, CODEX_FALLBACK_OPTIONS);
   }, [allowedModels, modelsLoading]);
 
   useEffect(() => {
-    setHaiku((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'haiku', CLAUDE_MODEL_OPTIONS.haiku[0].value)));
-    setSonnet((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'sonnet', CLAUDE_MODEL_OPTIONS.sonnet[0].value)));
-    setOpus((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'opus', CLAUDE_MODEL_OPTIONS.opus[0].value)));
+    setHaiku((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'haiku', CLAUDE_FALLBACK_OPTIONS.haiku[0].value)));
+    setSonnet((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'sonnet', CLAUDE_FALLBACK_OPTIONS.sonnet[0].value)));
+    setOpus((value) => ensureAllowed(value, claudeAllowedOptions, pickByKeyword(claudeAllowedOptions, 'opus', CLAUDE_FALLBACK_OPTIONS.opus[0].value)));
   }, [claudeAllowedOptions]);
 
   useEffect(() => {
-    setSmall((value) => ensureAllowed(value, codexAllowedOptions, CODEX_MODEL_OPTIONS[0].value));
-    setMedium((value) => ensureAllowed(value, codexAllowedOptions, CODEX_MODEL_OPTIONS[0].value));
-    setLarge((value) => ensureAllowed(value, codexAllowedOptions, CODEX_MODEL_OPTIONS[0].value));
+    setSmall((value) => ensureAllowed(value, codexAllowedOptions, CODEX_FALLBACK_OPTIONS[0].value));
+    setMedium((value) => ensureAllowed(value, codexAllowedOptions, CODEX_FALLBACK_OPTIONS[0].value));
+    setLarge((value) => ensureAllowed(value, codexAllowedOptions, CODEX_FALLBACK_OPTIONS[0].value));
   }, [codexAllowedOptions]);
 
   const canCreateSetup = tool === 'claude-code' ? claudeAllowedOptions.length > 0 : codexAllowedOptions.length > 0;
@@ -191,7 +191,7 @@ export default function DocsPage() {
   const uninstallUrl = `${SETUP_BASE}/${tool}/uninstall?os=${os}`;
   const setupCmd = canCreateSetup
     ? os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`
-    : 'Goi hien tai chua co model phu hop de tao lenh cai dat.';
+    : 'Gói hiện tại chưa có model phù hợp để tạo lệnh cài đặt.';
   const uninstallCmd = os === 'windows' ? `irm "${uninstallUrl}" | iex` : `curl -fsSL "${uninstallUrl}" | bash`;
 
   const copy = useCallback(async (text: string, setter: (value: boolean) => void) => {
@@ -200,51 +200,19 @@ export default function DocsPage() {
     setTimeout(() => setter(false), 1600);
   }, []);
 
-  const chooseTool = (id: Tool) => {
-    if (id === 'claude-code' || id === 'codex-cli') setTool(id);
-  };
-
-  const currentCopy = tool === 'claude-code'
-    ? 'Cau hinh Claude Code dung Api4Cheap API. Tu dong thiet lap endpoint, API key va bypass onboarding.'
-    : 'Cau hinh Codex CLI dung Api4Cheap API. Tu dong thiet lap provider, API key va model mapping.';
+  const activeTool = TOOL_OPTIONS.find((item) => item.id === tool) ?? TOOL_OPTIONS[0];
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] animate-fade-in">
-      <div className="mx-auto w-full max-w-[460px] rounded-[24px] border border-white/70 bg-[#f7f7f6] p-5 shadow-[0_24px_80px_rgba(20,20,19,0.18)] dark:border-[#30302E] dark:bg-[#1A1A19] sm:p-6">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[20px] font-semibold leading-7 text-[#1d1d1b] dark:text-[#FAF9F5]">Cau hinh API Key</h1>
-            <p className="mt-0.5 text-[13px] leading-5 text-[var(--stone-600)]">
-              Thiet lap nhanh cho cong cu AI hoac cau hinh model fallback.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[var(--stone-600)] transition-colors hover:bg-black/5 hover:text-[var(--charcoal-900)] dark:hover:bg-white/10"
-            aria-label="Close docs"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <div className="animate-fade-in">
+      <div className="mb-6 max-w-3xl">
+        <h1 className="heading-1">Cài đặt nhanh khóa API</h1>
+        <p className="body-sm mt-2 text-[var(--stone-600)]">
+          Chọn công cụ, dán khóa API đầy đủ và chạy một lệnh duy nhất để cấu hình Api4Cheap trên máy của bạn.
+        </p>
+      </div>
 
-        <div className="mb-4 grid grid-cols-2 rounded-[18px] bg-white p-1 shadow-sm dark:bg-[#222221]">
-          <button
-            type="button"
-            className="flex h-9 items-center justify-center gap-2 rounded-[14px] bg-white text-[13px] font-medium text-[#171716] shadow-[0_4px_18px_rgba(20,20,19,0.08)] dark:bg-[#30302E] dark:text-[#FAF9F5]"
-          >
-            <Zap className="h-4 w-4" />
-            Quick Setup
-          </button>
-          <button
-            type="button"
-            className="flex h-9 items-center justify-center gap-2 rounded-[14px] text-[13px] font-medium text-[var(--stone-600)]"
-          >
-            <Settings className="h-4 w-4" />
-            Model Fallback
-          </button>
-        </div>
-
-        <div className="mb-4 grid grid-cols-4 rounded-[18px] border border-[#e7e7e3] bg-white p-1 shadow-sm dark:border-[#30302E] dark:bg-[#222221]">
+      <div className="grid max-w-5xl gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="space-y-3">
           {TOOL_OPTIONS.map((item) => {
             const active = item.id === tool;
             const Icon = item.icon;
@@ -252,136 +220,162 @@ export default function DocsPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => chooseTool(item.id)}
-                disabled={item.disabled}
-                className={`flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-[14px] px-2 text-[12px] font-medium transition-all ${
+                onClick={() => setTool(item.id)}
+                className={`w-full rounded-lg border p-4 text-left transition-all ${
                   active
-                    ? 'bg-[#f2f2ef] text-[#222220] shadow-sm dark:bg-[#30302E] dark:text-[#FAF9F5]'
-                    : 'text-[var(--stone-600)] hover:bg-[#f8f8f6] disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-[#2a2a29]'
+                    ? 'border-[var(--brand-blue)] bg-white shadow-[var(--shadow-standard)] dark:bg-[#222221]'
+                    : 'border-[var(--lavender-100)] bg-white/70 hover:border-[var(--brand-blue)] hover:bg-white dark:bg-[#1A1A19]'
                 }`}
               >
-                <Icon className={`h-3.5 w-3.5 shrink-0 ${item.id === 'openclaw' ? 'text-[#d45b7a]' : ''}`} />
-                <span className="truncate">{item.label}</span>
+                <span className="flex items-center gap-3">
+                  <span className={`grid h-9 w-9 place-items-center rounded-md ${active ? 'bg-[var(--brand-blue-light)] text-[var(--brand-blue)]' : 'bg-[var(--cream-50)] text-[var(--stone-600)]'}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>
+                    <span className="block text-[14px] font-semibold text-[var(--charcoal-900)]">{item.label}</span>
+                    <span className="mt-0.5 block text-[12px] leading-5 text-[var(--stone-600)]">{item.description}</span>
+                  </span>
+                </span>
               </button>
             );
           })}
-        </div>
+        </aside>
 
-        <p className="mb-4 text-[12px] leading-5 text-[var(--stone-600)]">{currentCopy}</p>
-
-        <div className="mb-4 rounded-[18px] border border-[#f4df9c] bg-[#fff9df] px-3 py-2 text-[12px] leading-5 text-[#9b6b16] shadow-sm dark:border-[#574515] dark:bg-[#2b2615] dark:text-[#e7c76d]">
-          <span className="font-medium">Warning:</span> API key da bi an sau 24h. Vui long dan full API key de tao lenh cai dat.
-        </div>
-
-        <div className="mb-5">
-          <div className="relative">
-            <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--stone-600)]" />
-            <input
-              type="text"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value.trim())}
-              placeholder="Dan API key day du (sk-bee-...)"
-              className="h-10 w-full rounded-[18px] border border-[#e6e6e2] bg-white pl-9 pr-3 font-mono text-[12px] text-[#222220] outline-none transition focus:border-[#2C84DB] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:border-[#30302E] dark:bg-[#222221] dark:text-[#FAF9F5]"
-            />
-          </div>
-        </div>
-
-        <div className="mb-5">
-          <p className="mb-2 text-[12px] font-medium text-[var(--stone-600)]">He dieu hanh</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setOs('mac')}
-              className={`flex h-10 items-center justify-center gap-2 rounded-[18px] border px-3 text-[13px] font-medium transition-all ${
-                os === 'mac'
-                  ? 'border-[#2C84DB] bg-[#eef7ff] text-[#286fae] dark:bg-[#102335]'
-                  : 'border-[#e5e5e0] bg-white text-[var(--stone-600)] hover:border-[#b8b8b1] dark:border-[#30302E] dark:bg-[#222221]'
-              }`}
-            >
-              <Apple className="h-4 w-4" />
-              macOS / Linux
-            </button>
-            <button
-              type="button"
-              onClick={() => setOs('windows')}
-              className={`flex h-10 items-center justify-center gap-2 rounded-[18px] border px-3 text-[13px] font-medium transition-all ${
-                os === 'windows'
-                  ? 'border-[#2C84DB] bg-[#eef7ff] text-[#286fae] dark:bg-[#102335]'
-                  : 'border-[#e5e5e0] bg-white text-[var(--stone-600)] hover:border-[#b8b8b1] dark:border-[#30302E] dark:bg-[#222221]'
-              }`}
-            >
-              <Monitor className="h-4 w-4" />
-              Windows
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-5">
-          <p className="mb-2 text-[12px] font-medium text-[var(--stone-600)]">
-            Model Mapping {tool === 'claude-code' ? '(Claude Code alias -> model thuc te)' : '(Codex size -> model thuc te)'}
-          </p>
-          <p className="mb-2 text-[11px] leading-4 text-[var(--stone-600)]">
-            {modelsLoading
-              ? 'Dang tai model trong goi...'
-              : canCreateSetup
-                ? 'Chi hien thi model ma goi hien tai cho phep su dung.'
-                : 'Goi hien tai chua cho phep model phu hop voi cong cu nay.'}
-          </p>
-          {tool === 'claude-code' ? (
-            <div className="grid grid-cols-3 gap-2">
-              <ModelSelect label="Haiku (Fast)" value={haiku} onChange={setHaiku} options={claudeAllowedOptions} />
-              <ModelSelect label="Sonnet (Default)" value={sonnet} onChange={setSonnet} options={claudeAllowedOptions} />
-              <ModelSelect label="Opus (Powerful)" value={opus} onChange={setOpus} options={claudeAllowedOptions} />
+        <section className="rounded-lg border border-[var(--lavender-100)] bg-white p-5 shadow-[var(--shadow-standard)] dark:bg-[#1A1A19] sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 border-b border-[var(--lavender-100)] pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[var(--stone-600)]">Cài đặt nhanh</p>
+              <h2 className="mt-1 text-[20px] font-semibold leading-7 text-[var(--charcoal-900)]">{activeTool.label}</h2>
             </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              <ModelSelect label="Small" value={small} onChange={setSmall} options={codexAllowedOptions} />
-              <ModelSelect label="Medium" value={medium} onChange={setMedium} options={codexAllowedOptions} />
-              <ModelSelect label="Large" value={large} onChange={setLarge} options={codexAllowedOptions} />
+            <span className="rounded-md bg-[var(--cream-50)] px-3 py-1.5 text-[12px] font-medium text-[var(--stone-600)]">
+              Địa chỉ API: {BASE_URL}
+            </span>
+          </div>
+
+          <div className="grid gap-5">
+            <div>
+              <label className="mb-2 block text-[13px] font-medium text-[var(--charcoal-900)]">Khóa API</label>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--stone-600)]" />
+                <input
+                  type="text"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value.trim())}
+                  placeholder="Dán khóa API đầy đủ, ví dụ sk-bee-..."
+                  className="h-11 w-full rounded-md border border-[var(--lavender-100)] bg-white pl-9 pr-3 font-mono text-[13px] outline-none transition focus:border-[var(--brand-blue)] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:bg-[#222221]"
+                />
+              </div>
+              <p className="mt-2 text-[12px] leading-5 text-[var(--stone-600)]">
+                Khóa API chỉ dùng để tạo lệnh cấu hình. Nếu khóa đã bị ẩn, hãy dán lại khóa đầy đủ từ trang Khóa API.
+              </p>
             </div>
-          )}
-        </div>
 
-        <CommandSection
-          title="Lenh cai dat"
-          command={setupCmd}
-          copied={copiedSetup}
-          onCopy={() => copy(setupCmd, setCopiedSetup)}
-          tone="setup"
-          disabled={!canCreateSetup}
-        />
+            <div>
+              <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Hệ điều hành</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <OsButton active={os === 'windows'} icon={Monitor} label="Windows" onClick={() => setOs('windows')} />
+                <OsButton active={os === 'mac'} icon={Apple} label="macOS / Linux" onClick={() => setOs('mac')} />
+              </div>
+            </div>
 
-        <div className="mt-4 rounded-[18px] border border-[#e8e8e4] bg-white px-4 py-3 shadow-sm dark:border-[#30302E] dark:bg-[#222221]">
-          <p className="mb-1 text-[13px] font-medium text-[#222220] dark:text-[#FAF9F5]">Huong dan:</p>
-          <ol className="list-decimal space-y-0.5 pl-4 text-[12px] leading-5 text-[var(--stone-600)]">
-            <li>Copy lenh o tren</li>
-            <li>Mo {os === 'windows' ? 'PowerShell' : 'Terminal'} dan lenh va nhan Enter</li>
-            <li>Sau do chay: <span className="font-mono text-[#222220] dark:text-[#FAF9F5]">{tool === 'claude-code' ? 'claude' : 'codex'}</span></li>
-          </ol>
-        </div>
+            <div>
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[13px] font-medium text-[var(--charcoal-900)]">Model trong gói</p>
+                  <p className="text-[12px] leading-5 text-[var(--stone-600)]">
+                    {modelsLoading
+                      ? 'Đang tải danh sách model được phép sử dụng...'
+                      : canCreateSetup
+                        ? 'Chỉ hiển thị model mà gói hiện tại cho phép.'
+                        : 'Gói hiện tại chưa có model phù hợp với công cụ này.'}
+                  </p>
+                </div>
+              </div>
 
-        <details className="group mt-5">
-          <summary className="flex cursor-pointer list-none items-center gap-2 text-[12px] font-medium text-[#d95b68]">
-            <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-            Go cai dat
-          </summary>
-          <div className="mt-3">
+              {tool === 'claude-code' ? (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <ModelSelect label="Haiku" value={haiku} onChange={setHaiku} options={claudeAllowedOptions} />
+                  <ModelSelect label="Sonnet" value={sonnet} onChange={setSonnet} options={claudeAllowedOptions} />
+                  <ModelSelect label="Opus" value={opus} onChange={setOpus} options={claudeAllowedOptions} />
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <ModelSelect label="Nhỏ" value={small} onChange={setSmall} options={codexAllowedOptions} />
+                  <ModelSelect label="Trung bình" value={medium} onChange={setMedium} options={codexAllowedOptions} />
+                  <ModelSelect label="Lớn" value={large} onChange={setLarge} options={codexAllowedOptions} />
+                </div>
+              )}
+            </div>
+
             <CommandSection
-              title="Lenh go cai dat"
-              command={uninstallCmd}
-              copied={copiedUninstall}
-              onCopy={() => copy(uninstallCmd, setCopiedUninstall)}
-              tone="uninstall"
-              compact
+              title="Lệnh cài đặt"
+              command={setupCmd}
+              copied={copiedSetup}
+              onCopy={() => copy(setupCmd, setCopiedSetup)}
+              tone="setup"
+              disabled={!canCreateSetup}
             />
-          </div>
-        </details>
 
-        <div className="mt-5 text-[11px] leading-5 text-[var(--stone-600)]">
-          Command se dung key <span className="font-mono">{maskedKey(apiKey)}</span> va endpoint <span className="font-mono">{BASE_URL}</span>.
-        </div>
+            <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
+              <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Hướng dẫn</p>
+              <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-5 text-[var(--stone-600)]">
+                <li>Sao chép lệnh cài đặt ở trên.</li>
+                <li>Mở {os === 'windows' ? 'PowerShell' : 'Terminal'}, dán lệnh và nhấn Enter.</li>
+                <li>Sau khi cài xong, mở terminal mới rồi chạy <span className="font-mono text-[var(--charcoal-900)]">{tool === 'claude-code' ? 'claude' : 'codex'}</span>.</li>
+              </ol>
+            </div>
+
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-medium text-[#d95b68]">
+                <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                Gỡ cấu hình Api4Cheap
+              </summary>
+              <div className="mt-3">
+                <CommandSection
+                  title="Lệnh gỡ cấu hình"
+                  command={uninstallCmd}
+                  copied={copiedUninstall}
+                  onCopy={() => copy(uninstallCmd, setCopiedUninstall)}
+                  tone="uninstall"
+                  compact
+                />
+              </div>
+            </details>
+
+            <p className="text-[11px] leading-5 text-[var(--stone-600)]">
+              Lệnh sẽ dùng khóa <span className="font-mono">{maskedKey(apiKey)}</span> và địa chỉ API <span className="font-mono">{BASE_URL}</span>.
+            </p>
+          </div>
+        </section>
       </div>
     </div>
+  );
+}
+
+function OsButton({
+  active,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-[14px] font-medium transition-all ${
+        active
+          ? 'border-[var(--brand-blue)] bg-[var(--brand-blue-light)] text-[var(--brand-blue)]'
+          : 'border-[var(--lavender-100)] bg-white text-[var(--stone-600)] hover:border-[var(--brand-blue)] dark:bg-[#222221]'
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
   );
 }
 
@@ -393,26 +387,26 @@ function ModelSelect({
 }: {
   label: string;
   value: string;
-  options: { label: string; value: string }[];
+  options: ModelOption[];
   onChange: (value: string) => void;
 }) {
   return (
     <label className="min-w-0">
-      <span className="mb-1 block truncate text-[10px] font-medium leading-4 text-[var(--stone-600)]">{label}</span>
+      <span className="mb-1 block text-[12px] font-medium text-[var(--stone-600)]">{label}</span>
       <span className="relative block">
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
           disabled={options.length === 0}
-          className="h-9 w-full appearance-none rounded-[15px] border border-[#e8e8e4] bg-white px-3 pr-7 text-[11px] font-medium text-[#222220] outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#2C84DB] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:border-[#30302E] dark:bg-[#222221] dark:text-[#FAF9F5]"
+          className="h-10 w-full appearance-none rounded-md border border-[var(--lavender-100)] bg-white px-3 pr-8 text-[12px] font-medium text-[var(--charcoal-900)] outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-[var(--brand-blue)] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:bg-[#222221]"
         >
           {options.length > 0
             ? options.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))
-            : <option value={value}>Khong co model</option>}
+            : <option value={value}>Không có model</option>}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--stone-600)]" />
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--stone-600)]" />
       </span>
     </label>
   );
@@ -438,22 +432,22 @@ function CommandSection({
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--stone-600)]">
-          {tone === 'setup' ? <Terminal className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+        <span className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--stone-600)]">
+          {tone === 'setup' ? <Terminal className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
           {title}
         </span>
         <button
           type="button"
           onClick={onCopy}
           disabled={disabled}
-          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] font-medium text-[var(--stone-600)] transition hover:bg-black/5 hover:text-[var(--charcoal-900)] disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-white/10"
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-[var(--stone-600)] transition hover:bg-black/5 hover:text-[var(--charcoal-900)] disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-white/10"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          {copyLabel(copied)}
+          {copiedLabel(copied)}
         </button>
       </div>
-      <div className={`rounded-[18px] bg-[#111724] px-4 py-3 shadow-[0_10px_24px_rgba(9,12,19,0.18)] ${compact ? 'min-h-[58px]' : 'min-h-[88px]'}`}>
-        <code className={`block whitespace-pre-wrap break-all font-mono text-[12px] leading-6 ${codeBlockTone(tone)}`}>{command}</code>
+      <div className={`rounded-lg bg-[#111724] px-4 py-3 shadow-[0_10px_24px_rgba(9,12,19,0.18)] ${compact ? 'min-h-[58px]' : 'min-h-[92px]'}`}>
+        <code className={`block whitespace-pre-wrap break-all font-mono text-[12px] leading-6 ${tone === 'setup' ? 'text-[#7ee6a1]' : 'text-[#ff9ca8]'}`}>{command}</code>
       </div>
     </section>
   );
