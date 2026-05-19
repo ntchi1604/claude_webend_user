@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
   const resolved = await resolveModelEndpoint(modelName);
   if (!resolved) return errJson('Model not configured', 404);
 
-  const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
+  const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream: false };
   if (body.temperature != null) upstreamBody.temperature = body.temperature;
   if (body.max_output_tokens != null) upstreamBody.max_tokens = body.max_output_tokens;
   else if (body.max_tokens != null) upstreamBody.max_tokens = body.max_tokens;
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
 
   console.log(`[responses] upstream status=${upstream.status} model=${modelName} -> ${resolved.upstreamName}`);
 
-  if (!upstream.ok || !upstream.body) {
+  if (!upstream.ok) {
     const text = await upstream.text();
     console.error('[responses] upstream error body:', text.slice(0, 300));
     return new Response(JSON.stringify({ error: { message: text.slice(0, 500), type: 'upstream_error' } }), {
@@ -173,81 +173,49 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const data = await upstream.json();
+  const content = data?.choices?.[0]?.message?.content || '';
+  const upstreamUsage = data?.usage;
+  const completionTokens = upstreamUsage?.completion_tokens || Math.ceil(content.length / 4);
+  const totalTokens = (upstreamUsage?.prompt_tokens || promptTokens) + completionTokens;
+  const usage = { prompt_tokens: upstreamUsage?.prompt_tokens || promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens };
+
+  if (completionTokens) recordTokens(key.id, completionTokens);
+
   const respId = `resp_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
 
+  console.log(`[responses] done model=${modelName} content_length=${content.length} stream_requested=${stream}`);
+
   if (!stream) {
-    const data = await upstream.json();
-    const content = data?.choices?.[0]?.message?.content || '';
-    const usage = data?.usage || { prompt_tokens: promptTokens, completion_tokens: 0, total_tokens: promptTokens };
-    if (usage.completion_tokens) recordTokens(key.id, usage.completion_tokens);
     return Response.json(buildResponseObject(respId, modelName, content, usage));
   }
 
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
+  // Client requested streaming - emit all events from completed response
   const encoder = new TextEncoder();
+  const events: string[] = [];
+  const ev = (event: string, d: any) => { events.push(`event: ${event}\ndata: ${JSON.stringify(d)}\n\n`); };
 
-  const respStream = new ReadableStream({
-    async start(controller) {
-      const send = (event: string, data: any) => {
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
-      };
+  ev('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
+  ev('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
+  ev('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
 
-      try {
-        send('response.created', { id: respId, object: 'response', status: 'in_progress', model: modelName, output: [], created_at: Math.floor(Date.now() / 1000) });
-        send('response.output_item.added', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'in_progress', content: [] } });
-        send('response.content_part.added', { output_index: 0, content_index: 0, part: { type: 'output_text', text: '' } });
+  // Send content in chunks to simulate streaming
+  const chunkSize = 100;
+  for (let i = 0; i < content.length; i += chunkSize) {
+    const delta = content.slice(i, i + chunkSize);
+    ev('response.output_text.delta', { output_index: 0, content_index: 0, delta });
+  }
 
-        let buf = '', full = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const parts = buf.split('\n\n');
-          buf = parts.pop() || '';
-          for (const part of parts) {
-            const line = part.split('\n').find((l) => l.startsWith('data:'));
-            if (!line) continue;
-            const payload = line.slice(5).trim();
-            if (!payload || payload === '[DONE]') continue;
-            try {
-              const j = JSON.parse(payload);
-              if (j?.error) {
-                const errText = j.error.message || JSON.stringify(j.error);
-                full += errText;
-                send('response.output_text.delta', { output_index: 0, content_index: 0, delta: errText });
-              } else {
-                const delta = j?.choices?.[0]?.delta?.content;
-                if (typeof delta === 'string' && delta) {
-                  full += delta;
-                  send('response.output_text.delta', { output_index: 0, content_index: 0, delta });
-                }
-              }
-            } catch {}
-          }
-        }
+  ev('response.output_text.done', { output_index: 0, content_index: 0, text: content });
+  ev('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: content } });
+  ev('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: content }] } });
+  ev('response.completed', buildResponseObject(respId, modelName, content, usage));
 
-        const completionTokens = Math.ceil(full.length / 4);
-        const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens };
-
-        send('response.output_text.done', { output_index: 0, content_index: 0, text: full });
-        send('response.content_part.done', { output_index: 0, content_index: 0, part: { type: 'output_text', text: full } });
-        send('response.output_item.done', { output_index: 0, item: { type: 'message', id: `msg_${respId}`, role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: full }] } });
-        send('response.completed', buildResponseObject(respId, modelName, full, usage));
-        controller.close();
-      } catch (e: any) {
-        console.error('[responses] stream error:', e?.message, e?.stack);
-        controller.error(e);
-      }
-    }
-  });
-
-  return new Response(respStream, {
+  return new Response(events.join(''), {
     status: 200,
     headers: {
       'content-type': 'text/event-stream; charset=utf-8',
       'cache-control': 'no-cache, no-transform',
-      connection: 'keep-alive',
       'x-accel-buffering': 'no'
     }
   });
