@@ -3,6 +3,13 @@ import { prisma } from '@/lib/prisma';
 import UsageChart from './chart';
 import { formatNumber } from '@/lib/utils';
 
+function statusClass(status: number) {
+  if (status >= 200 && status < 300) return 'usage-status-ok';
+  if (status >= 400 && status < 500) return 'usage-status-warn';
+  if (status >= 500) return 'usage-status-error';
+  return 'usage-status-muted';
+}
+
 export default async function UsagePage() {
   const user = await requireUser();
   const since = new Date(Date.now() - 30 * 86400_000);
@@ -93,7 +100,7 @@ export default async function UsagePage() {
                 <td className="p-3">{formatNumber(r.promptTokens)}</td>
                 <td className="p-3">{formatNumber(r.completionTokens)}</td>
                 <td className="p-3 font-medium">{formatNumber(r.totalTokens)}</td>
-                <td className="p-3">{r.status}</td>
+                <td className="p-3"><span className={`usage-status-badge ${statusClass(r.status)}`}>{r.status}</span></td>
               </tr>
             ))}
             {recent.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-zinc-500">Chưa có log</td></tr>}

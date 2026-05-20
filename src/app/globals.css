@@ -630,7 +630,7 @@ a.link:hover { text-decoration: underline; }
 
 /* Dashboard overview */
 .dashboard-overview {
-  width: min(1180px, 100%); display: flex; flex-direction: column; gap: 22px;
+  width: 100%; display: flex; flex-direction: column; gap: 22px;
 }
 .dashboard-hero {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
@@ -718,7 +718,7 @@ a.link:hover { text-decoration: underline; }
 }
 
 /* App page shell */
-.app-page { width: min(1180px, 100%); display: flex; flex-direction: column; gap: 22px; }
+.app-page { width: 100%; display: flex; flex-direction: column; gap: 22px; }
 .app-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .app-header-stat {
   display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
@@ -765,3 +765,14 @@ a.link:hover { text-decoration: underline; }
   .admin-users-toolbar { grid-template-columns: 1fr; }
   .admin-users-actions { justify-content: flex-start; }
 }
+
+/* Usage status */
+.usage-status-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 52px; padding: 4px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; line-height: 16px;
+}
+.usage-status-ok { background: rgba(98,153,135,0.16); color: var(--accent-green); }
+.usage-status-warn { background: rgba(196,104,73,0.16); color: var(--brand-orange); }
+.usage-status-error { background: rgba(181,51,51,0.16); color: var(--error); }
+.usage-status-muted { background: var(--cream-50); color: var(--stone-600); }
