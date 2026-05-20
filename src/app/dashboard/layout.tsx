@@ -11,8 +11,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const nav = [
     { href: '/dashboard', label: 'Tổng quan', icon: BarChart3 },
-    { href: '/dashboard/keys', label: 'API Keys', icon: Key },
-    { href: '/dashboard/usage', label: 'Usage', icon: BarChart3 },
+    { href: '/dashboard/keys', label: 'API key', icon: Key },
+    { href: '/dashboard/usage', label: 'Sử dụng', icon: BarChart3 },
     { href: '/dashboard/billing', label: 'Nạp gói', icon: CreditCard },
     { href: '/dashboard/plans', label: 'Gói cước', icon: Package },
     { href: '/dashboard/docs', label: 'Tài liệu', icon: BookOpen },
@@ -34,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           ))}
           {user.role === 'ADMIN' && (
             <Link href="/admin" className="mt-4 flex items-center gap-2.5 rounded-md px-3 py-2 text-[14px] bg-[var(--cream-50)] text-[var(--brand-orange)] font-medium">
-              Admin Panel
+              Quản trị
             </Link>
           )}
         </nav>

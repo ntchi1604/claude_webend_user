@@ -6,8 +6,8 @@ export const metadata = { title: 'Claude Code — Api4Cheap' };
 export default function Page() {
   return (
     <DocLayout
-      title="Claude Code Setup Guide"
-      description="Cài đặt Claude Code client và cấu hình endpoint Api4Cheap theo Claude Code Setup Guide."
+      title="Hướng dẫn cài đặt Claude Code"
+      description="Cài đặt Claude Code client và cấu hình endpoint Api4Cheap theo hướng dẫn cài đặt."
     >
       <H2>Tổng quan</H2>
       <P>
@@ -45,18 +45,18 @@ export default function Page() {
       <Divider />
 
       <H2>Bước 3: Lấy API key</H2>
-      <P>Mở trang API Keys trong dashboard Api4Cheap, tạo key mới và copy secret.</P>
+      <P>Mở trang API key trong dashboard Api4Cheap, tạo key mới và sao chép secret.</P>
       <Callout kind="warn">API key chỉ nên lưu ở máy của bạn. Bất kỳ ai có key đều có thể dùng credit của bạn.</Callout>
 
       <Divider />
 
-      <H2>Bước 4: Quick Setup</H2>
+      <H2>Bước 4: Cài đặt nhanh</H2>
       <Ol>
-        <Li>Vào <Link className="link" href="/dashboard/docs">Quick Setup</Link>.</Li>
+        <Li>Vào <Link className="link" href="/dashboard/docs">Cài đặt nhanh</Link>.</Li>
         <Li>Chọn tab <strong>Claude Code</strong>.</Li>
-        <Li>Paste API key đầy đủ vào ô <strong>API Key</strong>.</Li>
+        <Li>Dán API key đầy đủ vào ô <strong>API key</strong>.</Li>
         <Li>Chọn hệ điều hành.</Li>
-        <Li>Copy lệnh cài đặt và chạy trong PowerShell, Git Bash hoặc terminal.</Li>
+        <Li>Sao chép lệnh cài đặt và chạy trong PowerShell, Git Bash hoặc terminal.</Li>
       </Ol>
       <P>Script sẽ tạo <Inline>~/.claude/settings.json</Inline> theo mẫu sau:</P>
       <Code lang="json">{`{
@@ -78,12 +78,12 @@ export default function Page() {
         <Li>Nếu <Inline>~/.claude</Inline> chưa tồn tại, chạy <Inline>claude</Inline> một lần để client tạo thư mục.</Li>
         <Li>Tạo hoặc thay thế <Inline>~/.claude/settings.json</Inline> bằng JSON ở trên.</Li>
         <Li>Thay <Inline>YOUR_API_KEY</Inline> bằng secret của bạn.</Li>
-        <Li>Restart terminal.</Li>
+        <Li>Khởi động lại terminal.</Li>
       </Ol>
 
       <Divider />
 
-      <H2>Launch và kiểm tra</H2>
+      <H2>Khởi chạy và kiểm tra</H2>
       <Code lang="bash">{`claude`}</Code>
       <P>Trong Claude Code, có thể gõ <Inline>/status</Inline> để kiểm tra base URL và thông tin auth.</P>
 
@@ -91,9 +91,9 @@ export default function Page() {
 
       <H2>FAQ ngắn</H2>
       <Ul>
-        <Li>Update: chay lai <Inline>npm install -g @anthropic-ai/claude-code</Inline>.</Li>
-        <Li>Uninstall client: <Inline>npm uninstall -g @anthropic-ai/claude-code</Inline>.</Li>
-        <Li>Neu npm loi network, thu registry mirror: <Inline>npm install -g @anthropic-ai/claude-code --registry https://registry.npmmirror.com</Inline>.</Li>
+        <Li>Cập nhật: chạy lại <Inline>npm install -g @anthropic-ai/claude-code</Inline>.</Li>
+        <Li>Gỡ client: <Inline>npm uninstall -g @anthropic-ai/claude-code</Inline>.</Li>
+        <Li>Nếu npm lỗi mạng, thử registry mirror: <Inline>npm install -g @anthropic-ai/claude-code --registry https://registry.npmmirror.com</Inline>.</Li>
       </Ul>
     </DocLayout>
   );

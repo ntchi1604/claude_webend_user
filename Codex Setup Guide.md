@@ -1,28 +1,28 @@
-# Codex Setup Guide
+# Hướng Dẫn Cài Đặt Codex
 
-Official package: `@openai/codex`.
+Package chính thức: `@openai/codex`.
 
-Base URL for Api4Cheap:
+Base URL cho Api4Cheap:
 
 ```text
 https://lccaptcha.io.vn
 ```
 
-## 01. Install Codex CLI
+## 01. Cài Codex CLI
 
-Run either command:
+Chạy một trong hai lệnh sau:
 
 ```bash
 npm install -g @openai/codex
-# or
+# hoặc
 brew install codex
 ```
 
-Both commands install the official Codex CLI. Use whichever matches your setup.
+Cả hai lệnh đều cài Codex CLI chính thức. Dùng lệnh phù hợp với môi trường của bạn.
 
-## 02. Create the `.codex` Directory
+## 02. Tạo thư mục `.codex`
 
-Create the directory if it does not exist. Do not delete the whole `.codex` folder; Codex may keep log databases open while it is running.
+Tạo thư mục nếu chưa tồn tại. Không xoá toàn bộ thư mục `.codex`; Codex có thể đang giữ database log khi chạy.
 
 PowerShell:
 
@@ -36,13 +36,13 @@ macOS / Linux:
 mkdir -p ~/.codex
 ```
 
-## 03. Get an API Key
+## 03. Lấy API key
 
-Go to the Api4Cheap API Keys page, create a new key, and copy it.
+Vào trang API key của Api4Cheap, tạo key mới và sao chép key đó.
 
-## 04. Create `auth.json`
+## 04. Tạo `auth.json`
 
-Create `C:\Users\<your-username>\.codex\auth.json` on Windows, or `~/.codex/auth.json` on macOS / Linux:
+Tạo `C:\Users\<your-username>\.codex\auth.json` trên Windows, hoặc `~/.codex/auth.json` trên macOS / Linux:
 
 ```json
 {
@@ -50,11 +50,11 @@ Create `C:\Users\<your-username>\.codex\auth.json` on Windows, or `~/.codex/auth
 }
 ```
 
-Replace `YOUR_API_KEY` with the key you copied.
+Thay `YOUR_API_KEY` bằng key bạn đã sao chép.
 
-## 05. Create `config.toml`
+## 05. Tạo `config.toml`
 
-Create `C:\Users\<your-username>\.codex\config.toml` on Windows, or `~/.codex/config.toml` on macOS / Linux:
+Tạo `C:\Users\<your-username>\.codex\config.toml` trên Windows, hoặc `~/.codex/config.toml` trên macOS / Linux:
 
 ```toml
 model_provider = "api4cheap"
@@ -69,25 +69,25 @@ base_url = "https://lccaptcha.io.vn/v1"
 wire_api = "responses"
 ```
 
-Paste the content exactly as shown, except for your API key in `auth.json`.
+Dán nội dung đúng như trên, ngoại trừ API key trong `auth.json`.
 
-## 06. Restart and Verify
+## 06. Khởi động lại và kiểm tra
 
-Restart your terminal, then run:
+Khởi động lại terminal, sau đó chạy:
 
 ```bash
 codex -V
 ```
 
-If a version number is printed, Codex is installed correctly.
+Nếu terminal in ra số phiên bản, Codex đã được cài đúng.
 
-## 07. Start Using Codex
+## 07. Bắt đầu dùng Codex
 
-Navigate to any project folder and launch Codex:
+Đi tới thư mục dự án bất kỳ và khởi chạy Codex:
 
 ```bash
-cd your-project-folder
+cd thu-muc-du-an-cua-ban
 codex
 ```
 
-The official VS Code extension is supported.
+Extension VS Code chính thức vẫn được hỗ trợ.

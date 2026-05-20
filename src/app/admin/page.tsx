@@ -11,7 +11,7 @@ export default async function AdminHome() {
   const revenue = await prisma.payment.aggregate({ where: { status: 'APPROVED' }, _sum: { amountVND: true } });
 
   const cards = [
-    { label: 'Users', value: formatNumber(users) },
+    { label: 'Người dùng', value: formatNumber(users) },
     { label: 'Thanh toán đã duyệt', value: formatNumber(payments) },
     { label: 'Chờ duyệt', value: formatNumber(pending) },
     { label: 'Tổng token', value: formatNumber(totalTokens._sum.totalTokens ?? 0) },

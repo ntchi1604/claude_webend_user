@@ -1,43 +1,43 @@
-# Api4Cheap Gateway Dashboard
+# Dashboard Gateway Api4Cheap
 
-Next.js dashboard and API gateway for Api4Cheap. Setup and public docs are focused on two supported clients:
+Dashboard Next.js và API gateway cho Api4Cheap. Phần cài đặt và tài liệu public tập trung vào hai client được hỗ trợ:
 
 - Claude Code
 - Codex CLI
 
-Public Api4Cheap base URL:
+Base URL public của Api4Cheap:
 
 ```text
 https://lccaptcha.io.vn
 ```
 
-## Gateway Endpoints
+## Endpoint Gateway
 
 ```text
-POST /v1/messages    Anthropic Messages API shape for Claude Code
-POST /v1/responses   OpenAI Responses API shape for Codex CLI
-POST /v1/chat/completions   Chat UI and upstream relay
-GET  /v1/models      Models allowed by the user's current plan
+POST /v1/messages    Định dạng Anthropic Messages API cho Claude Code
+POST /v1/responses   Định dạng OpenAI Responses API cho Codex CLI
+POST /v1/chat/completions   Giao diện chat và relay upstream
+GET  /v1/models      Model mà gói hiện tại của người dùng được phép dùng
 ```
 
-Auth:
+Xác thực:
 
 ```text
 Claude Code: x-api-key: YOUR_API_KEY
 Codex CLI:   Authorization: Bearer YOUR_API_KEY
 ```
 
-## Codex CLI Setup
+## Cài Codex CLI
 
-Install the official Codex CLI:
+Cài Codex CLI chính thức:
 
 ```bash
 npm install -g @openai/codex
-# or
+# hoặc
 brew install codex
 ```
 
-Create `~/.codex/auth.json`:
+Tạo `~/.codex/auth.json`:
 
 ```json
 {
@@ -45,7 +45,7 @@ Create `~/.codex/auth.json`:
 }
 ```
 
-Create `~/.codex/config.toml`:
+Tạo `~/.codex/config.toml`:
 
 ```toml
 model_provider = "api4cheap"
@@ -60,22 +60,22 @@ base_url = "https://lccaptcha.io.vn/v1"
 wire_api = "responses"
 ```
 
-Verify:
+Kiểm tra:
 
 ```bash
 codex -V
 codex
 ```
 
-## Claude Code Setup
+## Cài Claude Code
 
-Install Claude Code:
+Cài Claude Code:
 
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
 
-Create `~/.claude/settings.json`:
+Tạo `~/.claude/settings.json`:
 
 ```json
 {
@@ -91,13 +91,13 @@ Create `~/.claude/settings.json`:
 }
 ```
 
-Launch:
+Khởi chạy:
 
 ```bash
 claude
 ```
 
-## Local Development
+## Phát triển local
 
 ```bash
 npm install
@@ -108,15 +108,15 @@ npm run db:seed
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Mở `http://localhost:3000`.
 
-Default admin account from seed:
+Tài khoản admin mặc định từ seed:
 
 ```text
 admin@local.dev / admin123
 ```
 
-## Environment
+## Biến môi trường
 
 ```env
 DATABASE_URL="file:./dev.db"
@@ -131,9 +131,9 @@ CODEX_BASE_URL="https://lccaptcha.io.vn"
 CLAUDE_CODE_BASE_URL="https://lccaptcha.io.vn"
 ```
 
-`ROUTER_BASE_URL` and model-level endpoint overrides control where gateway requests are forwarded. The public setup-script hostname is `https://lccaptcha.io.vn` by default and can be overridden with `GATEWAY_BASE_URL`, `CODEX_BASE_URL`, and `CLAUDE_CODE_BASE_URL`.
+`ROUTER_BASE_URL` và endpoint override ở từng model quyết định nơi gateway chuyển tiếp request. Hostname mặc định cho script cài đặt public là `https://lccaptcha.io.vn` và có thể ghi đè bằng `GATEWAY_BASE_URL`, `CODEX_BASE_URL`, `CLAUDE_CODE_BASE_URL`.
 
-## Scripts
+## Script
 
 ```bash
 npm run dev
@@ -144,14 +144,14 @@ npm run db:generate
 npm run db:seed
 ```
 
-## Structure
+## Cấu trúc
 
 ```text
-src/app/v1/responses       Codex-compatible Responses gateway
-src/app/v1/messages        Claude Code-compatible Messages gateway
-src/app/v1/chat/completions Chat UI and upstream relay
-src/app/api/setup/[tool]   Quick Setup script generator
-src/app/dashboard/docs     Setup documentation and generated commands
-prisma/schema.prisma       SQLite schema
-prisma/seed.ts             Admin, plans, and sample models
+src/app/v1/responses       Gateway Responses tương thích Codex
+src/app/v1/messages        Gateway Messages tương thích Claude Code
+src/app/v1/chat/completions Giao diện chat và relay upstream
+src/app/api/setup/[tool]   Bộ sinh script cài đặt nhanh
+src/app/dashboard/docs     Tài liệu cài đặt và lệnh được tạo
+prisma/schema.prisma       Schema SQLite
+prisma/seed.ts             Admin, gói cước và model mẫu
 ```

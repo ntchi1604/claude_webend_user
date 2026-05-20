@@ -46,16 +46,16 @@ export default function KeysPage() {
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
       <div>
-        <h1 className="heading-1">API Keys</h1>
-        <p className="body-sm text-[var(--stone-600)] mt-1">Tạo và quản lý API keys. Key chỉ hiện 1 lần khi tạo.</p>
+        <h1 className="heading-1">API key</h1>
+        <p className="body-sm text-[var(--stone-600)] mt-1">Tạo và quản lý API key. Key chỉ hiện 1 lần khi tạo.</p>
       </div>
 
-      {/* Create */}
+      {/* Tạo key */}
       <div className="card">
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label className="form-label">Tên key (tuỳ chọn)</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="My Claude Code key" />
+            <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="Key Claude Code của tôi" />
           </div>
           <button onClick={createKey} disabled={loading} className="btn-cta whitespace-nowrap">
             <Plus className="h-4 w-4" /> Tạo key
@@ -63,7 +63,7 @@ export default function KeysPage() {
         </div>
       </div>
 
-      {/* New key reveal */}
+      {/* Hiển thị key mới */}
       {newKey && (
         <div className="card-code flex items-center justify-between gap-3">
           <code className="text-[13px] break-all">{newKey}</code>
@@ -73,7 +73,7 @@ export default function KeysPage() {
         </div>
       )}
 
-      {/* List */}
+      {/* Danh sách key */}
       <div className="space-y-2">
         {keys.map((k) => (
           <div key={k.id} className="card flex items-center justify-between py-3 px-4">
@@ -82,7 +82,7 @@ export default function KeysPage() {
               <div className="caption">{k.keyPrefix}... · Tạo {new Date(k.createdAt).toLocaleDateString('vi')}</div>
             </div>
             <div className="flex items-center gap-2">
-              {k.active ? <span className="badge-success">Active</span> : <span className="badge-error">Disabled</span>}
+              {k.active ? <span className="badge-success">Đang hoạt động</span> : <span className="badge-error">Đã tắt</span>}
               <button onClick={() => deleteKey(k.id)} className="btn-ghost" style={{ padding: '6px', color: 'var(--error)' }}>
                 <Trash2 className="h-4 w-4" />
               </button>

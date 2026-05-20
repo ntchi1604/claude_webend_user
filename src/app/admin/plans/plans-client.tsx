@@ -31,7 +31,7 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
     if (r.ok) toast.success('Lưu OK'); else toast.error('Lỗi');
   }
   async function remove(id: string) {
-    if (!confirm('Xoá plan?')) return;
+    if (!confirm('Xoá gói này?')) return;
     const r = await fetch(`/api/admin/plans/${id}`, { method: 'DELETE' });
     if (r.ok) { setList(list.filter((x) => x.id !== id)); toast.success('Đã xoá'); }
   }
@@ -40,19 +40,19 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
     <div className="space-y-6 animate-fade-in">
       <h1 className="heading-1">Gói cước</h1>
 
-      {/* Add form */}
+      {/* Form thêm gói */}
       <div className="card">
         <h2 className="heading-5 mb-4">Thêm gói</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
           <input className="input" placeholder="Tên gói" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="input" placeholder="Mô tả" value={draft.description ?? ''} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
           <input className="input" type="number" placeholder="Giá VND" value={draft.priceVND} onChange={(e) => setDraft({ ...draft, priceVND: +e.target.value })} />
-          <input className="input" type="number" placeholder="Token limit" value={draft.tokenLimit} onChange={(e) => setDraft({ ...draft, tokenLimit: +e.target.value })} />
-          <input className="input" type="number" placeholder="Window hours" value={draft.windowHours} onChange={(e) => setDraft({ ...draft, windowHours: +e.target.value })} />
-          <input className="input" type="number" placeholder="Duration days" value={draft.durationDays} onChange={(e) => setDraft({ ...draft, durationDays: +e.target.value })} />
+          <input className="input" type="number" placeholder="Giới hạn token" value={draft.tokenLimit} onChange={(e) => setDraft({ ...draft, tokenLimit: +e.target.value })} />
+          <input className="input" type="number" placeholder="Cửa sổ giờ" value={draft.windowHours} onChange={(e) => setDraft({ ...draft, windowHours: +e.target.value })} />
+          <input className="input" type="number" placeholder="Số ngày hiệu lực" value={draft.durationDays} onChange={(e) => setDraft({ ...draft, durationDays: +e.target.value })} />
         </div>
         <div style={{ marginTop: '12px' }}>
-          <div className="form-label">Models cho phép</div>
+          <div className="form-label">Model cho phép</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
             {models.map((m) => (
               <button key={m.id} type="button" onClick={() => {
@@ -71,15 +71,15 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
         <button onClick={add} className="btn-primary" style={{ marginTop: '16px' }}><Plus className="h-4 w-4" /> Thêm gói</button>
       </div>
 
-      {/* Plan list */}
+      {/* Danh sách gói */}
       <div className="space-y-3" style={{ overflowX: 'auto' }}>
         <div style={{ overflowX: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', padding: '0 16px', minWidth: '600px' }}>
           <span className="caption">Tên gói</span>
           <span className="caption" style={{ gridColumn: 'span 2' }}>Mô tả</span>
           <span className="caption">Giá (VND)</span>
-          <span className="caption">Token limit</span>
-          <span className="caption">Window (h) / Ngày</span>
+          <span className="caption">Giới hạn token</span>
+          <span className="caption">Cửa sổ (h) / ngày</span>
         </div>
         </div>
         {list.map((p, i) => (
@@ -90,8 +90,8 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
               <input className="input" type="number" value={p.priceVND} onChange={(e) => patch(i, { priceVND: +e.target.value })} />
               <input className="input" type="number" value={p.tokenLimit} onChange={(e) => patch(i, { tokenLimit: +e.target.value })} />
               <div style={{ display: 'flex', gap: '4px' }}>
-                <input className="input" type="number" value={p.windowHours} onChange={(e) => patch(i, { windowHours: +e.target.value })} title="Window hours" />
-                <input className="input" type="number" value={p.durationDays} onChange={(e) => patch(i, { durationDays: +e.target.value })} title="Duration days" />
+                <input className="input" type="number" value={p.windowHours} onChange={(e) => patch(i, { windowHours: +e.target.value })} title="Số giờ của cửa sổ hạn mức" />
+                <input className="input" type="number" value={p.durationDays} onChange={(e) => patch(i, { durationDays: +e.target.value })} title="Số ngày hiệu lực" />
               </div>
             </div>
             <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -107,7 +107,7 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
               ))}
             </div>
             <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-              <button onClick={() => { const updated = { ...p, enabled: !p.enabled }; patch(i, { enabled: !p.enabled }); save(updated); }} className="btn-ghost" title={p.enabled ? 'Disable' : 'Enable'}>
+              <button onClick={() => { const updated = { ...p, enabled: !p.enabled }; patch(i, { enabled: !p.enabled }); save(updated); }} className="btn-ghost" title={p.enabled ? 'Tắt' : 'Bật'}>
                 <Power className="h-4 w-4" style={{ color: p.enabled ? 'var(--accent-green)' : 'var(--stone-600)' }} />
               </button>
               <button onClick={() => save(p)} className="btn-primary" style={{ fontSize: '13px', padding: '6px 12px' }}><Save className="h-3.5 w-3.5" /> Lưu</button>

@@ -113,17 +113,17 @@ export default function ChatInput({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Message Claude..."
+          placeholder="Nhập tin nhắn..."
           className="chat-textarea"
           maxRows={6}
           disabled={streaming || disabled}
         />
         <div className="chat-input-bottom">
           <div className="chat-input-actions">
-            <button onClick={() => fileRef.current?.click()} className="chat-input-btn" title="Attach file">
+            <button onClick={() => fileRef.current?.click()} className="chat-input-btn" title="Đính kèm file">
               <Paperclip className="h-4 w-4" />
             </button>
-            <button onClick={() => imgRef.current?.click()} className="chat-input-btn" title="Add image">
+            <button onClick={() => imgRef.current?.click()} className="chat-input-btn" title="Thêm ảnh">
               <ImagePlus className="h-4 w-4" />
             </button>
           </div>

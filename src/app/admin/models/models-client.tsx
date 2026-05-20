@@ -29,7 +29,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
       method: 'PATCH', headers: { 'content-type': 'application/json' },
       body: JSON.stringify(m)
     });
-    if (r.ok) toast.success('Lưu OK');
+    if (r.ok) toast.success('Đã lưu');
     else toast.error('Lỗi');
   }
 
@@ -47,14 +47,14 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-3xl font-bold">Models</h1>
+      <h1 className="text-3xl font-bold">Model</h1>
 
       <div className="card p-5">
         <h2 className="font-semibold mb-3">Thêm model mới</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="input" placeholder="Upstream (gửi đến 9router)" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
-          <input className="input" placeholder="Endpoint override (optional)" value={draft.endpoint ?? ''} onChange={(e) => setDraft({ ...draft, endpoint: e.target.value || null })} />
+          <input className="input" placeholder="Endpoint ghi đè (tuỳ chọn)" value={draft.endpoint ?? ''} onChange={(e) => setDraft({ ...draft, endpoint: e.target.value || null })} />
           <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
             <option value="openai">openai</option>
             <option value="anthropic">anthropic</option>
@@ -68,12 +68,12 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
         <table className="w-full text-sm min-w-[600px]">
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
             <tr>
-              <th className="p-3">Name</th>
+              <th className="p-3">Tên</th>
               <th className="p-3">Upstream</th>
               <th className="p-3">Endpoint</th>
-              <th className="p-3">Provider</th>
+              <th className="p-3">Nhà cung cấp</th>
 
-              <th className="p-3">On</th>
+              <th className="p-3">Bật</th>
               <th className="p-3 text-right">⋯</th>
             </tr>
           </thead>
@@ -82,7 +82,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
               <tr key={m.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                 <td className="p-2"><input className="input" value={m.name} onChange={(e) => patch(i, { name: e.target.value })} /></td>
                 <td className="p-2"><input className="input" value={m.upstreamName} onChange={(e) => patch(i, { upstreamName: e.target.value })} /></td>
-                <td className="p-2"><input className="input" placeholder="(default)" value={m.endpoint ?? ''} onChange={(e) => patch(i, { endpoint: e.target.value || null })} /></td>
+                <td className="p-2"><input className="input" placeholder="(mặc định)" value={m.endpoint ?? ''} onChange={(e) => patch(i, { endpoint: e.target.value || null })} /></td>
                 <td className="p-2">
                   <select className="input" value={m.provider} onChange={(e) => patch(i, { provider: e.target.value })}>
                     <option value="openai">openai</option>

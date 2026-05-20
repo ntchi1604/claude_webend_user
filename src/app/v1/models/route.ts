@@ -32,7 +32,7 @@ async function resolveUser(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const result = await resolveUser(req);
-  if (!result) return NextResponse.json({ error: { message: 'Invalid API key' } }, { status: 401 });
+  if (!result) return NextResponse.json({ error: { message: 'API key không hợp lệ' } }, { status: 401 });
 
   const { sub } = result;
   const allowedIds = sub ? parseModelIds(sub.plan.modelIds) : [];

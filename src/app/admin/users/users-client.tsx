@@ -19,14 +19,14 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ action, ...extra })
     });
-    if (r.ok) { toast.success('OK'); location.reload(); }
+    if (r.ok) { toast.success('Đã cập nhật'); location.reload(); }
     else { const d = await r.json(); toast.error(d.error || 'Lỗi'); }
   }
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Users</h1>
+        <h1 className="text-3xl font-bold">Người dùng</h1>
         <input className="input max-w-xs" placeholder="Tìm email..." value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <div className="card overflow-x-auto">
@@ -34,11 +34,11 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
             <tr>
               <th className="p-3">Email</th>
-              <th className="p-3">Role</th>
+              <th className="p-3">Vai trò</th>
               <th className="p-3">Gói</th>
               <th className="p-3">Hết hạn</th>
-              <th className="p-3">Keys</th>
-              <th className="p-3">Tokens</th>
+              <th className="p-3">Key</th>
+              <th className="p-3">Token</th>
               <th className="p-3">Đăng ký</th>
               <th className="p-3 text-right">Thao tác</th>
             </tr>
@@ -48,7 +48,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
               <tr key={u.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                 <td className="p-3">
                   {u.email}
-                  {u.banned && <span className="ml-2 badge bg-red-500/15 text-red-700">Banned</span>}
+                  {u.banned && <span className="ml-2 badge bg-red-500/15 text-red-700">Đã chặn</span>}
                 </td>
                 <td className="p-3">{u.role}</td>
                 <td className="p-3">{u.planName ?? '—'}</td>

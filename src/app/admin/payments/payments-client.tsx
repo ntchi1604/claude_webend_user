@@ -45,12 +45,12 @@ export default function PaymentsClient({ payments }: { payments: P[] }) {
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
             <tr>
               <th className="p-3">Thời gian</th>
-              <th className="p-3">User</th>
+              <th className="p-3">Người dùng</th>
               <th className="p-3">Gói</th>
               <th className="p-3">Số tiền</th>
               <th className="p-3">Mã GD</th>
               <th className="p-3">Ghi chú</th>
-              <th className="p-3">Status</th>
+              <th className="p-3">Trạng thái</th>
               <th className="p-3 text-right">Thao tác</th>
             </tr>
           </thead>

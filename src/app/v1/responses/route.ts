@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashApiKey, verifySession } from '@/lib/auth';
-import { checkQuota } from '@/lib/quota';
+import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, recordTokens } from '@/lib/rate-limit';
@@ -322,18 +322,18 @@ async function logUsage(apiKeyId: string, userId: string, modelId: string, model
 
 export async function POST(req: NextRequest) {
   const key = await authKey(req);
-  if (!key) return errJson('Invalid API key', 401);
+  if (!key) return errJson('API key không hợp lệ', 401);
 
   let body: any;
-  try { body = await req.json(); } catch { return errJson('Invalid JSON body'); }
+  try { body = await req.json(); } catch { return errJson('Body JSON không hợp lệ'); }
 
   const modelName: string = body?.model;
   const input = body?.input;
   const stream = !!body?.stream;
   const instructions = body?.instructions;
 
-  if (!modelName) return errJson('Field "model" is required');
-  if (!input) return errJson('Field "input" is required');
+  if (!modelName) return errJson('Thiếu trường "model"');
+  if (!input) return errJson('Thiếu trường "input"');
 
   const convertedTools = responsesToolsToChatTools(body.tools);
   const messages = inputToMessages(input, convertedTools.nameToChat);
@@ -349,13 +349,13 @@ export async function POST(req: NextRequest) {
 
   const promptTokens = countResponsePromptTokens(finalMessages);
   const rl = checkRateLimit(key.id);
-  if (!rl.ok) return errJson(`Rate limit exceeded (${rl.reason})`, 429);
+  if (!rl.ok) return errJson(`Vượt giới hạn tần suất (${rl.reason})`, 429);
 
   const quota = await checkQuota(key.userId, modelName, promptTokens);
-  if (!quota.allowed) return errJson(`${quota.reason}`, quota.reason === 'MODEL_NOT_IN_PLAN' ? 403 : 429);
+  if (!quota.allowed) return errJson(quotaMessage(quota), 403);
 
   const resolved = await resolveModelEndpoint(modelName);
-  if (!resolved) return errJson('Model not configured', 404);
+  if (!resolved) return errJson('Model chưa được cấu hình', 404);
 
   const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
   if (body.temperature != null) upstreamBody.temperature = body.temperature;
@@ -377,7 +377,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error('[responses] upstream fetch error:', e?.message);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch(() => {});
-    return errJson(`Upstream error: ${e?.message}`, 502);
+    return errJson(`Lỗi upstream: ${e?.message}`, 502);
   }
 
   console.log(`[responses] upstream status=${upstream.status} model=${modelName} -> ${resolved.upstreamName}`);
@@ -676,7 +676,7 @@ export async function POST(req: NextRequest) {
           console.log(`[responses] stream done model=${modelName} content_length=${fullContent.length}`);
         } catch (e: any) {
           console.error('[responses] stream error:', e?.message);
-          send('error', { type: 'error', message: e?.message || 'Stream error' });
+          send('error', { type: 'error', message: e?.message || 'Lỗi stream' });
         }
 
         controller.close();

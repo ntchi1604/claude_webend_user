@@ -6,57 +6,57 @@ export const metadata = { title: 'Codex CLI - Api4Cheap' };
 export default function Page() {
   return (
     <DocLayout
-      title="Codex CLI Setup Guide"
-      description="Cai dat Codex CLI chinh thuc va cau hinh provider Api4Cheap theo Codex Setup Guide."
+      title="Hướng dẫn cài đặt Codex CLI"
+      description="Cài đặt Codex CLI chính thức và cấu hình provider Api4Cheap theo hướng dẫn cài đặt."
     >
-      <H2>Tong quan</H2>
+      <H2>Tổng quan</H2>
       <P>
-        <strong>Codex CLI</strong> la AI coding agent chinh thuc cua OpenAI. Cau hinh ben duoi dung package
-        <Inline>@openai/codex</Inline>, xac thuc bang API key va route qua endpoint
-        <Inline>https://lccaptcha.io.vn</Inline> voi Responses API.
+        <strong>Codex CLI</strong> là AI coding agent chính thức của OpenAI. Cấu hình bên dưới dùng package
+        <Inline>@openai/codex</Inline>, xác thực bằng API key và route qua endpoint
+        <Inline>https://lccaptcha.io.vn</Inline> với Responses API.
       </P>
 
       <Callout kind="important">
-        Quick Setup chi backup va ghi lai <Inline>auth.json</Inline> cung <Inline>config.toml</Inline>. Khong xoa hoac di chuyen toan bo
-        <Inline>~/.codex</Inline>, vi Codex co the dang giu file log SQLite trong thu muc nay.
+        Cài đặt nhanh chỉ backup và ghi lại <Inline>auth.json</Inline> cùng <Inline>config.toml</Inline>. Không xoá hoặc di chuyển toàn bộ
+        <Inline>~/.codex</Inline>, vì Codex có thể đang giữ file log SQLite trong thư mục này.
       </Callout>
 
       <Divider />
 
-      <H2>Yeu cau</H2>
+      <H2>Yêu cầu</H2>
       <Ul>
-        <Li>Windows 10 build 17763 / version 1809 tro len, macOS hoac Linux.</Li>
-        <Li>Node.js va npm neu cai qua npm; macOS co the cai bang Homebrew.</Li>
-        <Li>API key tu Api4Cheap dashboard.</Li>
+        <Li>Windows 10 build 17763 / version 1809 trở lên, macOS hoặc Linux.</Li>
+        <Li>Node.js và npm nếu cài qua npm; macOS có thể cài bằng Homebrew.</Li>
+        <Li>API key từ dashboard Api4Cheap.</Li>
       </Ul>
 
       <Divider />
 
-      <H2>Buoc 1: Cai Codex CLI</H2>
-      <P>Chay mot trong hai lenh sau:</P>
+      <H2>Bước 1: Cài Codex CLI</H2>
+      <P>Chạy một trong hai lệnh sau:</P>
       <Code lang="bash">{`npm install -g @openai/codex
-# or
+# hoặc
 brew install codex`}</Code>
-      <P>Kiem tra cai dat:</P>
+      <P>Kiểm tra cài đặt:</P>
       <Code lang="bash">{`codex -V`}</Code>
 
       <Divider />
 
-      <H2>Buoc 2: Lay API key</H2>
-      <P>Mo trang API Keys tren dashboard Api4Cheap, tao key moi va copy secret.</P>
-      <Callout kind="warn">Treat your key like a password. Khong chia se key trong log, chat cong khai hoac repo.</Callout>
+      <H2>Bước 2: Lấy API key</H2>
+      <P>Mở trang API key trên dashboard Api4Cheap, tạo key mới và sao chép secret.</P>
+      <Callout kind="warn">Hãy giữ key như mật khẩu. Không chia sẻ key trong log, chat công khai hoặc repo.</Callout>
 
       <Divider />
 
-      <H2>Buoc 3: Quick Setup</H2>
+      <H2>Bước 3: Cài đặt nhanh</H2>
       <Ol>
-        <Li>Vao <Link className="link" href="/dashboard/docs">Quick Setup</Link>.</Li>
-        <Li>Chon tab <strong>Codex CLI</strong>.</Li>
-        <Li>Paste API key day du vao o <strong>API Key</strong>.</Li>
-        <Li>Chon he dieu hanh.</Li>
-        <Li>Copy lenh cai dat va chay trong PowerShell hoac terminal.</Li>
+        <Li>Vào <Link className="link" href="/dashboard/docs">Cài đặt nhanh</Link>.</Li>
+        <Li>Chọn tab <strong>Codex CLI</strong>.</Li>
+        <Li>Dán API key đầy đủ vào ô <strong>API key</strong>.</Li>
+        <Li>Chọn hệ điều hành.</Li>
+        <Li>Sao chép lệnh cài đặt và chạy trong PowerShell hoặc terminal.</Li>
       </Ol>
-      <P>Script tu dong cai <Inline>@openai/codex</Inline> neu chua co, backup hai file cau hinh cu neu ton tai, roi tao:</P>
+      <P>Script tự động cài <Inline>@openai/codex</Inline> nếu chưa có, backup hai file cấu hình cũ nếu tồn tại, rồi tạo:</P>
       <Code lang="json">{`{
   "OPENAI_API_KEY": "YOUR_API_KEY"
 }`}</Code>
@@ -73,20 +73,20 @@ wire_api = "responses"`}</Code>
 
       <Divider />
 
-      <H2>Cau hinh thu cong</H2>
+      <H2>Cấu hình thủ công</H2>
       <Ol>
-        <Li>Tao thu muc <Inline>~/.codex</Inline> neu chua ton tai.</Li>
-        <Li>Tao <Inline>auth.json</Inline> voi noi dung JSON o tren.</Li>
-        <Li>Tao <Inline>config.toml</Inline> voi noi dung TOML o tren.</Li>
-        <Li>Restart terminal.</Li>
+        <Li>Tạo thư mục <Inline>~/.codex</Inline> nếu chưa tồn tại.</Li>
+        <Li>Tạo <Inline>auth.json</Inline> với nội dung JSON ở trên.</Li>
+        <Li>Tạo <Inline>config.toml</Inline> với nội dung TOML ở trên.</Li>
+        <Li>Khởi động lại terminal.</Li>
       </Ol>
 
       <Divider />
 
-      <H2>Bat dau dung</H2>
-      <Code lang="bash">{`cd your-project-folder
+      <H2>Bắt đầu dùng</H2>
+      <Code lang="bash">{`cd thu-muc-du-an-cua-ban
 codex`}</Code>
-      <P>VS Code extension chinh thuc cua Codex van dung duoc voi cau hinh nay.</P>
+      <P>Extension VS Code chính thức của Codex vẫn dùng được với cấu hình này.</P>
     </DocLayout>
   );
 }

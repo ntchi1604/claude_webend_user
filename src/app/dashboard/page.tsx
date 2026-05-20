@@ -52,8 +52,8 @@ export default async function DashboardPage() {
       {/* Quota card */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <span className="label">Quota · Reset after {windowHours}h</span>
-          <span className="caption">{formatNumber(used)} / {formatNumber(limit)} tokens</span>
+          <span className="label">Hạn mức · reset sau {windowHours}h</span>
+          <span className="caption">{formatNumber(used)} / {formatNumber(limit)} token</span>
         </div>
         <div className="w-full h-2 rounded-full bg-[var(--cream-50)] overflow-hidden">
           <div
@@ -73,12 +73,12 @@ export default async function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">
-          <div className="caption mb-1">API Keys</div>
+          <div className="caption mb-1">API key</div>
           <div className="heading-2">{keyCount}</div>
           <Link href="/dashboard/keys" className="caption mt-2 inline-block" style={{ color: 'var(--brand-blue)' }}>Quản lý →</Link>
         </div>
         <div className="card">
-          <div className="caption mb-1">Tổng requests</div>
+          <div className="caption mb-1">Tổng request</div>
           <div className="heading-2">{formatNumber(totalRequests)}</div>
           <Link href="/dashboard/usage" className="caption mt-2 inline-block" style={{ color: 'var(--brand-blue)' }}>Xem chi tiết →</Link>
         </div>
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
 
       {/* Quick start */}
       <div className="card-code">
-        <div className="caption mb-2" style={{ color: '#629987' }}>Quick start</div>
+        <div className="caption mb-2" style={{ color: '#629987' }}>Bắt đầu nhanh</div>
         <pre className="whitespace-pre-wrap text-[13px] leading-5">{`# Codex CLI
 Base URL: https://lccaptcha.io.vn
 API Key:  YOUR_API_KEY
@@ -100,8 +100,8 @@ API Key:  YOUR_API_KEY
 ANTHROPIC_BASE_URL=https://lccaptcha.io.vn
 ANTHROPIC_API_KEY=YOUR_API_KEY
 
-# Setup scripts
-Open Dashboard -> Docs -> Quick Setup`}</pre>
+# Script thiết lập
+Mở Bảng điều khiển -> Tài liệu -> Cài đặt nhanh`}</pre>
       </div>
     </div>
   );

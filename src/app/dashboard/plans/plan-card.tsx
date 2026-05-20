@@ -33,7 +33,7 @@ export default function PlanCard({ id, name, description, price, tokenLimit, win
       <ul className="mt-4 space-y-2">
         <li className="flex items-center gap-2 body-sm">
           <Check className="h-4 w-4" style={{ color: 'var(--accent-green)' }} />
-          {tokenLimit} tokens / {windowHours}h
+          {tokenLimit} token / {windowHours}h
         </li>
         <li className="flex items-center gap-2 body-sm">
           <Check className="h-4 w-4" style={{ color: 'var(--accent-green)' }} />

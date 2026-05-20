@@ -19,7 +19,7 @@ export default function SettingsClient({ initial }: { initial: any }) {
     <div className="space-y-6 animate-fade-in max-w-2xl">
       <h1 className="text-3xl font-bold">Cấu hình</h1>
       <div className="card p-5 space-y-3">
-        <h2 className="font-semibold">Thông tin ngân hàng (hiển thị cho user)</h2>
+        <h2 className="font-semibold">Thông tin ngân hàng (hiển thị cho người dùng)</h2>
         <div>
           <label className="label">Tên ngân hàng</label>
           <input className="input mt-1" value={bank.bankName ?? ''} onChange={(e) => setBank({ ...bank, bankName: e.target.value })} placeholder="VD: Vietcombank" />
@@ -40,7 +40,7 @@ export default function SettingsClient({ initial }: { initial: any }) {
       </div>
       <div className="card p-5">
         <h2 className="font-semibold mb-2">9router</h2>
-        <p className="text-sm text-zinc-500">Cấu hình endpoint mặc định trong <code>.env</code>: <code>ROUTER_BASE_URL</code> & <code>ROUTER_API_KEY</code>. Mỗi model có thể override endpoint riêng.</p>
+        <p className="text-sm text-zinc-500">Cấu hình endpoint mặc định trong <code>.env</code>: <code>ROUTER_BASE_URL</code> và <code>ROUTER_API_KEY</code>. Mỗi model có thể ghi đè endpoint riêng.</p>
       </div>
     </div>
   );

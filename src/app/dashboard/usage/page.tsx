@@ -12,7 +12,7 @@ export default async function UsagePage() {
     select: { ts: true, totalTokens: true, modelName: true, status: true }
   });
 
-  // aggregate per day
+  // Gom dữ liệu theo ngày và theo model để vẽ biểu đồ.
   const byDay = new Map<string, number>();
   const byModel = new Map<string, number>();
   let total = 0;
@@ -36,7 +36,7 @@ export default async function UsagePage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold">Usage</h1>
+        <h1 className="text-3xl font-bold">Sử dụng</h1>
         <p className="text-zinc-500">Thống kê 30 ngày gần nhất.</p>
       </div>
 
@@ -50,7 +50,7 @@ export default async function UsagePage() {
           <div className="mt-2 text-2xl font-bold">{formatNumber(logs.length)}</div>
         </div>
         <div className="card p-5">
-          <div className="text-sm text-zinc-500">Models đã dùng</div>
+          <div className="text-sm text-zinc-500">Model đã dùng</div>
           <div className="mt-2 text-2xl font-bold">{modelSeries.length}</div>
         </div>
       </div>
@@ -81,8 +81,8 @@ export default async function UsagePage() {
               <th className="p-3">Model</th>
               <th className="p-3">Prompt</th>
               <th className="p-3">Completion</th>
-              <th className="p-3">Total</th>
-              <th className="p-3">Status</th>
+              <th className="p-3">Tổng</th>
+              <th className="p-3">Trạng thái</th>
             </tr>
           </thead>
           <tbody>

@@ -1,56 +1,56 @@
-# Claude Code Setup Guide
+# Hướng Dẫn Cài Đặt Claude Code
 
-Base URL for Api4Cheap:
+Base URL cho Api4Cheap:
 
 ```text
 https://lccaptcha.io.vn
 ```
 
-## 01. Install Git Bash on Windows
+## 01. Cài Git Bash trên Windows
 
-On Windows, Git Bash is recommended because it handles paths and quoting more reliably than CMD or PowerShell.
+Trên Windows, nên dùng Git Bash vì công cụ này xử lý path và quoting ổn định hơn CMD hoặc PowerShell.
 
-Download Git for Windows and install it with the default options. If you already have Git Bash, skip this step.
+Tải Git for Windows và cài với tuỳ chọn mặc định. Nếu đã có Git Bash, bỏ qua bước này.
 
-## 02. Install Node.js
+## 02. Cài Node.js
 
-Claude Code requires Node.js 18 or newer.
+Claude Code yêu cầu Node.js 18 trở lên.
 
 ```bash
 node --version
 ```
 
-If the printed version is lower than `18.0.0`, install the Node.js LTS version and reopen your terminal.
+Nếu phiên bản in ra nhỏ hơn `18.0.0`, hãy cài Node.js LTS rồi mở lại terminal.
 
-## 03. Create an API Key
+## 03. Tạo API key
 
-Open the Api4Cheap API Keys page, create a key, and copy the secret.
+Mở trang API key của Api4Cheap, tạo key mới và sao chép secret.
 
-Treat your key like a password. Anyone with it can spend your credits.
+Hãy giữ key như mật khẩu. Bất kỳ ai có key đều có thể dùng credit của bạn.
 
-## 04. Install Claude Code
+## 04. Cài Claude Code
 
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
 
-Close and reopen your terminal after installation so the `claude` command is available.
+Đóng và mở lại terminal sau khi cài để lệnh `claude` khả dụng.
 
-## 05. Create `settings.json`
+## 05. Tạo `settings.json`
 
-On Windows the config lives at:
+Trên Windows, file cấu hình nằm tại:
 
 ```text
 C:\Users\<you>\.claude\settings.json
 ```
 
-On macOS / Linux:
+Trên macOS / Linux:
 
 ```text
 ~/.claude/settings.json
 ```
 
-If the `.claude` folder does not exist yet, run `claude` once to let it create the directory, then create `settings.json` with this content:
+Nếu thư mục `.claude` chưa tồn tại, chạy `claude` một lần để client tạo thư mục, sau đó tạo `settings.json` với nội dung:
 
 ```json
 {
@@ -66,33 +66,33 @@ If the `.claude` folder does not exist yet, run `claude` once to let it create t
 }
 ```
 
-Replace `YOUR_API_KEY` with your API key.
+Thay `YOUR_API_KEY` bằng API key của bạn.
 
-## 06. Launch Claude Code
+## 06. Khởi chạy Claude Code
 
-Restart your terminal, then run:
+Khởi động lại terminal, sau đó chạy:
 
 ```bash
 claude
 ```
 
-You should see the welcome banner and prompt.
+Bạn sẽ thấy màn hình chào và prompt.
 
 ## FAQ
 
-Update to latest:
+Cập nhật lên bản mới nhất:
 
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
 
-Uninstall:
+Gỡ cài đặt:
 
 ```bash
 npm uninstall -g @anthropic-ai/claude-code
 ```
 
-If installation fails with a network error, try:
+Nếu cài đặt lỗi mạng, thử:
 
 ```bash
 npm install -g @anthropic-ai/claude-code --registry https://registry.npmmirror.com

@@ -20,7 +20,7 @@ export default function CodeBlock({ code, language }: Props) {
     <div className="code-block-wrapper">
       <div className="code-block-header">
         <span className="code-block-lang">{language || 'text'}</span>
-        <button onClick={copy} className="code-block-copy" title="Copy">
+        <button onClick={copy} className="code-block-copy" title="Sao chép">
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
       </div>

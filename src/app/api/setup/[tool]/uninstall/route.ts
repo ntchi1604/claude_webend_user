@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/setup/:tool/uninstall?os=windows|mac
- * Returns a PowerShell or Bash cleanup script for Claude Code or Codex CLI.
+ * Trả về script PowerShell hoặc Bash để gỡ cấu hình Claude Code hoặc Codex CLI.
  */
 export async function GET(
   req: NextRequest,
@@ -22,7 +22,7 @@ export async function GET(
       script = os === 'windows' ? uninstallCodexCliWindows() : uninstallCodexCliUnix();
       break;
     default:
-      return NextResponse.json({ error: 'Unknown tool' }, { status: 404 });
+      return NextResponse.json({ error: 'Công cụ không được hỗ trợ' }, { status: 404 });
   }
 
   return new NextResponse(script, {
@@ -33,7 +33,7 @@ export async function GET(
 function uninstallClaudeCodeWindows() {
   return [
     `Write-Host "================================" -ForegroundColor Yellow`,
-    `Write-Host "  Api4Cheap Claude Code Uninstall" -ForegroundColor Yellow`,
+    `Write-Host "  Gỡ cấu hình Api4Cheap cho Claude Code" -ForegroundColor Yellow`,
     `Write-Host "================================" -ForegroundColor Yellow`,
     `Write-Host ""`,
     ``,
@@ -43,7 +43,7 @@ function uninstallClaudeCodeWindows() {
     `$env:ANTHROPIC_BASE_URL = $null`,
     `$env:ANTHROPIC_API_KEY = $null`,
     `$env:ANTHROPIC_AUTH_TOKEN = $null`,
-    `Write-Host "  OK Removed Claude Code env vars" -ForegroundColor Green`,
+    `Write-Host "  OK Đã xoá biến môi trường Claude Code" -ForegroundColor Green`,
     ``,
     `$claudeDir = Join-Path $env:USERPROFILE ".claude"`,
     `$settingsFile = Join-Path $claudeDir "settings.json"`,
@@ -51,15 +51,15 @@ function uninstallClaudeCodeWindows() {
     `if (Test-Path $backupFile) {`,
     `    Copy-Item $backupFile $settingsFile -Force`,
     `    Remove-Item $backupFile -Force`,
-    `    Write-Host "  OK Restored settings.json" -ForegroundColor Green`,
+    `    Write-Host "  OK Đã khôi phục settings.json" -ForegroundColor Green`,
     `} elseif (Test-Path $settingsFile) {`,
     `    Remove-Item $settingsFile -Force`,
-    `    Write-Host "  OK Removed settings.json" -ForegroundColor Green`,
+    `    Write-Host "  OK Đã xoá settings.json" -ForegroundColor Green`,
     `}`,
     ``,
     `Write-Host ""`,
-    `Write-Host "  Uninstall Complete!" -ForegroundColor Green`,
-    `Write-Host "Run: claude login"`,
+    `Write-Host "  Gỡ cấu hình hoàn tất!" -ForegroundColor Green`,
+    `Write-Host "Chạy: claude login"`,
     `Write-Host ""`,
   ].join('\n');
 }
@@ -67,7 +67,7 @@ function uninstallClaudeCodeWindows() {
 function uninstallClaudeCodeUnix() {
   return `#!/bin/bash
 echo "================================"
-echo "  Api4Cheap Claude Code Uninstall"
+echo "  Gỡ cấu hình Api4Cheap cho Claude Code"
 echo "================================"
 echo ""
 
@@ -79,7 +79,7 @@ fi
 
 if [ -n "$PROFILE" ]; then
   sed -i.bak '/ANTHROPIC_BASE_URL/d; /ANTHROPIC_API_KEY/d; /ANTHROPIC_AUTH_TOKEN/d; /# Api4Cheap/d' "$PROFILE"
-  echo "  OK Cleaned $PROFILE"
+  echo "  OK Đã dọn $PROFILE"
 fi
 
 unset ANTHROPIC_BASE_URL
@@ -91,15 +91,15 @@ SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 BACKUP_FILE="$CLAUDE_DIR/settings.json.api4cheap-backup"
 if [ -f "$BACKUP_FILE" ]; then
   mv "$BACKUP_FILE" "$SETTINGS_FILE"
-  echo "  OK Restored settings.json"
+  echo "  OK Đã khôi phục settings.json"
 elif [ -f "$SETTINGS_FILE" ]; then
   rm -f "$SETTINGS_FILE"
-  echo "  OK Removed settings.json"
+  echo "  OK Đã xoá settings.json"
 fi
 
 echo ""
-echo "  Uninstall Complete!"
-echo "Run: claude login"
+echo "  Gỡ cấu hình hoàn tất!"
+echo "Chạy: claude login"
 echo ""
 `;
 }
@@ -107,13 +107,13 @@ echo ""
 function uninstallCodexCliWindows() {
   return [
     `Write-Host "================================" -ForegroundColor Yellow`,
-    `Write-Host "  Api4Cheap Codex CLI Uninstall" -ForegroundColor Yellow`,
+    `Write-Host "  Gỡ cấu hình Api4Cheap cho Codex CLI" -ForegroundColor Yellow`,
     `Write-Host "================================" -ForegroundColor Yellow`,
     `Write-Host ""`,
     ``,
     `[System.Environment]::SetEnvironmentVariable("OPENAI_API_KEY", $null, "User")`,
     `$env:OPENAI_API_KEY = $null`,
-    `Write-Host "  OK Removed OPENAI_API_KEY" -ForegroundColor Green`,
+    `Write-Host "  OK Đã xoá OPENAI_API_KEY" -ForegroundColor Green`,
     ``,
     `$codexDir = Join-Path $env:USERPROFILE ".codex"`,
     `$configFile = Join-Path $codexDir "config.toml"`,
@@ -123,22 +123,22 @@ function uninstallCodexCliWindows() {
     `if (Test-Path $configBackup) {`,
     `    Copy-Item -LiteralPath $configBackup -Destination $configFile -Force`,
     `    Remove-Item -LiteralPath $configBackup -Force`,
-    `    Write-Host "  OK Restored config.toml" -ForegroundColor Green`,
+    `    Write-Host "  OK Đã khôi phục config.toml" -ForegroundColor Green`,
     `} elseif (Test-Path $configFile) {`,
     `    Remove-Item -LiteralPath $configFile -Force`,
-    `    Write-Host "  OK Removed config.toml" -ForegroundColor Green`,
+    `    Write-Host "  OK Đã xoá config.toml" -ForegroundColor Green`,
     `}`,
     `if (Test-Path $authBackup) {`,
     `    Copy-Item -LiteralPath $authBackup -Destination $authFile -Force`,
     `    Remove-Item -LiteralPath $authBackup -Force`,
-    `    Write-Host "  OK Restored auth.json" -ForegroundColor Green`,
+    `    Write-Host "  OK Đã khôi phục auth.json" -ForegroundColor Green`,
     `} elseif (Test-Path $authFile) {`,
     `    Remove-Item -LiteralPath $authFile -Force`,
-    `    Write-Host "  OK Removed auth.json" -ForegroundColor Green`,
+    `    Write-Host "  OK Đã xoá auth.json" -ForegroundColor Green`,
     `}`,
     ``,
     `Write-Host ""`,
-    `Write-Host "  Uninstall Complete!" -ForegroundColor Green`,
+    `Write-Host "  Gỡ cấu hình hoàn tất!" -ForegroundColor Green`,
     `Write-Host ""`,
   ].join('\n');
 }
@@ -146,7 +146,7 @@ function uninstallCodexCliWindows() {
 function uninstallCodexCliUnix() {
   return `#!/bin/bash
 echo "================================"
-echo "  Api4Cheap Codex CLI Uninstall"
+echo "  Gỡ cấu hình Api4Cheap cho Codex CLI"
 echo "================================"
 echo ""
 
@@ -157,21 +157,21 @@ CONFIG_BACKUP="$CODEX_DIR/config.toml.api4cheap-backup"
 AUTH_BACKUP="$CODEX_DIR/auth.json.api4cheap-backup"
 if [ -f "$CONFIG_BACKUP" ]; then
   mv "$CONFIG_BACKUP" "$CONFIG_FILE"
-  echo "  OK Restored config.toml"
+  echo "  OK Đã khôi phục config.toml"
 elif [ -f "$CONFIG_FILE" ]; then
   rm -f "$CONFIG_FILE"
-  echo "  OK Removed config.toml"
+  echo "  OK Đã xoá config.toml"
 fi
 if [ -f "$AUTH_BACKUP" ]; then
   mv "$AUTH_BACKUP" "$AUTH_FILE"
-  echo "  OK Restored auth.json"
+  echo "  OK Đã khôi phục auth.json"
 elif [ -f "$AUTH_FILE" ]; then
   rm -f "$AUTH_FILE"
-  echo "  OK Removed auth.json"
+  echo "  OK Đã xoá auth.json"
 fi
 
 echo ""
-echo "  Uninstall Complete!"
+echo "  Gỡ cấu hình hoàn tất!"
 echo ""
 `;
 }

@@ -10,12 +10,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user || user.role !== 'ADMIN') redirect('/login');
 
   const nav = [
-    { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/users', label: 'Users', icon: Users },
-    { href: '/admin/plans', label: 'Plans', icon: Package },
-    { href: '/admin/models', label: 'Models', icon: Cpu },
-    { href: '/admin/payments', label: 'Payments', icon: CreditCard },
-    { href: '/admin/settings', label: 'Settings', icon: Settings }
+    { href: '/admin', label: 'Tổng quan', icon: LayoutDashboard },
+    { href: '/admin/users', label: 'Người dùng', icon: Users },
+    { href: '/admin/plans', label: 'Gói cước', icon: Package },
+    { href: '/admin/models', label: 'Model', icon: Cpu },
+    { href: '/admin/payments', label: 'Thanh toán', icon: CreditCard },
+    { href: '/admin/settings', label: 'Cài đặt', icon: Settings }
   ];
 
   return (
@@ -38,11 +38,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <ThemeToggle />
           </div>
           <Link href="/dashboard" className="flex items-center gap-2 rounded-md px-3 py-2 text-[14px] text-[var(--stone-600)] hover:bg-[var(--cream-50)] hover:text-[var(--charcoal-900)] transition-colors mt-1">
-            <ArrowLeft className="h-4 w-4" /> User Dashboard
+            <ArrowLeft className="h-4 w-4" /> Dashboard người dùng
           </Link>
         </div>
       </aside>
-      <MobileNav nav={[...nav.map((n) => ({ href: n.href, label: n.label })), { href: '/dashboard', label: '← User Dashboard' }]} email={user.email} isAdmin={false} />
+      <MobileNav nav={[...nav.map((n) => ({ href: n.href, label: n.label })), { href: '/dashboard', label: '← Dashboard người dùng' }]} email={user.email} isAdmin={false} />
       <main className="flex-1 p-6 md:p-10 overflow-y-auto min-h-screen">{children}</main>
     </div>
   );

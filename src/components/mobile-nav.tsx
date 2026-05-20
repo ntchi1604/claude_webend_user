@@ -41,7 +41,7 @@ export default function MobileNav({ nav, email, isAdmin }: { nav: NavItem[]; ema
               ))}
               {isAdmin && (
                 <Link href="/admin" onClick={() => setOpen(false)} className="mt-4 flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[14px] bg-[var(--cream-50)] text-[var(--brand-orange)] font-medium">
-                  Admin Panel
+                  Quản trị
                 </Link>
               )}
             </nav>

@@ -20,10 +20,10 @@ function groupByDate(conversations: ConvItem[]) {
   const week = new Date(today.getTime() - 7 * 86400000);
 
   const groups: { label: string; items: ConvItem[] }[] = [
-    { label: 'Today', items: [] },
-    { label: 'Yesterday', items: [] },
-    { label: 'Previous 7 days', items: [] },
-    { label: 'Older', items: [] },
+    { label: 'Hôm nay', items: [] },
+    { label: 'Hôm qua', items: [] },
+    { label: '7 ngày trước', items: [] },
+    { label: 'Cũ hơn', items: [] },
   ];
 
   for (const c of conversations) {
@@ -51,7 +51,7 @@ export default function ChatSidebar({ conversations, activeId, onSelect, onNew, 
           </div>
           <button onClick={onNew} className="sidebar-new-btn">
             <Plus className="h-4 w-4" />
-            <span>New chat</span>
+            <span>Chat mới</span>
           </button>
         </div>
         <div className="sidebar-list">
@@ -77,7 +77,7 @@ export default function ChatSidebar({ conversations, activeId, onSelect, onNew, 
             </div>
           ))}
           {conversations.length === 0 && (
-            <p className="sidebar-empty">No conversations yet</p>
+            <p className="sidebar-empty">Chưa có cuộc trò chuyện nào</p>
           )}
         </div>
       </aside>

@@ -73,7 +73,7 @@ export default function MessageBubble({ role, content, streaming }: Props) {
         {images.length > 0 && (
           <div className="msg-images">
             {images.map((img: any, i: number) => (
-              <img key={i} src={img.image_url.url} alt="attachment" className="msg-img-thumb" />
+              <img key={i} src={img.image_url.url} alt="Tệp đính kèm" className="msg-img-thumb" />
             ))}
           </div>
         )}
@@ -92,7 +92,7 @@ export default function MessageBubble({ role, content, streaming }: Props) {
         )}
         {role === 'assistant' && !streaming && text && (
           <div className="msg-actions">
-            <button onClick={copyText} className="msg-copy-btn" title="Copy">
+            <button onClick={copyText} className="msg-copy-btn" title="Sao chép">
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
           </div>

@@ -13,6 +13,24 @@ export type QuotaResult = {
   modelAllowed?: boolean;
 };
 
+export function quotaMessage(result: QuotaResult) {
+  const resetText = result.resetAt ? `, reset=${result.resetAt.toISOString()}` : '';
+  const detail = `limit=${result.limit}, used=${result.used}, remaining=${result.remaining}, window=${result.windowHours}h${resetText}`;
+
+  switch (result.reason) {
+    case 'NO_ACTIVE_PLAN':
+      return `Không có gói đang hoạt động. ${detail}`;
+    case 'MODEL_NOT_FOUND':
+      return `Model không khả dụng hoặc chưa được cấu hình. ${detail}`;
+    case 'MODEL_NOT_IN_PLAN':
+      return `Model không nằm trong gói hiện tại. ${detail}`;
+    case 'QUOTA_EXCEEDED':
+      return `Bạn đã vượt hạn mức token của gói hiện tại. ${detail}`;
+    default:
+      return `Không thể kiểm tra hạn mức. ${detail}`;
+  }
+}
+
 export async function checkQuota(userId: string, modelName: string, estimateTokens = 0): Promise<QuotaResult> {
   const sub = await prisma.subscription.findFirst({
     where: { userId, active: true, expiresAt: { gt: new Date() } },

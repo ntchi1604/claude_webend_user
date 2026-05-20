@@ -125,7 +125,7 @@ export default function ChatPage() {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ title: text.slice(0, 50) || 'New conversation', model })
+          body: JSON.stringify({ title: text.slice(0, 50) || 'Cuộc trò chuyện mới', model })
         });
         const conv = await r.json();
         convId = conv.id;
@@ -161,7 +161,7 @@ export default function ChatPage() {
         const errText = await r.text();
         let errMsg = errText;
         try { errMsg = JSON.parse(errText)?.error?.message || errText; } catch {}
-        setMessages([...newMsgs, { role: 'assistant', content: `Error: ${errMsg}` }]);
+        setMessages([...newMsgs, { role: 'assistant', content: `Lỗi: ${errMsg}` }]);
         setStreaming(false);
         return;
       }
@@ -183,7 +183,7 @@ export default function ChatPage() {
           if (!payload || payload === '[DONE]') continue;
           try {
             const j = JSON.parse(payload);
-            if (j?.error) full += `\nError: ${j.error.message}`;
+            if (j?.error) full += `\nLỗi: ${j.error.message}`;
             else { const d = j?.choices?.[0]?.delta?.content; if (typeof d === 'string') full += d; }
           } catch {}
         }
@@ -201,7 +201,7 @@ export default function ChatPage() {
       }
     } catch (e: any) {
       if (e?.name !== 'AbortError') {
-        setMessages([...newMsgs, { role: 'assistant', content: `Error: ${e?.message || 'Unknown error'}` }]);
+        setMessages([...newMsgs, { role: 'assistant', content: `Lỗi: ${e?.message || 'Lỗi không xác định'}` }]);
       }
     } finally {
       setStreaming(false);

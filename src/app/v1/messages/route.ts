@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashApiKey } from '@/lib/auth';
-import { checkQuota } from '@/lib/quota';
+import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -73,18 +73,18 @@ function msgsToOpenAIFormat(messages: any[], system?: any) {
 
 export async function POST(req: NextRequest) {
   const key = await authKey(req);
-  if (!key) return errJson('Invalid API key', 'authentication_error', 401);
+  if (!key) return errJson('API key không hợp lệ', 'authentication_error', 401);
 
   let body: any;
-  try { body = await req.json(); } catch { return errJson('Invalid JSON body'); }
+  try { body = await req.json(); } catch { return errJson('Body JSON không hợp lệ'); }
   const stream = !!body?.stream;
 
   const rl = checkRateLimit(key.id);
-  if (!rl.ok) return errOut(stream, `Rate limit exceeded (${rl.reason})`, 'rate_limit_error', 429);
+  if (!rl.ok) return errOut(stream, `Vượt giới hạn tần suất (${rl.reason})`, 'rate_limit_error', 429);
 
   const modelName: string = body?.model;
   const messages: any[] = body?.messages || [];
-  if (!modelName) return errOut(stream, 'Field "model" is required', 'invalid_request_error', 400);
+  if (!modelName) return errOut(stream, 'Thiếu trường "model"', 'invalid_request_error', 400);
 
   const promptTokens = countMessagesTokens([
     ...(body?.system ? [{ role: 'system', content: body.system }] : []),
@@ -93,13 +93,13 @@ export async function POST(req: NextRequest) {
 
   const quota = await checkQuota(key.userId, modelName, promptTokens);
   if (!quota.allowed) {
-    const status = quota.reason?.startsWith('MODEL') ? 403 : 429;
-    const msg = `${quota.reason}. limit=${quota.limit}, used=${quota.used}, window=${quota.windowHours}h${quota.resetAt ? `, reset=${quota.resetAt.toISOString()}` : ''}`;
+    const status = 403;
+    const msg = quotaMessage(quota);
     return errOut(stream, msg, 'rate_limit_error', status);
   }
 
   const resolved = await resolveModelEndpoint(modelName);
-  if (!resolved) return errOut(stream, 'Model not configured', 'not_found_error', 404);
+  if (!resolved) return errOut(stream, 'Model chưa được cấu hình', 'not_found_error', 404);
 
   const isAnthropic = resolved.model.provider === 'anthropic';
 
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody), signal: fetchAbort.signal });
   } catch (e: any) {
     clearTimeout(fetchTimer);
-    const msg = fetchAbort.signal.aborted ? 'Upstream timeout' : 'Upstream unavailable';
+    const msg = fetchAbort.signal.aborted ? 'Upstream timeout' : 'Upstream không khả dụng';
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message);
     return errOut(stream, msg, 'api_error', 502);
   } finally {
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 500));
-    return errSSEAnthropic(text.slice(0, 500) || 'Upstream error', 'api_error');
+    return errSSEAnthropic(text.slice(0, 500) || 'Lỗi upstream', 'api_error');
   }
 
   if (isAnthropic) {
