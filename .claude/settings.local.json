@@ -10,7 +10,14 @@
       "PowerShell(New-Item *)",
       "WebSearch",
       "PowerShell(npm run *)",
-      "WebFetch(domain:platform.openai.com)"
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh repo *)",
+      "Bash(sqlite3 --version)",
+      "Bash(npx tsx *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
