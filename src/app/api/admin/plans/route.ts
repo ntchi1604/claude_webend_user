@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
         tokenLimit: +b.tokenLimit,
         windowHours: +b.windowHours || 5,
         durationDays: +b.durationDays || 30,
+        requestsPerMinute: +b.requestsPerMinute || 60,
         priceVND: +b.priceVND || 0,
         modelIds: JSON.stringify(b.modelIds || []),
         enabled: b.enabled ?? true

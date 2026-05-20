@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Plus, Save, Trash2, Power } from 'lucide-react';
 
-type P = { id: string; name: string; description: string | null; tokenLimit: number; windowHours: number; durationDays: number; priceVND: number; modelIds: string[]; enabled: boolean };
+type P = { id: string; name: string; description: string | null; tokenLimit: number; windowHours: number; durationDays: number; requestsPerMinute: number; priceVND: number; modelIds: string[]; enabled: boolean };
 type M = { id: string; name: string };
 
-const empty: Omit<P, 'id'> = { name: '', description: null, tokenLimit: 100000, windowHours: 5, durationDays: 30, priceVND: 0, modelIds: [], enabled: true };
+const empty: Omit<P, 'id'> = { name: '', description: null, tokenLimit: 100000, windowHours: 5, durationDays: 30, requestsPerMinute: 60, priceVND: 0, modelIds: [], enabled: true };
 
 export default function PlansClient({ initial, models }: { initial: P[]; models: M[] }) {
   const [list, setList] = useState<P[]>(initial);
@@ -50,6 +50,7 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
           <input className="input" type="number" placeholder="Giới hạn token" value={draft.tokenLimit} onChange={(e) => setDraft({ ...draft, tokenLimit: +e.target.value })} />
           <input className="input" type="number" placeholder="Cửa sổ giờ" value={draft.windowHours} onChange={(e) => setDraft({ ...draft, windowHours: +e.target.value })} />
           <input className="input" type="number" placeholder="Số ngày hiệu lực" value={draft.durationDays} onChange={(e) => setDraft({ ...draft, durationDays: +e.target.value })} />
+          <input className="input" type="number" placeholder="Req/phút" value={draft.requestsPerMinute} onChange={(e) => setDraft({ ...draft, requestsPerMinute: +e.target.value })} title="Số request tối đa mỗi phút cho mỗi user" />
         </div>
         <div style={{ marginTop: '12px' }}>
           <div className="form-label">Model cho phép</div>
@@ -74,17 +75,18 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
       {/* Danh sách gói */}
       <div className="space-y-3" style={{ overflowX: 'auto' }}>
         <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', padding: '0 16px', minWidth: '600px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', padding: '0 16px', minWidth: '700px' }}>
           <span className="caption">Tên gói</span>
           <span className="caption" style={{ gridColumn: 'span 2' }}>Mô tả</span>
           <span className="caption">Giá (VND)</span>
           <span className="caption">Giới hạn token</span>
           <span className="caption">Cửa sổ (h) / ngày</span>
+          <span className="caption">Req/phút</span>
         </div>
         </div>
         {list.map((p, i) => (
-          <div key={p.id} className="card" style={{ opacity: p.enabled ? 1 : 0.5, minWidth: '600px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', alignItems: 'center' }}>
+          <div key={p.id} className="card" style={{ opacity: p.enabled ? 1 : 0.5, minWidth: '700px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', alignItems: 'center' }}>
               <input className="input" value={p.name} onChange={(e) => patch(i, { name: e.target.value })} />
               <input className="input" style={{ gridColumn: 'span 2' }} value={p.description ?? ''} onChange={(e) => patch(i, { description: e.target.value })} />
               <input className="input" type="number" value={p.priceVND} onChange={(e) => patch(i, { priceVND: +e.target.value })} />
@@ -93,6 +95,7 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
                 <input className="input" type="number" value={p.windowHours} onChange={(e) => patch(i, { windowHours: +e.target.value })} title="Số giờ của cửa sổ hạn mức" />
                 <input className="input" type="number" value={p.durationDays} onChange={(e) => patch(i, { durationDays: +e.target.value })} title="Số ngày hiệu lực" />
               </div>
+              <input className="input" type="number" value={p.requestsPerMinute} onChange={(e) => patch(i, { requestsPerMinute: +e.target.value })} title="Số request tối đa mỗi phút cho mỗi user" />
             </div>
             <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {models.map((m) => (

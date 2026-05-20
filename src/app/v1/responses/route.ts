@@ -4,7 +4,7 @@ import { hashApiKey, verifySession } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
-import { checkRateLimit, recordTokens } from '@/lib/rate-limit';
+import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -348,7 +348,7 @@ export async function POST(req: NextRequest) {
   const finalMessages = [systemMsg, ...messages.filter((m: any) => m.role !== 'system')];
 
   const promptTokens = countResponsePromptTokens(finalMessages);
-  const rl = checkRateLimit(key.id);
+  const rl = checkRateLimit(key.userId, await getUserRequestsPerMinute(key.userId));
   if (!rl.ok) return errJson(`Vượt giới hạn tần suất (${rl.reason})`, 429);
 
   const quota = await checkQuota(key.userId, modelName, promptTokens);

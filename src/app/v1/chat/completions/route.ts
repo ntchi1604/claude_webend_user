@@ -4,7 +4,7 @@ import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
-import { checkRateLimit, recordTokens } from '@/lib/rate-limit';
+import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return errJson('Body JSON không hợp lệ'); }
   const stream = !!body?.stream;
 
-  const rl = checkRateLimit(key.id);
+  const rl = checkRateLimit(key.userId, await getUserRequestsPerMinute(key.userId));
   if (!rl.ok) return errOut(stream, `Vượt giới hạn tần suất (${rl.reason})`, 'rate_limit_error', 429);
 
   const modelName: string = body?.model;

@@ -28,6 +28,7 @@ model Plan {
   tokenLimit    BigInt
   windowHours   Int            @default(5)
   durationDays  Int            @default(30)
+  requestsPerMinute Int        @default(60)
   priceVND      Int
   modelIds      String         @default("[]") // JSON array of model IDs
   enabled       Boolean        @default(true)

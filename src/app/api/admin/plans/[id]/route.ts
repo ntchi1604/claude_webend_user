@@ -14,6 +14,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         tokenLimit: +b.tokenLimit,
         windowHours: +b.windowHours,
         durationDays: +b.durationDays,
+        requestsPerMinute: +b.requestsPerMinute || 60,
         priceVND: +b.priceVND,
         modelIds: JSON.stringify(b.modelIds || []),
         enabled: b.enabled

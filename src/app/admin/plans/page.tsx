@@ -9,6 +9,7 @@ export default async function AdminPlansPage() {
     initial={plans.map((p) => ({
       id: p.id, name: p.name, description: p.description,
       tokenLimit: Number(p.tokenLimit), windowHours: p.windowHours, durationDays: p.durationDays,
+      requestsPerMinute: p.requestsPerMinute,
       priceVND: p.priceVND, modelIds: parseModelIds(p.modelIds), enabled: p.enabled
     }))}
     models={models.map((m) => ({ id: m.id, name: m.name }))}
