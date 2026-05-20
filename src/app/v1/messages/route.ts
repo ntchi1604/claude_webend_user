@@ -129,23 +129,11 @@ export async function POST(req: NextRequest) {
     if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
   }
 
-  const DEBUG = process.env.DEBUG_UPSTREAM === '1';
-  if (DEBUG) {
-    const safeHeaders = { ...upstreamHeaders };
-    if (safeHeaders['x-api-key']) safeHeaders['x-api-key'] = safeHeaders['x-api-key'].slice(0, 8) + '...';
-    if (safeHeaders['authorization']) safeHeaders['authorization'] = safeHeaders['authorization'].slice(0, 15) + '...';
-    console.log('[v1/messages] >>> upstream url:', url);
-    console.log('[v1/messages] >>> upstream headers:', safeHeaders);
-    console.log('[v1/messages] >>> incoming body keys:', Object.keys(body || {}));
-    console.log('[v1/messages] >>> upstream body:', JSON.stringify(upstreamBody).slice(0, 4000));
-  }
-
   let upstream: Response;
   const fetchAbort = new AbortController();
   const fetchTimer = setTimeout(() => fetchAbort.abort('fetch_timeout'), 5 * 60 * 1000);
   try {
     upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody), signal: fetchAbort.signal });
-    if (DEBUG) console.log('[v1/messages] <<< upstream status:', upstream.status, 'content-type:', upstream.headers.get('content-type'));
   } catch (e: any) {
     clearTimeout(fetchTimer);
     const msg = fetchAbort.signal.aborted ? 'Upstream timeout' : 'Upstream không khả dụng';
@@ -159,7 +147,6 @@ export async function POST(req: NextRequest) {
 
   if (!stream) {
     const text = await upstream.text();
-    if (DEBUG) console.log('[v1/messages] <<< upstream non-stream body:', text.slice(0, 2000));
     let parsed: any = null;
     try { parsed = JSON.parse(text); } catch { }
     let pt = promptTokens, ct = 0;
@@ -180,7 +167,6 @@ export async function POST(req: NextRequest) {
 
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
-    if (DEBUG) console.log('[v1/messages] <<< upstream stream-error body:', text.slice(0, 2000));
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 500));
     return errSSEAnthropic(text.slice(0, 500) || 'Lỗi upstream', 'api_error');
   }
