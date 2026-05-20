@@ -419,6 +419,8 @@ export async function POST(req: NextRequest) {
         let nextOutputIndex = 0;
         const toolCalls = new Map<number, { id: string; outputIndex: number; name: string; arguments: string; emitted: boolean }>();
         let completionTokens = 0;
+        let rawBody = '';
+        let sawSseData = false;
 
         function ensureTextItem() {
           if (messageStarted) return;
@@ -440,6 +442,76 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        function emitTextDelta(delta: string) {
+          ensureTextItem();
+          if (!delta) return;
+          fullContent += delta;
+          send('response.output_text.delta', {
+            type: 'response.output_text.delta',
+            item_id: msgId,
+            output_index: textOutputIndex,
+            content_index: 0,
+            delta
+          });
+        }
+
+        function emitToolCallDelta(index: number, id: string | undefined, name: string | undefined, argsDelta: string) {
+          let state = toolCalls.get(index);
+          if (!state) {
+            state = {
+              id: id || `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`,
+              outputIndex: nextOutputIndex++,
+              name: responseToolName(name || 'tool', convertedTools.chatToResponse),
+              arguments: '',
+              emitted: false
+            };
+            toolCalls.set(index, state);
+          }
+          if (id) state.id = id;
+          if (name) state.name = responseToolName(name, convertedTools.chatToResponse);
+          if (!state.emitted) {
+            send('response.output_item.added', {
+              type: 'response.output_item.added',
+              response_id: respId,
+              output_index: state.outputIndex,
+              item: {
+                id: state.id,
+                type: 'function_call',
+                call_id: state.id,
+                name: state.name,
+                arguments: '',
+                status: 'in_progress'
+              }
+            });
+            state.emitted = true;
+          }
+          if (argsDelta) {
+            state.arguments += argsDelta;
+            send('response.function_call_arguments.delta', {
+              type: 'response.function_call_arguments.delta',
+              response_id: respId,
+              item_id: state.id,
+              output_index: state.outputIndex,
+              delta: argsDelta
+            });
+          }
+        }
+
+        function applyChatMessage(message: any, usage?: any) {
+          const content = message?.content || '';
+          emitTextDelta(typeof content === 'string' ? content : contentToText(content));
+          const calls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+          calls.forEach((call: any, index: number) => {
+            emitToolCallDelta(
+              index,
+              call?.id,
+              call?.function?.name || call?.name,
+              call?.function?.arguments || call?.arguments || ''
+            );
+          });
+          if (usage) completionTokens = usage.completion_tokens || completionTokens;
+        }
+
         try {
           if (!upstream.body) {
             // No body - treat as empty after the stream bookkeeping below.
@@ -452,7 +524,9 @@ export async function POST(req: NextRequest) {
               const { done, value } = await reader.read();
               if (done) break;
 
-              buffer += decoder.decode(value, { stream: true });
+              const decoded = decoder.decode(value, { stream: true });
+              rawBody += decoded;
+              buffer += decoded;
               const lines = buffer.split('\n');
               buffer = lines.pop() || '';
 
@@ -460,66 +534,17 @@ export async function POST(req: NextRequest) {
                 if (!line.startsWith('data: ')) continue;
                 const payload = line.slice(6).trim();
                 if (payload === '[DONE]') continue;
+                sawSseData = true;
 
                 try {
                   const chunk = JSON.parse(payload);
                   const choice = chunk?.choices?.[0];
                   const delta = choice?.delta?.content;
-                  if (delta) {
-                    ensureTextItem();
-                    fullContent += delta;
-                    send('response.output_text.delta', {
-                      type: 'response.output_text.delta',
-                      item_id: msgId,
-                      output_index: textOutputIndex,
-                      content_index: 0,
-                      delta
-                    });
-                  }
+                  if (delta) emitTextDelta(delta);
                   const deltaToolCalls = choice?.delta?.tool_calls || [];
                   for (const tc of deltaToolCalls) {
                     const idx = typeof tc.index === 'number' ? tc.index : 0;
-                    let state = toolCalls.get(idx);
-                    if (!state) {
-                      const id = tc.id || `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-                      state = {
-                        id,
-                        outputIndex: nextOutputIndex++,
-                        name: responseToolName(tc?.function?.name || 'tool', convertedTools.chatToResponse),
-                        arguments: '',
-                        emitted: false
-                      };
-                      toolCalls.set(idx, state);
-                    }
-                    if (tc.id) state.id = tc.id;
-                    if (tc?.function?.name) state.name = responseToolName(tc.function.name, convertedTools.chatToResponse);
-                    if (!state.emitted) {
-                      send('response.output_item.added', {
-                        type: 'response.output_item.added',
-                        response_id: respId,
-                        output_index: state.outputIndex,
-                        item: {
-                          id: state.id,
-                          type: 'function_call',
-                          call_id: state.id,
-                          name: state.name,
-                          arguments: '',
-                          status: 'in_progress'
-                        }
-                      });
-                      state.emitted = true;
-                    }
-                    const argsDelta = tc?.function?.arguments || '';
-                    if (argsDelta) {
-                      state.arguments += argsDelta;
-                      send('response.function_call_arguments.delta', {
-                        type: 'response.function_call_arguments.delta',
-                        response_id: respId,
-                        item_id: state.id,
-                        output_index: state.outputIndex,
-                        delta: argsDelta
-                      });
-                    }
+                    emitToolCallDelta(idx, tc.id, tc?.function?.name, tc?.function?.arguments || '');
                   }
                   // Check for usage in final chunk
                   if (chunk?.usage) {
@@ -529,6 +554,19 @@ export async function POST(req: NextRequest) {
               }
             }
           }
+
+          if (!sawSseData && rawBody.trim()) {
+            try {
+              const data = JSON.parse(rawBody);
+              applyChatMessage(data?.choices?.[0]?.message || {}, data?.usage);
+            } catch {
+              emitTextDelta(rawBody.trim());
+            }
+          }
+
+          // Codex expects a completed output item. Even when upstream returns
+          // an empty assistant message, emit the message lifecycle explicitly.
+          if (!messageStarted && toolCalls.size === 0) ensureTextItem();
 
           if (!completionTokens) completionTokens = Math.max(countTokens(fullContent), estimateToolCallTokens(toolCalls.values()));
           const totalTokens = promptTokens + completionTokens;

@@ -1,12 +1,12 @@
 // Simple in-memory sliding-window rate limiter per API key.
-// Defaults: 60 RPM, 200K tokens/min.
+// Defaults: 60 RPM, token-per-minute limiting disabled.
 // Override via env: RATE_RPM, RATE_TPM
 
 type Bucket = { reqTimes: number[]; tokenStamps: { ts: number; tokens: number }[] };
 const buckets = new Map<string, Bucket>();
 
 const RPM = Number(process.env.RATE_RPM || 60);
-const TPM = Number(process.env.RATE_TPM || 200_000);
+const TPM = Number(process.env.RATE_TPM || 0);
 const WINDOW = 60_000;
 
 function get(id: string): Bucket {
@@ -25,9 +25,9 @@ export function checkRateLimit(keyId: string, estimatedTokens = 0): { ok: boolea
   const now = Date.now();
   const b = get(keyId);
   prune(b, now);
-  if (b.reqTimes.length >= RPM) return { ok: false, reason: `RPM limit ${RPM}` };
+  if (RPM > 0 && b.reqTimes.length >= RPM) return { ok: false, reason: `RPM limit ${RPM}` };
   const tok = b.tokenStamps.reduce((a, x) => a + x.tokens, 0);
-  if (tok + estimatedTokens > TPM) return { ok: false, reason: `TPM limit ${TPM}` };
+  if (TPM > 0 && tok + estimatedTokens > TPM) return { ok: false, reason: `TPM limit ${TPM}` };
   b.reqTimes.push(now);
   if (estimatedTokens > 0) b.tokenStamps.push({ ts: now, tokens: estimatedTokens });
   return { ok: true };

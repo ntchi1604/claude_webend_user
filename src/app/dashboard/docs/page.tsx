@@ -97,7 +97,7 @@ function fallbackOptions(loading: boolean, allowed: AllowedModel[], options: Mod
 }
 
 function maskedKey(key: string) {
-  if (!key) return 'sk-bee-...';
+  if (!key) return 'sk-a4c-...';
   if (key.length <= 18) return key;
   return `${key.slice(0, 10)}...${key.slice(-6)}`;
 }
@@ -261,7 +261,7 @@ export default function DocsPage() {
                   type="text"
                   value={apiKey}
                   onChange={(event) => setApiKey(event.target.value.trim())}
-                  placeholder="Dán khóa API đầy đủ, ví dụ sk-bee-..."
+                  placeholder="Dán khóa API đầy đủ, ví dụ sk-a4c-..."
                   className="h-11 w-full rounded-md border border-[var(--lavender-100)] bg-white pl-9 pr-3 font-mono text-[13px] outline-none transition focus:border-[var(--brand-blue)] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:bg-[#222221]"
                 />
               </div>

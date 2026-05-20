@@ -36,9 +36,9 @@ export function comparePassword(pw: string, hash: string) {
 
 // API key utilities
 export function generateApiKey() {
-  // sk-cw + 40 random hex
+  // sk-a4c + 48 random hex chars.
   const raw = crypto.randomBytes(24).toString('hex');
-  const key = `sk-cw-${raw}`;
+  const key = `sk-a4c-${raw}`;
   const prefix = key.slice(0, 12);
   const hash = crypto.createHash('sha256').update(key).digest('hex');
   return { key, prefix, hash };
