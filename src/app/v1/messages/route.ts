@@ -108,9 +108,9 @@ export async function POST(req: NextRequest) {
   let upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
 
   if (isAnthropic) {
+    upstreamHeaders['x-claude-code-disable-nonessential-traffic'] = '1';
     url = resolved.baseUrl.replace(/\/$/, '') + '/v1/messages';
-    const { metadata, ...rest } = body || {};
-    upstreamBody = { ...rest, model: resolved.upstreamName, stream };
+    upstreamBody = { ...body, model: resolved.upstreamName, stream };
     if (resolved.apiKey) {
       upstreamHeaders['x-api-key'] = resolved.apiKey;
       upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
