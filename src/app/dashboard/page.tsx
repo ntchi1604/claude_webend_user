@@ -1,4 +1,4 @@
-﻿import { requireUser } from '@/lib/session';
+import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatNumber } from '@/lib/utils';
 import Link from 'next/link';
@@ -115,11 +115,16 @@ export default async function DashboardPage() {
           <p className="caption">Endpoint</p>
           <h2 className="heading-5">Kết nối gateway</h2>
         </div>
-        <pre>{`Base URL: https://lccaptcha.io.vn
+        <pre>{`# Claude Code
+Base URL: https://lccaptcha.io.vn
 API Key:  YOUR_API_KEY
 
 ANTHROPIC_BASE_URL=https://lccaptcha.io.vn
-ANTHROPIC_API_KEY=YOUR_API_KEY`}</pre>
+ANTHROPIC_API_KEY=YOUR_API_KEY
+
+# Codex CLI
+Base URL: https://lccaptcha.io.vn/v1
+API Key:  YOUR_API_KEY`}</pre>
       </section>
     </div>
   );
