@@ -119,8 +119,6 @@ export default async function DashboardPage() {
 Base URL: https://lccaptcha.io.vn
 API Key:  YOUR_API_KEY
 
-ANTHROPIC_BASE_URL=https://lccaptcha.io.vn
-ANTHROPIC_API_KEY=YOUR_API_KEY
 
 # Codex CLI
 Base URL: https://lccaptcha.io.vn/v1

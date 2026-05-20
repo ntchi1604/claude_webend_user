@@ -53,8 +53,8 @@ export default async function HomePage() {
       <header style={{ borderBottom: '1px solid var(--lavender-100)' }}>
         <div className="container-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px' }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-            <span style={{ display: 'inline-flex', height: '36px', width: '36px', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', background: 'var(--brand-orange)', color: '#fff', fontFamily: 'var(--font-serif)', fontSize: '16px', fontWeight: 500 }}>A</span>
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '18px', fontWeight: 500 }}>Api4Cheap</span>
+            <img src="/api4cheap-logo.svg" alt="Api4Cheap" style={{ height: '36px', width: '36px', borderRadius: '8px' }} />
+            <span className="brand-text-effect" style={{ fontFamily: 'var(--font-sans)', fontSize: '18px', fontWeight: 500 }}>Api4Cheap</span>
           </Link>
           <nav style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ThemeToggle />

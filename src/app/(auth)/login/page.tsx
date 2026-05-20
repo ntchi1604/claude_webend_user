@@ -31,7 +31,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-[var(--brand-orange)] text-white font-serif text-lg">C</span>
+            <img src="/api4cheap-logo.svg" alt="Api4Cheap" className="h-10 w-10 rounded-md" />
           </Link>
           <h1 className="heading-1 mt-4">Đăng nhập</h1>
           <p className="body-sm text-[var(--stone-600)] mt-1">Chào mừng trở lại</p>

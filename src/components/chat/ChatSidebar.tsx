@@ -47,8 +47,8 @@ export default function ChatSidebar({ conversations, activeId, onSelect, onNew, 
       <aside className={`chat-sidebar ${open ? 'chat-sidebar-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            <div className="sidebar-brand-logo">C</div>
-            <span className="sidebar-brand-name">Api4Cheap</span>
+            <img src="/api4cheap-logo.svg" alt="Api4Cheap" className="sidebar-brand-logo" />
+            <span className="sidebar-brand-name brand-text-effect">Api4Cheap</span>
           </div>
           <button onClick={onNew} className="sidebar-new-btn">
             <Plus className="h-4 w-4" />

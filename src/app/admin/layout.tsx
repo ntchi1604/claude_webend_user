@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen flex bg-[var(--cream-100)]">
       <aside className="w-60 hidden md:flex flex-col border-r border-[var(--lavender-100)] bg-white dark:bg-[#1A1A19] p-4 gap-1 h-screen sticky top-0 overflow-y-auto">
         <div className="flex items-center gap-2 px-2 py-3 mb-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--charcoal-900)] text-white dark:text-[#141413] dark:bg-[#FAF9F5] font-serif text-xs">A</span>
+          <img src="/api4cheap-logo.svg" alt="Api4Cheap" className="h-7 w-7 rounded-md" />
           <span className="heading-5 text-[15px]">Admin</span>
         </div>
         <nav className="flex flex-col gap-0.5 flex-1">

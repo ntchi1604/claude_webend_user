@@ -25,8 +25,8 @@ export default function MobileNav({ nav, email, isAdmin }: { nav: NavItem[]; ema
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 px-2 py-3 mb-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[var(--brand-orange)] text-white font-serif text-xs">A</span>
-              <span className="heading-5 text-[15px]">Api4Cheap</span>
+              <img src="/api4cheap-logo.svg" alt="Api4Cheap" className="h-7 w-7 rounded-md" />
+              <span className="heading-5 text-[15px] brand-text-effect">Api4Cheap</span>
             </div>
             <nav className="flex flex-col gap-0.5 flex-1">
               {nav.map((n) => (

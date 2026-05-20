@@ -6,7 +6,11 @@ import { Toaster } from 'sonner';
 export const metadata: Metadata = {
   title: 'Api4Cheap - Cổng cho Claude Code và Codex CLI',
   description: 'Cổng Api4Cheap cho Claude Code và Codex CLI với base URL https://lccaptcha.io.vn.',
-  icons: [{ rel: 'icon', url: '/favicon.ico' }],
+  icons: {
+    icon: [{ url: '/api4cheap-logo.svg', type: 'image/svg+xml' }],
+    shortcut: ['/api4cheap-logo.svg'],
+    apple: [{ url: '/api4cheap-logo.svg' }],
+  },
 };
 
 const themeScript = `(()=>{try{const t=localStorage.getItem('theme');const d=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;

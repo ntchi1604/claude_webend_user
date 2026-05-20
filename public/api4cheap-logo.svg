@@ -1,0 +1,15 @@
+﻿<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Api4Cheap logo</title>
+  <desc id="desc">A compact A4 monogram with API gateway nodes for Api4Cheap.</desc>
+  <rect width="160" height="160" rx="32" fill="#141413"/>
+  <path d="M38 112L69.5 48H86.5L118 112H99.5L93.5 99H62L56 112H38Z" fill="#FAF9F5"/>
+  <path d="M69 84H86.5L77.75 64.5L69 84Z" fill="#C46849"/>
+  <path d="M101 50H118V77H132V92H118V112H101V92H69V78L101 50Z" fill="#2C84DB"/>
+  <path d="M101 77V68L91 77H101Z" fill="#141413"/>
+  <circle cx="40" cy="42" r="7" fill="#C46849"/>
+  <circle cx="120" cy="42" r="7" fill="#2C84DB"/>
+  <circle cx="40" cy="120" r="7" fill="#629987"/>
+  <path d="M47 42H62" stroke="#FAF9F5" stroke-width="5" stroke-linecap="round" opacity="0.72"/>
+  <path d="M113 42H98" stroke="#FAF9F5" stroke-width="5" stroke-linecap="round" opacity="0.72"/>
+  <path d="M47 120H62" stroke="#FAF9F5" stroke-width="5" stroke-linecap="round" opacity="0.72"/>
+</svg>
