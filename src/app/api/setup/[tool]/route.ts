@@ -119,9 +119,7 @@ $settingsContent = @'
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
         "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
-        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}"
     },
     "permissions": {
         "allow": [],
@@ -199,9 +197,7 @@ cat > "$SETTINGS" << 'SETTINGSEOF'
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
         "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
-        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}"
     },
     "permissions": {
         "allow": [],
