@@ -17,7 +17,8 @@
       "Bash(sqlite3 --version)",
       "Bash(npx tsx *)",
       "Bash(npm run *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }
