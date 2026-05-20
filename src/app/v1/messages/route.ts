@@ -71,17 +71,6 @@ function msgsToOpenAIFormat(messages: any[], system?: any) {
   return out;
 }
 
-const UNSUPPORTED_ANTHROPIC_FIELDS = ['context_management', 'service_tier', 'mcp_servers'];
-
-function sanitizeAnthropicBody(body: any) {
-  const out: any = {};
-  for (const k of Object.keys(body)) {
-    if (UNSUPPORTED_ANTHROPIC_FIELDS.includes(k)) continue;
-    out[k] = body[k];
-  }
-  return out;
-}
-
 export async function POST(req: NextRequest) {
   const key = await authKey(req);
   if (!key) return errJson('API key không hợp lệ', 'authentication_error', 401);
@@ -119,14 +108,14 @@ export async function POST(req: NextRequest) {
   let upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
 
   if (isAnthropic) {
+    upstreamHeaders['x-claude-code-disable-nonessential-traffic'] = '1';
     url = resolved.baseUrl.replace(/\/$/, '') + '/v1/messages';
-    upstreamBody = sanitizeAnthropicBody({ ...body, model: resolved.upstreamName, stream });
+    upstreamBody = { ...body, model: resolved.upstreamName, stream };
     if (resolved.apiKey) {
       upstreamHeaders['x-api-key'] = resolved.apiKey;
+      upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
     }
     upstreamHeaders['anthropic-version'] = req.headers.get('anthropic-version') || '2023-06-01';
-    const beta = req.headers.get('anthropic-beta');
-    if (beta) upstreamHeaders['anthropic-beta'] = beta;
   } else {
     url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
     upstreamBody = {
@@ -140,7 +129,6 @@ export async function POST(req: NextRequest) {
     if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
   }
 
-  const debugUpstream = process.env.DEBUG_UPSTREAM === '1';
   let upstream: Response;
   const fetchAbort = new AbortController();
   const fetchTimer = setTimeout(() => fetchAbort.abort('fetch_timeout'), 5 * 60 * 1000);
@@ -162,41 +150,25 @@ export async function POST(req: NextRequest) {
     let parsed: any = null;
     try { parsed = JSON.parse(text); } catch { }
     let pt = promptTokens, ct = 0;
-    if (!upstream.ok && debugUpstream) {
-      console.error('[v1/messages upstream FAIL]', JSON.stringify({
-        url, status: upstream.status, model: upstreamBody.model,
-        sentKeys: Object.keys(upstreamBody),
-        anthropicBeta: upstreamHeaders['anthropic-beta'] ?? null,
-        respText: text.slice(0, 4000)
-      }));
-    }
     if (isAnthropic) {
       pt = parsed?.usage?.input_tokens ?? promptTokens;
       ct = parsed?.usage?.output_tokens ?? 0;
-      await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 4000) : null);
+      await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
       const responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text;
       return new Response(responseText, { status: upstream.status, headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' } });
     } else {
       pt = parsed?.usage?.prompt_tokens ?? promptTokens;
       ct = parsed?.usage?.completion_tokens ?? estimateCompletion(parsed);
       const anthropic = openAIToAnthropic(parsed, modelName);
-      await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 4000) : null);
+      await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
       return new Response(JSON.stringify(anthropic), { status: upstream.status, headers: { 'content-type': 'application/json' } });
     }
   }
 
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
-    if (debugUpstream) {
-      console.error('[v1/messages upstream STREAM-FAIL]', JSON.stringify({
-        url, status: upstream.status, model: upstreamBody.model,
-        sentKeys: Object.keys(upstreamBody),
-        anthropicBeta: upstreamHeaders['anthropic-beta'] ?? null,
-        respText: text.slice(0, 4000)
-      }));
-    }
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 4000));
-    return errSSEAnthropic(text.slice(0, 4000) || 'Lỗi upstream', 'api_error');
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 500));
+    return errSSEAnthropic(text.slice(0, 500) || 'Lỗi upstream', 'api_error');
   }
 
   if (isAnthropic) {

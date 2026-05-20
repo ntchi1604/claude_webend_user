@@ -3,14 +3,6 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const ANTHROPIC_MODELS = [
-  { name: 'claude-opus-4-7', upstreamName: 'claude/claude-opus-4-7', inputPriceVND: 90000, outputPriceVND: 450000 },
-  { name: 'claude-sonnet-4-6', upstreamName: 'claude/claude-sonnet-4-6', inputPriceVND: 75000, outputPriceVND: 375000 },
-  { name: 'claude-haiku-4-5', upstreamName: 'claude/claude-haiku-4-5-20251001', inputPriceVND: 25000, outputPriceVND: 125000 }
-];
-
-const LEGACY_DISABLED_NAMES = ['claude-opus-4-6', 'claude-sonnet-4-5', 'claude-haiku-4'];
-
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@local';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
@@ -18,41 +10,52 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: {},
+    update: { role: 'ADMIN', password: hash },
     create: { email: adminEmail, password: hash, role: 'ADMIN', name: 'Admin' }
   });
   console.log('Admin:', admin.email);
 
-  for (const m of ANTHROPIC_MODELS) {
-    const updated = await prisma.model.upsert({
-      where: { name: m.name },
-      update: { upstreamName: m.upstreamName, provider: 'anthropic', enabled: true },
-      create: { ...m, provider: 'anthropic' }
-    });
-    console.log(`Model upsert: ${updated.name} -> ${updated.upstreamName}`);
-  }
-
-  const disabled = await prisma.model.updateMany({
-    where: { name: { in: LEGACY_DISABLED_NAMES } },
-    data: { enabled: false }
+  const sonnet = await prisma.model.upsert({
+    where: { name: 'claude-sonnet-4-5' },
+    update: {},
+    create: { name: 'claude-sonnet-4-5', upstreamName: 'claude-sonnet-4-5', provider: 'anthropic', inputPriceVND: 75000, outputPriceVND: 375000 }
   });
-  console.log(`Disabled legacy models: ${disabled.count}`);
-
-  const disabledRows = await prisma.model.findMany({
-    where: { name: { in: LEGACY_DISABLED_NAMES } },
-    select: { id: true }
+  const haiku = await prisma.model.upsert({
+    where: { name: 'claude-haiku-4' },
+    update: {},
+    create: { name: 'claude-haiku-4', upstreamName: 'claude-haiku-4', provider: 'anthropic', inputPriceVND: 20000, outputPriceVND: 100000 }
   });
-  const disabledIds = new Set(disabledRows.map((r) => r.id));
+  const gpt4 = await prisma.model.upsert({
+    where: { name: 'gpt-4o' },
+    update: {},
+    create: { name: 'gpt-4o', upstreamName: 'gpt-4o', provider: 'openai', inputPriceVND: 60000, outputPriceVND: 240000 }
+  });
+  const gpt4mini = await prisma.model.upsert({
+    where: { name: 'gpt-4o-mini' },
+    update: {},
+    create: { name: 'gpt-4o-mini', upstreamName: 'gpt-4o-mini', provider: 'openai', inputPriceVND: 4000, outputPriceVND: 16000 }
+  });
 
-  const plans = await prisma.plan.findMany();
-  for (const p of plans) {
-    const ids: string[] = JSON.parse(p.modelIds || '[]');
-    const cleaned = ids.filter((id) => !disabledIds.has(id));
-    if (cleaned.length !== ids.length) {
-      await prisma.plan.update({ where: { id: p.id }, data: { modelIds: JSON.stringify(cleaned) } });
-      console.log(`Plan "${p.name}": removed ${ids.length - cleaned.length} disabled model(s)`);
-    }
-  }
+  await prisma.plan.upsert({
+    where: { name: 'Free' },
+    update: {},
+    create: { name: 'Free', description: 'Dùng thử', tokenLimit: 50_000, windowHours: 5, durationDays: 30, priceVND: 0, modelIds: JSON.stringify([gpt4mini.id]) }
+  });
+  await prisma.plan.upsert({
+    where: { name: 'Basic' },
+    update: {},
+    create: { name: 'Basic', description: 'Cơ bản, reset mỗi 5 giờ', tokenLimit: 500_000, windowHours: 5, durationDays: 30, priceVND: 99_000, modelIds: JSON.stringify([gpt4mini.id, gpt4.id, haiku.id]) }
+  });
+  await prisma.plan.upsert({
+    where: { name: 'Pro' },
+    update: {},
+    create: { name: 'Pro', description: 'Chuyên nghiệp', tokenLimit: 2_000_000, windowHours: 5, durationDays: 30, priceVND: 299_000, modelIds: JSON.stringify([gpt4mini.id, gpt4.id, haiku.id, sonnet.id]) }
+  });
+  await prisma.plan.upsert({
+    where: { name: 'Max' },
+    update: {},
+    create: { name: 'Max', description: 'Tối đa', tokenLimit: 10_000_000, windowHours: 5, durationDays: 30, priceVND: 799_000, modelIds: JSON.stringify([gpt4mini.id, gpt4.id, haiku.id, sonnet.id]) }
+  });
 
   await prisma.setting.upsert({
     where: { key: 'bank_info' },
@@ -66,4 +69,4 @@ async function main() {
   console.log('Seed done.');
 }
 
-main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
+main().finally(() => prisma.$disconnect());
