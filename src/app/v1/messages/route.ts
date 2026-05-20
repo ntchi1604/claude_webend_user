@@ -116,18 +116,6 @@ export async function POST(req: NextRequest) {
       upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
     }
     upstreamHeaders['anthropic-version'] = req.headers.get('anthropic-version') || '2023-06-01';
-    const ANTHROPIC_FORWARD_HEADERS = [
-      'anthropic-beta',
-      'anthropic-dangerous-direct-browser-access',
-      'user-agent',
-      'x-stainless-lang',
-      'x-stainless-package-version',
-      'x-stainless-runtime',
-    ];
-    for (const h of ANTHROPIC_FORWARD_HEADERS) {
-      const v = req.headers.get(h);
-      if (v) upstreamHeaders[h] = v;
-    }
   } else {
     url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
     upstreamBody = {
