@@ -368,7 +368,11 @@ export async function POST(req: NextRequest) {
   }
 
   const url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
-  const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
+  const upstreamHeaders: Record<string, string> = {
+    'content-type': 'application/json',
+    'x-claude-code-enable-gateway-model-discovery': '1',
+    'x-claude-code-disable-nonessential-traffic': '1'
+  };
   if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
 
   let upstream: Response;

@@ -18,9 +18,9 @@ export async function GET(
   const codexBaseUrl = `${baseUrl}/v1`;
   const keyShort = key.slice(0, 8) + '...';
   const claudeModels = {
-    haiku: clean(url.searchParams.get('haiku'), 'claude-haiku-4-5-20251001'),
+    haiku: clean(url.searchParams.get('haiku'), 'claude-haiku-4-5'),
     sonnet: clean(url.searchParams.get('sonnet'), 'claude-sonnet-4-6'),
-    opus: clean(url.searchParams.get('opus'), 'claude-opus-4-6'),
+    opus: clean(url.searchParams.get('opus'), 'claude-opus-4-7'),
   };
   const codexModels = {
     small: clean(url.searchParams.get('small'), 'gpt-5-nano'),
@@ -113,7 +113,7 @@ if (Test-Path $settingsFile) {
 
 $settingsContent = @'
 {
-    "model": "sonnet",
+    "model": "opus",
     "env": {
         "ANTHROPIC_API_KEY": "${p.key}",
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
@@ -126,7 +126,8 @@ $settingsContent = @'
     "permissions": {
         "allow": [],
         "deny": []
-    }
+    },
+    "effortLevel": "medium"
 }
 '@
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -192,7 +193,7 @@ fi
 
 cat > "$SETTINGS" << 'SETTINGSEOF'
 {
-    "model": "sonnet",
+    "model": "opus",
     "env": {
         "ANTHROPIC_API_KEY": "${p.key}",
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
@@ -205,7 +206,8 @@ cat > "$SETTINGS" << 'SETTINGSEOF'
     "permissions": {
         "allow": [],
         "deny": []
-    }
+    },
+    "effortLevel": "medium"
 }
 SETTINGSEOF
 
