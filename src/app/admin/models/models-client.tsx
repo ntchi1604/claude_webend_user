@@ -46,14 +46,14 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="app-page animate-fade-in">
       <h1 className="text-3xl font-bold">Model</h1>
 
       <div className="card p-5">
         <h2 className="font-semibold mb-3">Thêm model mới</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-          <input className="input" placeholder="Upstream (gửi đến 9router)" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
+          <input className="input" placeholder="Upstream model" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
           <input className="input" placeholder="Endpoint ghi đè (tuỳ chọn)" value={draft.endpoint ?? ''} onChange={(e) => setDraft({ ...draft, endpoint: e.target.value || null })} />
           <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
             <option value="openai">openai</option>

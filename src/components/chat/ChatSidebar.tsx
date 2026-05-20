@@ -1,5 +1,6 @@
 'use client';
-import { Plus, Trash2, MessageSquare } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, Plus, Trash2, MessageSquare } from 'lucide-react';
 
 export type ConvItem = { id: string; title: string; updatedAt: string };
 
@@ -79,6 +80,12 @@ export default function ChatSidebar({ conversations, activeId, onSelect, onNew, 
           {conversations.length === 0 && (
             <p className="sidebar-empty">Chưa có cuộc trò chuyện nào</p>
           )}
+        </div>
+        <div className="sidebar-footer">
+          <Link href="/dashboard" className="sidebar-back-btn" onClick={onClose}>
+            <ArrowLeft className="h-4 w-4" />
+            <span>Dashboard</span>
+          </Link>
         </div>
       </aside>
     </>

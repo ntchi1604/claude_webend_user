@@ -1,3 +1,3 @@
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
-  return <div className="max-w-6xl">{children}</div>;
+  return <div className="app-page">{children}</div>;
 }

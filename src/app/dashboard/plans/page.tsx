@@ -15,7 +15,7 @@ export default async function PlansPage() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="app-page animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold">Gói cước</h1>
         <p className="text-zinc-500">Tất cả gói áp dụng cửa sổ cuốn chiếu, reset theo giờ chạy.</p>

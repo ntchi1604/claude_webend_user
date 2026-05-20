@@ -50,7 +50,7 @@ export default function BillingClient({
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="app-page animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold">Nạp / Mua gói</h1>
         <p className="text-zinc-500">Chuyển khoản ngân hàng. Admin sẽ duyệt thủ công.</p>

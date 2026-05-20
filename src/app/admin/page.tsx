@@ -19,7 +19,7 @@ export default async function AdminHome() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="app-page animate-fade-in">
       <h1 className="text-3xl font-bold">Bảng điều khiển admin</h1>
       <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-4">
         {cards.map((c) => (

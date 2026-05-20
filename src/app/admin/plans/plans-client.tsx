@@ -37,7 +37,7 @@ export default function PlansClient({ initial, models }: { initial: P[]; models:
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="app-page animate-fade-in">
       <h1 className="heading-1">Gói cước</h1>
 
       {/* Form thêm gói */}

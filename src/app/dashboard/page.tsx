@@ -1,8 +1,9 @@
-import { requireUser } from '@/lib/session';
+﻿import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatNumber } from '@/lib/utils';
 import Link from 'next/link';
 import Countdown from '@/components/countdown';
+import { Activity, ArrowUpRight, Clock, KeyRound, MessageSquare, Package, ShieldCheck, Terminal } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,6 @@ export default async function DashboardPage() {
   if (sub) {
     const now = Date.now();
     if (sub.quotaResetAt && sub.quotaResetAt.getTime() > now) {
-      // Window is active
       resetAt = sub.quotaResetAt;
       const windowStart = new Date(resetAt.getTime() - windowMs);
       const agg = await prisma.usageLog.aggregate({
@@ -38,71 +38,89 @@ export default async function DashboardPage() {
   const limit = Number(sub?.plan.tokenLimit ?? 0);
   const remaining = Math.max(0, limit - used);
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-
   const keyCount = await prisma.apiKey.count({ where: { userId: user.id, active: true } });
   const totalRequests = await prisma.usageLog.count({ where: { userId: user.id } });
+  const planName = sub?.plan.name ?? 'Chưa có gói';
+  const status = sub ? 'Đang hoạt động' : 'Chưa kích hoạt';
+
+  const stats = [
+    { label: 'Token còn lại', value: formatNumber(remaining), icon: Activity, href: '/dashboard/usage', tone: 'blue' },
+    { label: 'API key hoạt động', value: formatNumber(keyCount), icon: KeyRound, href: '/dashboard/keys', tone: 'green' },
+    { label: 'Tổng request', value: formatNumber(totalRequests), icon: Terminal, href: '/dashboard/usage', tone: 'mauve' },
+    { label: 'Gói hiện tại', value: planName, icon: Package, href: '/dashboard/plans', tone: 'orange' }
+  ];
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-4xl">
-      <div>
-        <h1 className="heading-1">Xin chào{user.name ? `, ${user.name}` : ''}</h1>
-        <p className="body-sm text-[var(--stone-600)] mt-1">Gói hiện tại: <b>{sub?.plan.name ?? 'Không có'}</b></p>
-      </div>
+    <div className="dashboard-overview animate-fade-in">
+      <section className="dashboard-hero">
+        <div>
+          <p className="dashboard-eyebrow">Api4Cheap dashboard</p>
+          <h1 className="dashboard-title">Xin chào{user.name ? `, ${user.name}` : ''}</h1>
+          <p className="dashboard-subtitle">Theo dõi quota, API key và truy cập nhanh các công cụ tích hợp.</p>
+        </div>
+        <div className="dashboard-status">
+          <ShieldCheck className="h-4 w-4" />
+          <span>{status}</span>
+        </div>
+      </section>
 
-      {/* Quota card */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-3">
-          <span className="label">Hạn mức · reset sau {windowHours}h</span>
-          <span className="caption">{formatNumber(used)} / {formatNumber(limit)} token</span>
+      <section className="dashboard-grid-main">
+        <div className="dashboard-quota-panel">
+          <div className="dashboard-panel-head">
+            <div>
+              <p className="caption">Hạn mức cửa sổ {windowHours} giờ</p>
+              <h2>{formatNumber(used)} / {formatNumber(limit)} token</h2>
+            </div>
+            <div className="dashboard-percent">{pct}%</div>
+          </div>
+          <div className="dashboard-meter" aria-label="Quota usage">
+            <div
+              className="dashboard-meter-fill"
+              style={{
+                width: `${pct}%`,
+                background: pct > 90 ? 'var(--error)' : pct > 70 ? 'var(--brand-orange)' : 'var(--brand-blue)'
+              }}
+            />
+          </div>
+          <div className="dashboard-quota-meta">
+            <span>Còn lại {formatNumber(remaining)} token</span>
+            <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Reset <Countdown resetAt={resetAt ? resetAt.toISOString() : null} /></span>
+          </div>
+          <div className="dashboard-actions-row">
+            <Link href="/dashboard/keys" className="dashboard-action-primary">Tạo API key <ArrowUpRight className="h-4 w-4" /></Link>
+            <Link href="/dashboard/plans" className="dashboard-action-secondary">Nâng cấp gói</Link>
+          </div>
         </div>
-        <div className="w-full h-2 rounded-full bg-[var(--cream-50)] overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${pct}%`,
-              background: pct > 90 ? 'var(--error)' : pct > 70 ? 'var(--brand-orange)' : 'var(--brand-blue)'
-            }}
-          />
-        </div>
-        <div className="flex justify-between mt-2">
-          <span className="caption">Còn lại: {formatNumber(remaining)}</span>
-          <span className="caption">Reset: <Countdown resetAt={resetAt ? resetAt.toISOString() : null} /></span>
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
-          <div className="caption mb-1">API key</div>
-          <div className="heading-2">{keyCount}</div>
-          <Link href="/dashboard/keys" className="caption mt-2 inline-block" style={{ color: 'var(--brand-blue)' }}>Quản lý →</Link>
+        <div className="dashboard-side-panel">
+          <p className="caption">Truy cập nhanh</p>
+          <Link href="/chat" className="dashboard-quick-link"><MessageSquare className="h-4 w-4" /> Chat playground <ArrowUpRight className="h-4 w-4" /></Link>
+          <Link href="/dashboard/docs" className="dashboard-quick-link"><Terminal className="h-4 w-4" /> Cài đặt CLI <ArrowUpRight className="h-4 w-4" /></Link>
+          <Link href="/dashboard/billing" className="dashboard-quick-link"><Package className="h-4 w-4" /> Nạp gói <ArrowUpRight className="h-4 w-4" /></Link>
         </div>
-        <div className="card">
-          <div className="caption mb-1">Tổng request</div>
-          <div className="heading-2">{formatNumber(totalRequests)}</div>
-          <Link href="/dashboard/usage" className="caption mt-2 inline-block" style={{ color: 'var(--brand-blue)' }}>Xem chi tiết →</Link>
-        </div>
-        <div className="card">
-          <div className="caption mb-1">Gói cước</div>
-          <div className="heading-2">{sub?.plan.name ?? '—'}</div>
-          <Link href="/dashboard/plans" className="caption mt-2 inline-block" style={{ color: 'var(--brand-blue)' }}>Nâng cấp →</Link>
-        </div>
-      </div>
+      </section>
 
-      {/* Quick start */}
-      <div className="card-code">
-        <div className="caption mb-2" style={{ color: '#629987' }}>Bắt đầu nhanh</div>
-        <pre className="whitespace-pre-wrap text-[13px] leading-5">{`# Codex CLI
-Base URL: https://lccaptcha.io.vn
+      <section className="dashboard-stat-grid">
+        {stats.map((item) => (
+          <Link href={item.href} key={item.label} className={`dashboard-stat-card dashboard-stat-${item.tone}`}>
+            <div className="dashboard-stat-icon"><item.icon className="h-4 w-4" /></div>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </Link>
+        ))}
+      </section>
+
+      <section className="dashboard-code-panel">
+        <div>
+          <p className="caption">Endpoint</p>
+          <h2 className="heading-5">Kết nối gateway</h2>
+        </div>
+        <pre>{`Base URL: https://lccaptcha.io.vn
 API Key:  YOUR_API_KEY
 
-# Claude Code
 ANTHROPIC_BASE_URL=https://lccaptcha.io.vn
-ANTHROPIC_API_KEY=YOUR_API_KEY
-
-# Script thiết lập
-Mở Bảng điều khiển -> Tài liệu -> Cài đặt nhanh`}</pre>
-      </div>
+ANTHROPIC_API_KEY=YOUR_API_KEY`}</pre>
+      </section>
     </div>
   );
 }

@@ -204,14 +204,14 @@ export default function DocsPage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6 max-w-3xl">
+      <div className="mb-6">
         <h1 className="heading-1">Cài đặt nhanh khóa API</h1>
         <p className="body-sm mt-2 text-[var(--stone-600)]">
           Chọn công cụ, dán khóa API đầy đủ và chạy một lệnh duy nhất để cấu hình Api4Cheap trên máy của bạn.
         </p>
       </div>
 
-      <div className="grid max-w-5xl gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="space-y-3">
           {TOOL_OPTIONS.map((item) => {
             const active = item.id === tool;

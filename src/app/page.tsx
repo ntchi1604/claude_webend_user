@@ -18,7 +18,7 @@ const features = [
   },
   {
     icon: RefreshCw,
-    title: 'Hạn mức cuốn chiếu',
+    title: 'Hạn mức cuộn chiếu',
     desc: 'Gói dịch vụ tự đặt lại theo cửa sổ thời gian, giúp phiên coding dài không bị gián đoạn.',
   },
   {
@@ -30,7 +30,7 @@ const features = [
 
 const steps = [
   { num: '01', title: 'Tạo tài khoản', desc: 'Đăng ký rồi mở dashboard.' },
-  { num: '02', title: 'Tạo API key', desc: 'Vào mục API key và tạo secret mới.' },
+  { num: '02', title: 'T?o API key', desc: 'Vào mục API key và tạo secret mới.' },
   { num: '03', title: 'Chạy thiết lập nhanh', desc: 'Chọn Claude Code hoặc Codex CLI rồi chạy lệnh cài đặt.' },
 ];
 
@@ -91,7 +91,7 @@ export default async function HomePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1px', background: 'var(--lavender-100)', borderRadius: '12px', overflow: 'hidden' }}>
           {[
             { value: '2', label: 'Client được hỗ trợ' },
-            { value: '5h', label: 'Cửa sổ cuốn chiếu' },
+            { value: '5h', label: 'Cửa sổ cuộn chiếu' },
             { value: '99.9%', label: 'Mục tiêu uptime' },
           ].map((s) => (
             <div key={s.label} style={{ background: 'white', padding: '24px 16px', textAlign: 'center' }} className="dark:!bg-[#1A1A19]">
@@ -119,7 +119,7 @@ export default async function HomePage() {
 
       <section style={{ background: 'var(--cream-50)', padding: '60px 0' }}>
         <div className="container-main" style={{ paddingLeft: '20px', paddingRight: '20px' }}>
-          <h2 className="display-md" style={{ textAlign: 'center', marginBottom: '40px', fontSize: 'clamp(22px, 4vw, 32px)' }}>Bắt đầu trong 3 bước</h2>
+          <h2 className="display-md" style={{ textAlign: 'center', marginBottom: '40px', fontSize: 'clamp(22px, 4vw, 32px)' }}>Bắt đầu trong 3 bu?c</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
             {steps.map((s) => (
               <div key={s.num} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
@@ -137,7 +137,7 @@ export default async function HomePage() {
       <section className="container-main" style={{ padding: '60px 20px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '32px', alignItems: 'start' }}>
           <div>
-            <h2 className="display-md" style={{ marginBottom: '16px', fontSize: 'clamp(22px, 4vw, 32px)' }}>Chỉ hỗ trợ Claude Code và Codex CLI</h2>
+            <h2 className="display-md" style={{ marginBottom: '16px', fontSize: 'clamp(22px, 4vw, 32px)' }}>Ch? h? tr? Claude Code và Codex CLI</h2>
             <p className="body" style={{ color: 'var(--stone-600)', marginBottom: '24px' }}>
               Tài liệu dashboard, script thiết lập và ví dụ gateway chỉ tập trung vào hai client được hỗ trợ.
             </p>
@@ -166,7 +166,7 @@ wire_api = "responses"`}</pre>
       <section id="pricing" style={{ background: 'var(--cream-50)', padding: '60px 0' }}>
         <div className="container-main" style={{ paddingLeft: '20px', paddingRight: '20px' }}>
           <h2 className="display-md" style={{ textAlign: 'center', fontSize: 'clamp(22px, 4vw, 32px)' }}>Bảng giá</h2>
-          <p className="body" style={{ color: 'var(--stone-600)', textAlign: 'center', marginTop: '8px' }}>Tất cả gói đều đặt lại theo cửa sổ cuốn chiếu.</p>
+          <p className="body" style={{ color: 'var(--stone-600)', textAlign: 'center', marginTop: '8px' }}>Tất cả gói đều đặt lại theo cửa sổ cuộn chiếu.</p>
           <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             {plans.map((p) => (
               <div key={p.name} className="card" style={{ position: 'relative', borderColor: p.highlight ? 'var(--brand-orange)' : undefined, boxShadow: p.highlight ? 'var(--shadow-elevated)' : undefined }}>
@@ -200,7 +200,7 @@ wire_api = "responses"`}</pre>
       </section>
 
       <footer style={{ borderTop: '1px solid var(--lavender-100)', padding: '24px 20px', textAlign: 'center' }}>
-        <span className="caption">Bản quyền {new Date().getFullYear()} Api4Cheap - cổng cho Claude Code và Codex CLI</span>
+        <span className="caption">Bản quyền {new Date().getFullYear()} Api4Cheap - c?ng cho Claude Code và Codex CLI</span>
       </footer>
     </main>
   );

@@ -34,7 +34,7 @@ export default async function UsagePage() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="app-page animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold">Sử dụng</h1>
         <p className="text-zinc-500">Thống kê 30 ngày gần nhất.</p>

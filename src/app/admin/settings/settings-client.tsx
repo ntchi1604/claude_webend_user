@@ -16,7 +16,7 @@ export default function SettingsClient({ initial }: { initial: any }) {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-2xl">
+    <div className="app-page animate-fade-in">
       <h1 className="text-3xl font-bold">Cấu hình</h1>
       <div className="card p-5 space-y-3">
         <h2 className="font-semibold">Thông tin ngân hàng (hiển thị cho người dùng)</h2>
@@ -38,10 +38,7 @@ export default function SettingsClient({ initial }: { initial: any }) {
         </div>
         <button onClick={save} className="btn-primary"><Save className="h-4 w-4" /> Lưu</button>
       </div>
-      <div className="card p-5">
-        <h2 className="font-semibold mb-2">9router</h2>
-        <p className="text-sm text-zinc-500">Cấu hình endpoint mặc định trong <code>.env</code>: <code>ROUTER_BASE_URL</code> và <code>ROUTER_API_KEY</code>. Mỗi model có thể ghi đè endpoint riêng.</p>
-      </div>
+
     </div>
   );
 }
