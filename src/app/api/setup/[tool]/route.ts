@@ -113,15 +113,20 @@ if (Test-Path $settingsFile) {
 
 $settingsContent = @'
 {
+    "model": "opus",
     "env": {
         "ANTHROPIC_API_KEY": "${p.key}",
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
     },
     "permissions": {
         "allow": [],
         "deny": []
-    }
+    },
+    "effortLevel": "medium"
 }
 '@
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -187,15 +192,20 @@ fi
 
 cat > "$SETTINGS" << 'SETTINGSEOF'
 {
+    "model": "opus",
     "env": {
         "ANTHROPIC_API_KEY": "${p.key}",
         "ANTHROPIC_BASE_URL": "${p.baseUrl}",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
     },
     "permissions": {
         "allow": [],
         "deny": []
-    }
+    },
+    "effortLevel": "medium"
 }
 SETTINGSEOF
 

@@ -60,15 +60,20 @@ export default function Page() {
       </Ol>
       <P>Script sẽ tạo <Inline>~/.claude/settings.json</Inline> theo mẫu sau:</P>
       <Code lang="json">{`{
+  "model": "opus",
   "env": {
     "ANTHROPIC_API_KEY": "YOUR_API_KEY",
     "ANTHROPIC_BASE_URL": "https://lccaptcha.io.vn",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
   "permissions": {
     "allow": [],
     "deny": []
-  }
+  },
+  "effortLevel": "medium"
 }`}</Code>
 
       <Divider />
