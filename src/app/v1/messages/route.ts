@@ -105,13 +105,10 @@ export async function POST(req: NextRequest) {
 
   let url: string;
   let upstreamBody: any;
-  let upstreamHeaders: Record<string, string> = {
-    'content-type': 'application/json',
-    'x-claude-code-enable-gateway-model-discovery': '1',
-    'x-claude-code-disable-nonessential-traffic': '1'
-  };
+  let upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
 
   if (isAnthropic) {
+    upstreamHeaders['x-claude-code-disable-nonessential-traffic'] = '1';
     url = resolved.baseUrl.replace(/\/$/, '') + '/v1/messages';
     upstreamBody = { ...body, model: resolved.upstreamName, stream };
     if (resolved.apiKey) {
