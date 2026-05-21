@@ -129,17 +129,45 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
   const apiKey = resolved.candidates[0]?.apiKey || '';
+  const isAnthropicProvider = resolved.model.provider === 'anthropic';
   const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
-  if (apiKey) upstreamHeaders.authorization = `Bearer ${apiKey}`;
+  if (apiKey) {
+    if (isAnthropicProvider) {
+      upstreamHeaders['x-api-key'] = apiKey;
+      upstreamHeaders['anthropic-version'] = '2023-06-01';
+    }
+    upstreamHeaders.authorization = `Bearer ${apiKey}`;
+  }
+
+  let upstreamPath = '/v1/chat/completions';
+  let upstreamBodyFinal: any = upstreamBody;
+  if (isAnthropicProvider) {
+    upstreamPath = '/v1/messages';
+    const sysParts: string[] = [];
+    const conv: any[] = [];
+    for (const m of finalMessages) {
+      if (m.role === 'system') sysParts.push(typeof m.content === 'string' ? m.content : JSON.stringify(m.content));
+      else conv.push({ role: m.role, content: m.content });
+    }
+    upstreamBodyFinal = {
+      model: resolved.upstreamName,
+      system: sysParts.join('\n\n'),
+      messages: conv,
+      max_tokens: ensureMaxTokens(body.max_tokens),
+      stream
+    };
+    if (body.temperature != null) upstreamBodyFinal.temperature = body.temperature;
+    if (body.top_p != null) upstreamBodyFinal.top_p = body.top_p;
+  }
 
   let upstream: Response;
   try {
-    upstream = await fetch(baseUrl + '/v1/chat/completions', {
+    upstream = await fetch(baseUrl + upstreamPath, {
       method: 'POST',
       headers: upstreamHeaders,
-      body: JSON.stringify(upstreamBody)
+      body: JSON.stringify(upstreamBodyFinal)
     });
-    console.log(`[gateway] upstream status=${upstream.status} base=${baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
+    console.log(`[gateway] upstream status=${upstream.status} base=${baseUrl}${upstreamPath} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
     console.error('[gateway] upstream error:', e?.message);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch((err) => console.error('[logUsage] write failed:', err?.message));
@@ -152,6 +180,37 @@ export async function POST(req: NextRequest) {
     const text = await upstream.text();
     let parsed: any = null;
     try { parsed = JSON.parse(text); } catch {}
+
+    if (isAnthropicProvider) {
+      const contentText = Array.isArray(parsed?.content)
+        ? parsed.content.map((b: any) => b?.text || '').join('')
+        : '';
+      const pt = parsed?.usage?.input_tokens ?? promptTokens;
+      const ct = parsed?.usage?.output_tokens ?? countTokens(contentText);
+      console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=anthropic)`);
+      recordTokens(key.id, pt + ct);
+      await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
+      if (!upstream.ok) {
+        return new Response(text, { status: upstream.status, headers: { 'content-type': 'application/json' } });
+      }
+      const openAIShape = {
+        id: parsed?.id ?? 'chatcmpl_' + Math.random().toString(36).slice(2, 12),
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: modelName,
+        choices: [{
+          index: 0,
+          message: { role: 'assistant', content: contentText },
+          finish_reason: parsed?.stop_reason === 'end_turn' ? 'stop' : parsed?.stop_reason ?? 'stop'
+        }],
+        usage: { prompt_tokens: pt, completion_tokens: ct, total_tokens: pt + ct }
+      };
+      return new Response(JSON.stringify(openAIShape), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+
     const usage = parsed?.usage;
     const pt = usage?.prompt_tokens ?? promptTokens;
     const ct = usage?.completion_tokens ?? estimateCompletion(parsed);
@@ -194,9 +253,19 @@ export async function POST(req: NextRequest) {
       heartbeatTimer = setInterval(() => {
         try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { }
       }, STREAM_HEARTBEAT_MS);
+      const chatId = 'chatcmpl_' + Math.random().toString(36).slice(2, 12);
+      const created = Math.floor(Date.now() / 1000);
+      const emitOpenAIChunk = (delta: any, finish: string | null = null) => {
+        const chunk = {
+          id: chatId, object: 'chat.completion.chunk', created, model: modelName,
+          choices: [{ index: 0, delta, finish_reason: finish }]
+        };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+      };
       try {
         let buf = '';
         resetIdle();
+        if (isAnthropicProvider) emitOpenAIChunk({ role: 'assistant', content: '' });
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -206,26 +275,41 @@ export async function POST(req: NextRequest) {
           buf = parts.pop() || '';
           for (const evt of parts) {
             const line = evt.split('\n').find((l) => l.startsWith('data:'));
-            if (line) {
-              const payload = line.slice(5).trim();
-              if (payload && payload !== '[DONE]') {
-                try {
-                  const j = JSON.parse(payload);
-                  const delta = j?.choices?.[0]?.delta?.content;
-                  if (typeof delta === 'string') completionBuf += delta;
-                  if (j?.usage) lastUsage = j.usage;
-                  if (j.model) j.model = modelName;
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(j)}\n\n`));
-                } catch {
-                  controller.enqueue(encoder.encode(`${evt}\n\n`));
+            if (!line) {
+              if (!isAnthropicProvider) controller.enqueue(encoder.encode(`${evt}\n\n`));
+              continue;
+            }
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') {
+              if (!isAnthropicProvider) controller.enqueue(encoder.encode(`${evt}\n\n`));
+              continue;
+            }
+            try {
+              const j = JSON.parse(payload);
+              if (isAnthropicProvider) {
+                if (j.type === 'content_block_delta' && j.delta?.text) {
+                  completionBuf += j.delta.text;
+                  emitOpenAIChunk({ content: j.delta.text });
+                } else if (j.type === 'message_start' && j.message?.usage?.input_tokens) {
+                  lastUsage = { ...(lastUsage || {}), prompt_tokens: j.message.usage.input_tokens };
+                } else if (j.type === 'message_delta' && j.usage?.output_tokens) {
+                  lastUsage = { ...(lastUsage || {}), completion_tokens: j.usage.output_tokens };
                 }
               } else {
-                controller.enqueue(encoder.encode(`${evt}\n\n`));
+                const delta = j?.choices?.[0]?.delta?.content;
+                if (typeof delta === 'string') completionBuf += delta;
+                if (j?.usage) lastUsage = j.usage;
+                if (j.model) j.model = modelName;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(j)}\n\n`));
               }
-            } else {
-              controller.enqueue(encoder.encode(`${evt}\n\n`));
+            } catch {
+              if (!isAnthropicProvider) controller.enqueue(encoder.encode(`${evt}\n\n`));
             }
           }
+        }
+        if (isAnthropicProvider) {
+          emitOpenAIChunk({}, 'stop');
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
         }
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
