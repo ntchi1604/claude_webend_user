@@ -214,7 +214,8 @@ async function logUsage(apiKeyId: string, userId: string, modelId: string, model
   });
 }
 
-const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 min idle = MITM likely dead
+const STREAM_IDLE_TIMEOUT_MS = 30 * 1000; // 30s không có byte nào từ upstream → coi như đứng
+const STREAM_HEARTBEAT_MS = 15 * 1000;    // cứ 15s ping client để giữ kết nối
 
 function passthroughAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number) {
   const reader = upstream.body!.getReader();
@@ -227,6 +228,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
   const stream = new ReadableStream({
     async start(controller) {
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
@@ -234,6 +236,9 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           controller.error(new Error('Stream idle timeout — upstream/MITM may be hung'));
         }, STREAM_IDLE_TIMEOUT_MS);
       };
+      heartbeatTimer = setInterval(() => {
+        try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { }
+      }, STREAM_HEARTBEAT_MS);
       try {
         let buf = '';
         resetIdle();
@@ -270,9 +275,11 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           }
         }
         if (idleTimer) clearTimeout(idleTimer);
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.close();
       } catch (e) {
         if (idleTimer) clearTimeout(idleTimer);
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.error(e);
       } finally {
         const ct = outputTokens || countTokens(completionBuf);
@@ -300,6 +307,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
   const stream = new ReadableStream({
     async start(controller) {
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
@@ -307,6 +315,9 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
           controller.error(new Error('Stream idle timeout — upstream/MITM may be hung'));
         }, STREAM_IDLE_TIMEOUT_MS);
       };
+      heartbeatTimer = setInterval(() => {
+        try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { }
+      }, STREAM_HEARTBEAT_MS);
       try {
         controller.enqueue(sse('message_start', {
           type: 'message_start',
@@ -346,6 +357,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
           }
         }
         if (idleTimer) clearTimeout(idleTimer);
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
         const ct = countTokens(completionBuf);
         controller.enqueue(sse('content_block_stop', { type: 'content_block_stop', index: 0 }));
         controller.enqueue(sse('message_delta', {
@@ -357,6 +369,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, ct, 200, null).catch(() => { });
       } catch (e) {
         if (idleTimer) clearTimeout(idleTimer);
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.error(e);
       }
     }

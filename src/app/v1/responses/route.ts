@@ -397,8 +397,30 @@ export async function POST(req: NextRequest) {
   // --- STREAMING PATH ---
   if (stream) {
     const encoder = new TextEncoder();
+    const STREAM_IDLE_TIMEOUT_MS = 30 * 1000;
+    const STREAM_HEARTBEAT_MS = 15 * 1000;
     const readableStream = new ReadableStream({
       async start(controller) {
+        let idleTimer: ReturnType<typeof setTimeout> | null = null;
+        let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+        let upstreamReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+        const resetIdle = () => {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => {
+            upstreamReader?.cancel('idle_timeout').catch(() => { });
+            try { controller.error(new Error('Stream idle timeout — upstream hung')); } catch { }
+          }, STREAM_IDLE_TIMEOUT_MS);
+        };
+        const stopTimers = () => {
+          if (idleTimer) clearTimeout(idleTimer);
+          if (heartbeatTimer) clearInterval(heartbeatTimer);
+          idleTimer = null;
+          heartbeatTimer = null;
+        };
+        heartbeatTimer = setInterval(() => {
+          try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { }
+        }, STREAM_HEARTBEAT_MS);
+
         function send(event: string, data: any) {
           const payload = data?.type ? data : { type: event, ...data };
           controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
@@ -517,12 +539,15 @@ export async function POST(req: NextRequest) {
             // No body - treat as empty after the stream bookkeeping below.
           } else {
             const reader = upstream.body.getReader();
+            upstreamReader = reader;
             const decoder = new TextDecoder();
             let buffer = '';
+            resetIdle();
 
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
+              resetIdle();
 
               const decoded = decoder.decode(value, { stream: true });
               rawBody += decoded;
@@ -676,10 +701,12 @@ export async function POST(req: NextRequest) {
           console.log(`[responses] stream done model=${modelName} content_length=${fullContent.length}`);
         } catch (e: any) {
           console.error('[responses] stream error:', e?.message);
-          send('error', { type: 'error', message: e?.message || 'Lỗi stream' });
+          try { send('error', { type: 'error', message: e?.message || 'Lỗi stream' }); } catch { }
+        } finally {
+          stopTimers();
         }
 
-        controller.close();
+        try { controller.close(); } catch { }
       }
     });
 

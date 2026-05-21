@@ -169,13 +169,30 @@ export async function POST(req: NextRequest) {
   let completionBuf = '';
   let lastUsage: any = null;
 
+  const STREAM_IDLE_TIMEOUT_MS = 30 * 1000;
+  const STREAM_HEARTBEAT_MS = 15 * 1000;
+
   const respStream = new ReadableStream({
     async start(controller) {
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+      const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          reader.cancel('idle_timeout').catch(() => { });
+          controller.error(new Error('Stream idle timeout — upstream hung'));
+        }, STREAM_IDLE_TIMEOUT_MS);
+      };
+      heartbeatTimer = setInterval(() => {
+        try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { }
+      }, STREAM_HEARTBEAT_MS);
       try {
         let buf = '';
+        resetIdle();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          resetIdle();
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
           buf = parts.pop() || '';
@@ -202,8 +219,12 @@ export async function POST(req: NextRequest) {
             }
           }
         }
+        if (idleTimer) clearTimeout(idleTimer);
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.close();
       } catch (e) {
+        if (idleTimer) clearTimeout(idleTimer);
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.error(e);
       } finally {
         const pt = lastUsage?.prompt_tokens ?? promptTokens;
