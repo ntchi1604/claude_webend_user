@@ -5,6 +5,7 @@ import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
+import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -337,7 +338,7 @@ export async function POST(req: NextRequest) {
 
   const convertedTools = responsesToolsToChatTools(body.tools);
   const messages = inputToMessages(input, convertedTools.nameToChat);
-  const identity = `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product.`;
+  const identity = `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product.\n\n${VERBOSE_SYSTEM_PROMPT}`;
   const instructionText = typeof instructions === 'string' && instructions.trim()
     ? `${instructions}\n\n${identity}`
     : identity;
@@ -359,8 +360,9 @@ export async function POST(req: NextRequest) {
 
   const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
   if (body.temperature != null) upstreamBody.temperature = body.temperature;
-  if (body.max_output_tokens != null) upstreamBody.max_tokens = body.max_output_tokens;
-  else if (body.max_tokens != null) upstreamBody.max_tokens = body.max_tokens;
+  if (body.max_output_tokens != null) upstreamBody.max_tokens = ensureMaxTokens(body.max_output_tokens);
+  else if (body.max_tokens != null) upstreamBody.max_tokens = ensureMaxTokens(body.max_tokens);
+  else upstreamBody.max_tokens = ensureMaxTokens(undefined);
   if (body.top_p != null) upstreamBody.top_p = body.top_p;
   if (convertedTools.tools) {
     upstreamBody.tools = convertedTools.tools;

@@ -5,6 +5,7 @@ import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
+import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,10 +62,12 @@ async function authKey(req: NextRequest) {
 
 function msgsToOpenAIFormat(messages: any[], system?: any) {
   const out: any[] = [];
+  const sysParts: string[] = [VERBOSE_SYSTEM_PROMPT];
   if (system) {
     const sysContent = typeof system === 'string' ? system : Array.isArray(system) ? system.map((b: any) => b.text || '').join('\n') : '';
-    if (sysContent) out.push({ role: 'system', content: sysContent });
+    if (sysContent) sysParts.push(sysContent);
   }
+  out.push({ role: 'system', content: sysParts.join('\n\n') });
   for (const m of messages) {
     out.push({ role: m.role, content: m.content });
   }
@@ -111,14 +114,20 @@ export async function POST(req: NextRequest) {
     upstreamHeaders['x-claude-code-disable-nonessential-traffic'] = '1';
     upstreamPath = '/v1/messages';
     const { context_management, ...rest } = body;
-    upstreamBody = { ...rest, model: resolved.upstreamName, stream };
+    upstreamBody = {
+      ...rest,
+      model: resolved.upstreamName,
+      stream,
+      system: injectVerboseIntoAnthropicSystem(body.system),
+      max_tokens: ensureMaxTokens(body.max_tokens)
+    };
     upstreamHeaders['anthropic-version'] = req.headers.get('anthropic-version') || '2023-06-01';
   } else {
     upstreamPath = '/v1/chat/completions';
     upstreamBody = {
       model: resolved.upstreamName,
       messages: msgsToOpenAIFormat(messages, body.system),
-      max_tokens: body.max_tokens,
+      max_tokens: ensureMaxTokens(body.max_tokens),
       temperature: body.temperature,
       top_p: body.top_p,
       stream
