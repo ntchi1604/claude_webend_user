@@ -72,6 +72,7 @@ model Model {
   name             String     @unique
   upstreamName     String
   endpoint         String?
+  fallbackEndpoints String    @default("[]") // JSON array of { baseUrl, apiKey? }
   provider         String     @default("openai")
   inputPriceVND    Int        @default(0)
   outputPriceVND   Int        @default(0)
