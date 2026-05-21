@@ -4,7 +4,6 @@ import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
-import { upstreamFetchWithRetry } from '@/lib/upstream-fetch';
 import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -127,20 +126,19 @@ export async function POST(req: NextRequest) {
 
   const upstreamBody = { ...body, model: resolved.upstreamName, messages: finalMessages, stream };
 
+  const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
+  const apiKey = resolved.candidates[0]?.apiKey || '';
+  const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
+  if (apiKey) upstreamHeaders.authorization = `Bearer ${apiKey}`;
+
   let upstream: Response;
   try {
-    const result = await upstreamFetchWithRetry({
-      path: '/v1/chat/completions',
-      candidates: resolved.candidates,
-      buildHeaders: (candidate) => {
-        const headers: Record<string, string> = { 'content-type': 'application/json' };
-        if (candidate.apiKey) headers.authorization = `Bearer ${candidate.apiKey}`;
-        return headers;
-      },
-      buildBody: () => upstreamBody
+    upstream = await fetch(baseUrl + '/v1/chat/completions', {
+      method: 'POST',
+      headers: upstreamHeaders,
+      body: JSON.stringify(upstreamBody)
     });
-    upstream = result.response;
-    console.log(`[gateway] upstream status=${upstream.status} attempts=${result.attempts} base=${result.candidate.baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
+    console.log(`[gateway] upstream status=${upstream.status} base=${baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
     console.error('[gateway] upstream error:', e?.message);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch((err) => console.error('[logUsage] write failed:', err?.message));

@@ -4,7 +4,6 @@ import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
-import { upstreamFetchWithRetry } from '@/lib/upstream-fetch';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -125,28 +124,24 @@ export async function POST(req: NextRequest) {
     };
   }
 
+  const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
+  const apiKey = resolved.candidates[0]?.apiKey || '';
+  if (apiKey) {
+    if (isAnthropic) upstreamHeaders['x-api-key'] = apiKey;
+    upstreamHeaders.authorization = `Bearer ${apiKey}`;
+  }
+
   let upstream: Response;
   try {
-    const result = await upstreamFetchWithRetry({
-      path: upstreamPath,
-      candidates: resolved.candidates,
-      buildHeaders: (candidate) => {
-        const headers = { ...upstreamHeaders };
-        if (candidate.apiKey) {
-          if (isAnthropic) headers['x-api-key'] = candidate.apiKey;
-          headers.authorization = `Bearer ${candidate.apiKey}`;
-        }
-        return headers;
-      },
-      buildBody: () => upstreamBody
+    upstream = await fetch(baseUrl + upstreamPath, {
+      method: 'POST',
+      headers: upstreamHeaders,
+      body: JSON.stringify(upstreamBody)
     });
-    upstream = result.response;
-    console.log(`[messages] upstream status=${upstream.status} attempts=${result.attempts} base=${result.candidate.baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
+    console.log(`[messages] upstream status=${upstream.status} base=${baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
-    const errorText = String(e?.message || '');
-    const msg = errorText.includes('abort') || errorText.includes('timeout') ? 'Upstream timeout' : 'Upstream không khả dụng';
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message);
-    return errOut(stream, msg, 'api_error', 502);
+    return errOut(stream, 'Upstream không khả dụng', 'api_error', 502);
   }
 
   prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => { });
