@@ -4,6 +4,7 @@ import { hashApiKey, verifySession } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
+import { upstreamFetchWithRetry } from '@/lib/upstream-fetch';
 import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -367,20 +368,25 @@ export async function POST(req: NextRequest) {
     upstreamBody.tool_choice = responsesToolChoiceToChat(body.tool_choice, convertedTools.nameToChat);
   }
 
-  const url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
-  const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
-  if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
-
   let upstream: Response;
   try {
-    upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody) });
+    const result = await upstreamFetchWithRetry({
+      path: '/v1/chat/completions',
+      candidates: resolved.candidates,
+      buildHeaders: (candidate) => {
+        const headers: Record<string, string> = { 'content-type': 'application/json' };
+        if (candidate.apiKey) headers.authorization = `Bearer ${candidate.apiKey}`;
+        return headers;
+      },
+      buildBody: () => upstreamBody
+    });
+    upstream = result.response;
+    console.log(`[responses] upstream status=${upstream.status} attempts=${result.attempts} base=${result.candidate.baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
     console.error('[responses] upstream fetch error:', e?.message);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch(() => {});
     return errJson(`Lỗi upstream: ${e?.message}`, 502);
   }
-
-  console.log(`[responses] upstream status=${upstream.status} model=${modelName} -> ${resolved.upstreamName}`);
 
   if (!upstream.ok) {
     const text = await upstream.text();

@@ -8,6 +8,7 @@ function pickBase(provider: string) {
       'https://cc.freemodel.dev'
     );
   }
+
   return (
     process.env.OPENAI_UPSTREAM_BASE ||
     process.env.ROUTER_BASE_URL ||
@@ -23,6 +24,7 @@ function pickKey(provider: string) {
       ''
     );
   }
+
   return (
     process.env.OPENAI_UPSTREAM_KEY ||
     process.env.ROUTER_API_KEY ||
@@ -39,46 +41,47 @@ export type EndpointCandidate = { baseUrl: string; apiKey: string };
 export type ResolvedModel = {
   model: { id: string; name: string; provider: string; enabled: boolean };
   upstreamName: string;
-  candidates: EndpointCandidate[]; // primary first, then fallbacks
-  // Back-compat: phía cũ vẫn dùng baseUrl/apiKey từ ứng viên đầu tiên
+  candidates: EndpointCandidate[];
   baseUrl: string;
   apiKey: string;
 };
 
 function parseFallbacks(raw: string): EndpointCandidate[] {
   try {
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr
-      .filter((x) => x && typeof x.baseUrl === 'string' && x.baseUrl.trim())
-      .map((x) => ({ baseUrl: String(x.baseUrl).trim(), apiKey: String(x.apiKey ?? '').trim() }));
+    const value = JSON.parse(raw);
+    if (!Array.isArray(value)) return [];
+
+    return value
+      .filter((item) => item && typeof item.baseUrl === 'string' && item.baseUrl.trim())
+      .map((item) => ({
+        baseUrl: String(item.baseUrl).trim(),
+        apiKey: String(item.apiKey ?? '').trim()
+      }));
   } catch {
     return [];
   }
 }
 
 export async function resolveModelEndpoint(modelName: string): Promise<ResolvedModel | null> {
-  const m = await prisma.model.findUnique({ where: { name: modelName } });
-  if (!m) return null;
-  const provider = m.provider || 'openai';
+  const model = await prisma.model.findUnique({ where: { name: modelName } });
+  if (!model) return null;
+
+  const provider = model.provider || 'openai';
   const envBase = pickBase(provider);
   const envKey = pickKey(provider);
-
-  const primary: EndpointCandidate = {
-    baseUrl: (m.endpoint && m.endpoint.trim()) || envBase,
+  const primary = {
+    baseUrl: (model.endpoint && model.endpoint.trim()) || envBase,
     apiKey: envKey
   };
-  const fallbacks = parseFallbacks((m as any).fallbackEndpoints ?? '[]').map((f) => ({
-    baseUrl: f.baseUrl,
-    apiKey: f.apiKey || envKey
+  const fallbacks = parseFallbacks((model as any).fallbackEndpoints ?? '[]').map((candidate) => ({
+    baseUrl: candidate.baseUrl,
+    apiKey: candidate.apiKey || envKey
   }));
 
-  const candidates = [primary, ...fallbacks];
-
   return {
-    model: m,
-    upstreamName: m.upstreamName,
-    candidates,
+    model,
+    upstreamName: model.upstreamName,
+    candidates: [primary, ...fallbacks],
     baseUrl: primary.baseUrl,
     apiKey: primary.apiKey
   };

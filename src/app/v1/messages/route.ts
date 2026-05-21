@@ -4,6 +4,7 @@ import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
+import { upstreamFetchWithRetry } from '@/lib/upstream-fetch';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -103,21 +104,17 @@ export async function POST(req: NextRequest) {
 
   const isAnthropic = resolved.model.provider === 'anthropic';
 
-  let url: string;
+  let upstreamPath: string;
   let upstreamBody: any;
   let upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
 
   if (isAnthropic) {
     upstreamHeaders['x-claude-code-disable-nonessential-traffic'] = '1';
-    url = resolved.baseUrl.replace(/\/$/, '') + '/v1/messages';
+    upstreamPath = '/v1/messages';
     upstreamBody = { ...body, model: resolved.upstreamName, stream };
-    if (resolved.apiKey) {
-      upstreamHeaders['x-api-key'] = resolved.apiKey;
-      upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
-    }
     upstreamHeaders['anthropic-version'] = req.headers.get('anthropic-version') || '2023-06-01';
   } else {
-    url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
+    upstreamPath = '/v1/chat/completions';
     upstreamBody = {
       model: resolved.upstreamName,
       messages: msgsToOpenAIFormat(messages, body.system),
@@ -126,21 +123,30 @@ export async function POST(req: NextRequest) {
       top_p: body.top_p,
       stream
     };
-    if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
   }
 
   let upstream: Response;
-  const fetchAbort = new AbortController();
-  const fetchTimer = setTimeout(() => fetchAbort.abort('fetch_timeout'), 5 * 60 * 1000);
   try {
-    upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody), signal: fetchAbort.signal });
+    const result = await upstreamFetchWithRetry({
+      path: upstreamPath,
+      candidates: resolved.candidates,
+      buildHeaders: (candidate) => {
+        const headers = { ...upstreamHeaders };
+        if (candidate.apiKey) {
+          if (isAnthropic) headers['x-api-key'] = candidate.apiKey;
+          headers.authorization = `Bearer ${candidate.apiKey}`;
+        }
+        return headers;
+      },
+      buildBody: () => upstreamBody
+    });
+    upstream = result.response;
+    console.log(`[messages] upstream status=${upstream.status} attempts=${result.attempts} base=${result.candidate.baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
-    clearTimeout(fetchTimer);
-    const msg = fetchAbort.signal.aborted ? 'Upstream timeout' : 'Upstream không khả dụng';
+    const errorText = String(e?.message || '');
+    const msg = errorText.includes('abort') || errorText.includes('timeout') ? 'Upstream timeout' : 'Upstream không khả dụng';
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message);
     return errOut(stream, msg, 'api_error', 502);
-  } finally {
-    clearTimeout(fetchTimer);
   }
 
   prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => { });

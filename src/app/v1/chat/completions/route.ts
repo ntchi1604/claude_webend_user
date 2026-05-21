@@ -4,6 +4,7 @@ import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
+import { upstreamFetchWithRetry } from '@/lib/upstream-fetch';
 import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -125,15 +126,23 @@ export async function POST(req: NextRequest) {
   ];
 
   const upstreamBody = { ...body, model: resolved.upstreamName, messages: finalMessages, stream };
-  const url = resolved.baseUrl.replace(/\/$/, '') + '/v1/chat/completions';
-  const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
-  if (resolved.apiKey) upstreamHeaders['authorization'] = `Bearer ${resolved.apiKey}`;
 
   let upstream: Response;
   try {
-    upstream = await fetch(url, { method: 'POST', headers: upstreamHeaders, body: JSON.stringify(upstreamBody) });
+    const result = await upstreamFetchWithRetry({
+      path: '/v1/chat/completions',
+      candidates: resolved.candidates,
+      buildHeaders: (candidate) => {
+        const headers: Record<string, string> = { 'content-type': 'application/json' };
+        if (candidate.apiKey) headers.authorization = `Bearer ${candidate.apiKey}`;
+        return headers;
+      },
+      buildBody: () => upstreamBody
+    });
+    upstream = result.response;
+    console.log(`[gateway] upstream status=${upstream.status} attempts=${result.attempts} base=${result.candidate.baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
-    console.error('[gateway] upstream error:', e?.message, 'url=', url);
+    console.error('[gateway] upstream error:', e?.message);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch((err) => console.error('[logUsage] write failed:', err?.message));
     return errOut(stream, 'Upstream không khả dụng', 'upstream_error', 502);
   }

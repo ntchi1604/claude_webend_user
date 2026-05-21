@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Plus, Save, Trash2, Power } from 'lucide-react';
 
-type M = { id: string; name: string; upstreamName: string; endpoint: string | null; provider: string; inputPriceVND: number; outputPriceVND: number; enabled: boolean };
+type M = { id: string; name: string; upstreamName: string; endpoint: string | null; fallbackEndpoints: string; provider: string; inputPriceVND: number; outputPriceVND: number; enabled: boolean };
 
-const empty: Omit<M, 'id'> = { name: '', upstreamName: '', endpoint: null, provider: 'openai', inputPriceVND: 0, outputPriceVND: 0, enabled: true };
+const empty: Omit<M, 'id'> = { name: '', upstreamName: '', endpoint: null, fallbackEndpoints: '[]', provider: 'openai', inputPriceVND: 0, outputPriceVND: 0, enabled: true };
 
 export default function ModelsClient({ initial }: { initial: M[] }) {
   const [list, setList] = useState<M[]>(initial);
@@ -55,6 +55,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
           <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="input" placeholder="Upstream model" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
           <input className="input" placeholder="Endpoint ghi đè (tuỳ chọn)" value={draft.endpoint ?? ''} onChange={(e) => setDraft({ ...draft, endpoint: e.target.value || null })} />
+          <textarea className="input md:col-span-3 min-h-20" placeholder='Fallback endpoints JSON: [{"baseUrl":"https://fallback.example","apiKey":"optional"}]' value={draft.fallbackEndpoints} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: e.target.value })} />
           <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
             <option value="openai">openai</option>
             <option value="anthropic">anthropic</option>
@@ -65,12 +66,13 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm min-w-[600px]">
+        <table className="w-full text-sm min-w-[900px]">
           <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-left">
             <tr>
               <th className="p-3">Tên</th>
               <th className="p-3">Upstream</th>
               <th className="p-3">Endpoint</th>
+              <th className="p-3">Fallback endpoints</th>
               <th className="p-3">Nhà cung cấp</th>
 
               <th className="p-3">Bật</th>
@@ -83,6 +85,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
                 <td className="p-2"><input className="input" value={m.name} onChange={(e) => patch(i, { name: e.target.value })} /></td>
                 <td className="p-2"><input className="input" value={m.upstreamName} onChange={(e) => patch(i, { upstreamName: e.target.value })} /></td>
                 <td className="p-2"><input className="input" placeholder="(mặc định)" value={m.endpoint ?? ''} onChange={(e) => patch(i, { endpoint: e.target.value || null })} /></td>
+                <td className="p-2"><textarea className="input min-h-16 min-w-64" value={m.fallbackEndpoints} onChange={(e) => patch(i, { fallbackEndpoints: e.target.value })} /></td>
                 <td className="p-2">
                   <select className="input" value={m.provider} onChange={(e) => patch(i, { provider: e.target.value })}>
                     <option value="openai">openai</option>
