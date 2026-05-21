@@ -503,6 +503,26 @@ a.link:hover { text-decoration: underline; }
 .msg-cursor { animation: blink 1s step-end infinite; color: var(--brand-orange); }
 @keyframes blink { 50% { opacity: 0; } }
 
+/* Thinking spinner — hiển thị trước khi token đầu tiên về */
+.msg-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--stone-600);
+  font-size: 14px;
+}
+.dark .msg-thinking { color: #a8a8a8; }
+.msg-thinking-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: msg-spin 0.7s linear infinite;
+  opacity: 0.7;
+}
+@keyframes msg-spin { to { transform: rotate(360deg); } }
+
 /* File chips in messages */
 .msg-files { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .msg-file-chip {

@@ -84,8 +84,17 @@ export default function MessageBubble({ role, content, streaming }: Props) {
         )}
         {role === 'assistant' ? (
           <div className="msg-markdown">
-            <MarkdownRenderer content={text} />
-            {streaming && <span className="msg-cursor">|</span>}
+            {streaming && !text ? (
+              <div className="msg-thinking">
+                <span className="msg-thinking-spinner" />
+                <span>Đang suy nghĩ…</span>
+              </div>
+            ) : (
+              <>
+                <MarkdownRenderer content={text} />
+                {streaming && <span className="msg-cursor">|</span>}
+              </>
+            )}
           </div>
         ) : (
           text && <div className="msg-user-text">{text}</div>
