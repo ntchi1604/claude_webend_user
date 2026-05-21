@@ -110,7 +110,8 @@ export async function POST(req: NextRequest) {
   if (isAnthropic) {
     upstreamHeaders['x-claude-code-disable-nonessential-traffic'] = '1';
     upstreamPath = '/v1/messages';
-    upstreamBody = { ...body, model: resolved.upstreamName, stream };
+    const { context_management, ...rest } = body;
+    upstreamBody = { ...rest, model: resolved.upstreamName, stream };
     upstreamHeaders['anthropic-version'] = req.headers.get('anthropic-version') || '2023-06-01';
   } else {
     upstreamPath = '/v1/chat/completions';
