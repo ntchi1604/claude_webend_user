@@ -22,7 +22,10 @@
       "Bash(sqlite3 *)",
       "Bash(node *)",
       "Bash(git -C /c/Work/claude_webend_user status --short)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(DATABASE_URL=\"file:./prisma/dev.db\" npx prisma *)",
+      "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma *)",
+      "Bash(DATABASE_URL=\"file:./prisma/dev.db\" node *)"
     ]
   }
 }
