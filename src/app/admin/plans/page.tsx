@@ -8,7 +8,7 @@ export default async function AdminPlansPage() {
   return <PlansClient
     initial={plans.map((p) => ({
       id: p.id, name: p.name, description: p.description,
-      tokenLimit: Number(p.tokenLimit), windowHours: p.windowHours, durationDays: p.durationDays,
+      tokenLimit: Number(p.tokenLimit), unlimitedTokens: p.unlimitedTokens, windowHours: p.windowHours, durationDays: p.durationDays, durationHours: p.durationHours,
       requestsPerMinute: p.requestsPerMinute,
       priceVND: p.priceVND, modelIds: parseModelIds(p.modelIds), enabled: p.enabled
     }))}

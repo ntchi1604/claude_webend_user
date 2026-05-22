@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Ban, RotateCcw, ShieldCheck, Sparkles } from 'lucide-react';
+import { Ban, Minus, Plus, RotateCcw, ShieldCheck, Sparkles } from 'lucide-react';
 
 type U = { id: string; email: string; name: string | null; role: string; banned: boolean; createdAt: string; planName: string | null; expiresAt: string | null; keyCount: number; paymentCount: number; totalTokens: number };
 type P = { id: string; name: string; durationDays: number };
@@ -15,6 +15,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
   const [picking, setPicking] = useState<string | null>(null);
   const [planId, setPlanId] = useState(plans[0]?.id ?? '');
   const [resetting, setResetting] = useState<string | null>(null);
+  const [extendDays, setExtendDays] = useState<Record<string, number>>({});
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -32,7 +33,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
 
   const planNames = useMemo(() => Array.from(new Set(users.map((u) => u.planName).filter((v): v is string => !!v))).sort((a, b) => a.localeCompare(b, 'vi')), [users]);
 
-  async function call(id: string, action: 'ban' | 'unban' | 'grant', extra?: any) {
+  async function call(id: string, action: 'ban' | 'unban' | 'grant' | 'extend', extra?: any) {
     const r = await fetch(`/api/admin/users/${id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -42,6 +43,13 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
     else { const d = await r.json(); toast.error(d.error || 'Lỗi'); }
   }
 
+
+  async function adjustDays(id: string, sign: 1 | -1) {
+    const raw = extendDays[id] ?? 1;
+    const days = Math.abs(Number(raw));
+    if (!Number.isFinite(days) || days <= 0) return toast.error('Nhap so ngay hop le');
+    await call(id, 'extend', { days: sign * days });
+  }
   async function resetQuota(id: string) {
     if (!confirm('Reset token/quota của user này về 0?')) return;
     setResetting(id);
@@ -114,6 +122,18 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
                     {u.banned
                       ? <button onClick={() => call(u.id, 'unban')} className="btn-ghost text-xs"><ShieldCheck className="h-3.5 w-3.5" /></button>
                       : <button onClick={() => call(u.id, 'ban')} className="btn-danger text-xs py-1 px-2"><Ban className="h-3.5 w-3.5" /></button>}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2 justify-end">
+                    <input
+                      type="number"
+                      min={1}
+                      className="input max-w-[90px]"
+                      value={extendDays[u.id] ?? 1}
+                      onChange={(e) => setExtendDays({ ...extendDays, [u.id]: +e.target.value })}
+                      title="So ngay gia han"
+                    />
+                    <button onClick={() => adjustDays(u.id, 1)} className="btn-secondary text-xs"><Plus className="h-3.5 w-3.5" /> Ngay</button>
+                    <button onClick={() => adjustDays(u.id, -1)} className="btn-ghost text-xs"><Minus className="h-3.5 w-3.5" /> Ngay</button>
                   </div>
                   {picking === u.id && (
                     <div className="mt-2 flex gap-2 justify-end">

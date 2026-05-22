@@ -38,8 +38,13 @@ async function main() {
 
   await prisma.plan.upsert({
     where: { name: 'Free' },
-    update: {},
-    create: { name: 'Free', description: 'Dùng thử', tokenLimit: 50_000, windowHours: 5, durationDays: 30, priceVND: 0, modelIds: JSON.stringify([gpt4mini.id]) }
+    update: { description: 'Goi mien phi mac dinh', tokenLimit: 50_000, unlimitedTokens: false, windowHours: 5, durationDays: 30, durationHours: null, priceVND: 0, modelIds: JSON.stringify([gpt4mini.id]), enabled: true },
+    create: { name: 'Free', description: 'Goi mien phi mac dinh', tokenLimit: 50_000, unlimitedTokens: false, windowHours: 5, durationDays: 30, durationHours: null, priceVND: 0, modelIds: JSON.stringify([gpt4mini.id]) }
+  });
+  await prisma.plan.upsert({
+    where: { name: 'Trial' },
+    update: { description: 'Trial 5 gio, full model, khong gioi han token', tokenLimit: 0, unlimitedTokens: true, windowHours: 5, durationDays: 30, durationHours: 5, priceVND: 0, modelIds: JSON.stringify([gpt4mini.id, gpt4.id, haiku.id, sonnet.id]), enabled: true },
+    create: { name: 'Trial', description: 'Trial 5 gio, full model, khong gioi han token', tokenLimit: 0, unlimitedTokens: true, windowHours: 5, durationDays: 30, durationHours: 5, priceVND: 0, modelIds: JSON.stringify([gpt4mini.id, gpt4.id, haiku.id, sonnet.id]) }
   });
   await prisma.plan.upsert({
     where: { name: 'Basic' },

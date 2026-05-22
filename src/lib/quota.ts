@@ -1,5 +1,7 @@
 import { prisma } from './prisma';
 import { parseModelIds } from './json';
+import { isUnlimitedTokens } from './plans';
+import { getActiveSubscriptionOrFree } from './subscription';
 
 export type QuotaResult = {
   allowed: boolean;
@@ -32,17 +34,14 @@ export function quotaMessage(result: QuotaResult) {
 }
 
 export async function checkQuota(userId: string, modelName: string, estimateTokens = 0): Promise<QuotaResult> {
-  const sub = await prisma.subscription.findFirst({
-    where: { userId, active: true, expiresAt: { gt: new Date() } },
-    orderBy: { expiresAt: 'desc' },
-    include: { plan: true }
-  });
+  const sub = await getActiveSubscriptionOrFree(userId);
   if (!sub) {
     console.log(`[quota] NO_ACTIVE_PLAN user=${userId} model=${modelName}`);
     return { allowed: false, limit: 0, used: 0, remaining: 0, windowHours: 0, resetAt: null, reason: 'NO_ACTIVE_PLAN' };
   }
   const plan = sub.plan;
   const tokenLimit = Number(plan.tokenLimit);
+  const unlimitedTokens = isUnlimitedTokens(plan);
   const allowedIds = parseModelIds(plan.modelIds);
 
   const model = await prisma.model.findUnique({ where: { name: modelName } });
@@ -74,10 +73,10 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     console.log(`[quota] RESET user=${userId} old=${oldResetAt?.toISOString() ?? 'NULL'} new=${resetAt.toISOString()} limit=${tokenLimit}`);
 
     // New window — used = 0
-    if (estimateTokens > tokenLimit) {
+    if (!unlimitedTokens && estimateTokens > tokenLimit) {
       return { allowed: false, limit: tokenLimit, used: 0, remaining: tokenLimit, windowHours: plan.windowHours, resetAt, reason: 'QUOTA_EXCEEDED', planName: plan.name, modelAllowed: true };
     }
-    return { allowed: true, limit: tokenLimit, used: 0, remaining: tokenLimit, windowHours: plan.windowHours, resetAt, planName: plan.name, modelAllowed: true };
+    return { allowed: true, limit: tokenLimit, used: 0, remaining: unlimitedTokens ? Number.MAX_SAFE_INTEGER : tokenLimit, windowHours: plan.windowHours, resetAt, planName: plan.name, modelAllowed: true };
   }
 
   // Window is active — count only SUCCESSFUL usage since window started
@@ -91,11 +90,11 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     _sum: { totalTokens: true }
   });
   const used = agg._sum.totalTokens ?? 0;
-  const remaining = Math.max(0, tokenLimit - used);
+  const remaining = unlimitedTokens ? Number.MAX_SAFE_INTEGER : Math.max(0, tokenLimit - used);
 
   console.log(`[quota] ACTIVE user=${userId} model=${modelName} used=${used}/${tokenLimit} remaining=${remaining} windowStart=${windowStart.toISOString()} resetAt=${resetAt.toISOString()} estimate=${estimateTokens} willBlock=${used + estimateTokens > tokenLimit}`);
 
-  if (used + estimateTokens > tokenLimit) {
+  if (!unlimitedTokens && used + estimateTokens > tokenLimit) {
     return { allowed: false, limit: tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, reason: 'QUOTA_EXCEEDED', planName: plan.name, modelAllowed: true };
   }
   return { allowed: true, limit: tokenLimit, used, remaining, windowHours: plan.windowHours, resetAt, planName: plan.name, modelAllowed: true };

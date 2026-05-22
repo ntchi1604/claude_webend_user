@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
+import { planExpiresAt } from '@/lib/plans';
 import { z } from 'zod';
 
 const schema = z.object({ action: z.enum(['approve', 'reject']) });
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         data: {
           userId: payment.userId,
           planId: payment.planId,
-          expiresAt: new Date(Date.now() + payment.plan.durationDays * 86400_000)
+          expiresAt: planExpiresAt(payment.plan)
         }
       }),
       prisma.payment.update({

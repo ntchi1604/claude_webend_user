@@ -25,7 +25,9 @@
       "Bash(git *)",
       "Bash(DATABASE_URL=\"file:./prisma/dev.db\" npx prisma *)",
       "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma *)",
-      "Bash(DATABASE_URL=\"file:./prisma/dev.db\" node *)"
+      "Bash(DATABASE_URL=\"file:./prisma/dev.db\" node *)",
+      "Bash(ls /Users/dev/workspace-f0196321)",
+      "Read(//Users/dev/**)"
     ]
   }
 }

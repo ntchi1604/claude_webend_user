@@ -7,14 +7,16 @@ export async function POST(req: NextRequest) {
     await requireAdmin();
     const b = await req.json();
     if (!b.name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
-    if (!b.tokenLimit || isNaN(+b.tokenLimit)) return NextResponse.json({ error: 'tokenLimit is required' }, { status: 400 });
+    if (!b.unlimitedTokens && (!b.tokenLimit || isNaN(+b.tokenLimit))) return NextResponse.json({ error: 'tokenLimit is required' }, { status: 400 });
     const plan = await prisma.plan.create({
       data: {
         name: b.name,
         description: b.description || null,
-        tokenLimit: +b.tokenLimit,
+        tokenLimit: b.unlimitedTokens ? 0 : +b.tokenLimit,
+        unlimitedTokens: b.unlimitedTokens ?? false,
         windowHours: +b.windowHours || 5,
         durationDays: +b.durationDays || 30,
+        durationHours: b.durationHours ? +b.durationHours : null,
         requestsPerMinute: +b.requestsPerMinute || 60,
         priceVND: +b.priceVND || 0,
         modelIds: JSON.stringify(b.modelIds || []),

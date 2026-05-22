@@ -3,16 +3,14 @@ import { prisma } from '@/lib/prisma';
 import { formatNumber, formatVND } from '@/lib/utils';
 import { parseModelIds } from '@/lib/json';
 import PlanCard from './plan-card';
+import { getActiveSubscriptionOrFree } from '@/lib/subscription';
 
 export default async function PlansPage() {
   const user = await requireUser();
   const plans = await prisma.plan.findMany({ where: { enabled: true }, orderBy: { priceVND: 'asc' } });
   const models = await prisma.model.findMany();
   const modelMap = new Map(models.map((m) => [m.id, m.name]));
-  const sub = await prisma.subscription.findFirst({
-    where: { userId: user.id, active: true, expiresAt: { gt: new Date() } },
-    orderBy: { expiresAt: 'desc' }
-  });
+  const sub = await getActiveSubscriptionOrFree(user.id);
 
   return (
     <div className="app-page animate-fade-in">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, signSession } from '@/lib/auth';
 import { SESSION_COOKIE } from '@/lib/session';
+import { planExpiresAt } from '@/lib/plans';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId: user.id,
           planId: free.id,
-          expiresAt: new Date(Date.now() + free.durationDays * 86400_000)
+          expiresAt: planExpiresAt(free)
         }
       });
     }

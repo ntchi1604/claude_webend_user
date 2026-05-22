@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/session';
+import { getActiveSubscriptionOrFree } from '@/lib/subscription';
 
 export async function GET() {
   try {
     const user = await requireUser();
 
-    // Get user's active subscription to find allowed models
-    const sub = await prisma.subscription.findFirst({
-      where: { userId: user.id, active: true, expiresAt: { gt: new Date() } },
-      orderBy: { expiresAt: 'desc' },
-      include: { plan: true }
-    });
+    // Get user's active subscription, or automatically fall back to Free after Trial expires.
+    const sub = await getActiveSubscriptionOrFree(user.id);
 
     if (!sub) {
       return NextResponse.json({ models: [] });

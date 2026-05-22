@@ -1,6 +1,8 @@
 import { requireUser } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { formatNumber } from '@/lib/utils';
+import { getActiveSubscriptionOrFree } from '@/lib/subscription';
+import { isUnlimitedTokens } from '@/lib/plans';
 import Link from 'next/link';
 import Countdown from '@/components/countdown';
 import { Activity, ArrowUpRight, Clock, KeyRound, MessageSquare, Package, ShieldCheck, Terminal } from 'lucide-react';
@@ -10,11 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   const user = await requireUser();
 
-  const sub = await prisma.subscription.findFirst({
-    where: { userId: user.id, active: true, expiresAt: { gt: new Date() } },
-    orderBy: { expiresAt: 'desc' },
-    include: { plan: true }
-  });
+  const sub = await getActiveSubscriptionOrFree(user.id);
 
   const windowHours = sub?.plan.windowHours ?? 5;
   const windowMs = windowHours * 3600 * 1000;
@@ -35,16 +33,17 @@ export default async function DashboardPage() {
     }
   }
 
+  const unlimitedTokens = isUnlimitedTokens(sub?.plan ?? {});
   const limit = Number(sub?.plan.tokenLimit ?? 0);
-  const remaining = Math.max(0, limit - used);
-  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const remaining = unlimitedTokens ? Number.MAX_SAFE_INTEGER : Math.max(0, limit - used);
+  const pct = unlimitedTokens || limit <= 0 ? 0 : Math.min(100, Math.round((used / limit) * 100));
   const keyCount = await prisma.apiKey.count({ where: { userId: user.id, active: true } });
   const totalRequests = await prisma.usageLog.count({ where: { userId: user.id } });
   const planName = sub?.plan.name ?? 'Chưa có gói';
   const status = sub ? 'Đang hoạt động' : 'Chưa kích hoạt';
 
   const stats = [
-    { label: 'Token còn lại', value: formatNumber(remaining), icon: Activity, href: '/dashboard/usage', tone: 'blue' },
+    { label: 'Token còn lại', value: unlimitedTokens ? 'Khong gioi han' : formatNumber(remaining), icon: Activity, href: '/dashboard/usage', tone: 'blue' },
     { label: 'API key hoạt động', value: formatNumber(keyCount), icon: KeyRound, href: '/dashboard/keys', tone: 'green' },
     { label: 'Tổng request', value: formatNumber(totalRequests), icon: Terminal, href: '/dashboard/usage', tone: 'mauve' },
     { label: 'Gói hiện tại', value: planName, icon: Package, href: '/dashboard/plans', tone: 'orange' }
@@ -69,7 +68,7 @@ export default async function DashboardPage() {
           <div className="dashboard-panel-head">
             <div>
               <p className="caption">Hạn mức cửa sổ {windowHours} giờ</p>
-              <h2>{formatNumber(used)} / {formatNumber(limit)} token</h2>
+              <h2>{formatNumber(used)} / {unlimitedTokens ? 'Unlimited' : formatNumber(limit)} token</h2>
             </div>
             <div className="dashboard-percent">{pct}%</div>
           </div>
@@ -83,7 +82,7 @@ export default async function DashboardPage() {
             />
           </div>
           <div className="dashboard-quota-meta">
-            <span>Còn lại {formatNumber(remaining)} token</span>
+            <span>{unlimitedTokens ? 'Unlimited tokens' : `Remaining ${formatNumber(remaining)} token`}</span>
             <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Reset <Countdown resetAt={resetAt ? resetAt.toISOString() : null} /></span>
           </div>
           <div className="dashboard-actions-row">

@@ -26,8 +26,10 @@ model Plan {
   name          String         @unique
   description   String?
   tokenLimit    BigInt
+  unlimitedTokens Boolean      @default(false)
   windowHours   Int            @default(5)
   durationDays  Int            @default(30)
+  durationHours Int?
   requestsPerMinute Int        @default(60)
   priceVND      Int
   modelIds      String         @default("[]") // JSON array of model IDs

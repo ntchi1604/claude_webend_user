@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
+import { planExpiresAt } from '@/lib/plans';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -20,10 +21,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           data: {
             userId: params.id,
             planId: plan.id,
-            expiresAt: new Date(Date.now() + plan.durationDays * 86400_000)
+            expiresAt: planExpiresAt(plan)
           }
         })
       ]);
+    } else if (action === 'extend') {
+      const days = Number(body.days);
+      if (!Number.isFinite(days) || days === 0) return NextResponse.json({ error: 'days must be a non-zero number' }, { status: 400 });
+      const sub = await prisma.subscription.findFirst({
+        where: { userId: params.id, active: true },
+        orderBy: { expiresAt: 'desc' }
+      });
+      if (!sub) return NextResponse.json({ error: 'No active subscription' }, { status: 404 });
+      const now = Date.now();
+      const base = sub.expiresAt.getTime() > now ? sub.expiresAt.getTime() : now;
+      const expiresAt = new Date(base + days * 86400_000);
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: { expiresAt }
+      });
     } else {
       return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
