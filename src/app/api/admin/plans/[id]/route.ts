@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 
+function numberOrDefault(value: unknown, fallback: number) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requireAdmin();
@@ -11,13 +16,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       data: {
         name: b.name,
         description: b.description || null,
-        tokenLimit: b.unlimitedTokens ? 0 : +b.tokenLimit,
+        tokenLimit: b.unlimitedTokens ? 0 : numberOrDefault(b.tokenLimit, 0),
         unlimitedTokens: b.unlimitedTokens ?? false,
-        windowHours: +b.windowHours,
-        durationDays: +b.durationDays,
+        windowHours: numberOrDefault(b.windowHours, 5),
+        durationDays: numberOrDefault(b.durationDays, 30),
         durationHours: b.durationHours ? +b.durationHours : null,
-        requestsPerMinute: +b.requestsPerMinute || 60,
-        priceVND: +b.priceVND,
+        requestsPerMinute: numberOrDefault(b.requestsPerMinute, 60),
+        priceVND: numberOrDefault(b.priceVND, 0),
         modelIds: JSON.stringify(b.modelIds || []),
         enabled: b.enabled
       }

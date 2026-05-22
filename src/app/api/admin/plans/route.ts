@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 
+function numberOrDefault(value: unknown, fallback: number) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin();
@@ -14,11 +19,11 @@ export async function POST(req: NextRequest) {
         description: b.description || null,
         tokenLimit: b.unlimitedTokens ? 0 : +b.tokenLimit,
         unlimitedTokens: b.unlimitedTokens ?? false,
-        windowHours: +b.windowHours || 5,
-        durationDays: +b.durationDays || 30,
+        windowHours: numberOrDefault(b.windowHours, 5),
+        durationDays: numberOrDefault(b.durationDays, 30),
         durationHours: b.durationHours ? +b.durationHours : null,
-        requestsPerMinute: +b.requestsPerMinute || 60,
-        priceVND: +b.priceVND || 0,
+        requestsPerMinute: numberOrDefault(b.requestsPerMinute, 60),
+        priceVND: numberOrDefault(b.priceVND, 0),
         modelIds: JSON.stringify(b.modelIds || []),
         enabled: b.enabled ?? true
       }

@@ -27,7 +27,11 @@
       "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma *)",
       "Bash(DATABASE_URL=\"file:./prisma/dev.db\" node *)",
       "Bash(ls /Users/dev/workspace-f0196321)",
-      "Read(//Users/dev/**)"
+      "Read(//Users/dev/**)",
+      "Read(//Users/dev-25cf7d/**)",
+      "Read(//c/Users/NguyenThanhChi/**)",
+      "Bash(ls -la /Users/dev-de4dad/workspace-b4f6fde5)",
+      "Read(//Users/dev-de4dad/**)"
     ]
   }
 }
