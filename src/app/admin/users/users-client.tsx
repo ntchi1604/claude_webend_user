@@ -43,11 +43,10 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
     else { const d = await r.json(); toast.error(d.error || 'Lỗi'); }
   }
 
-
   async function adjustDays(id: string, sign: 1 | -1) {
     const raw = extendDays[id] ?? 1;
     const days = Math.abs(Number(raw));
-    if (!Number.isFinite(days) || days <= 0) return toast.error('Nhap so ngay hop le');
+    if (!Number.isFinite(days) || days <= 0) return toast.error('Nhập số ngày hợp lệ');
     await call(id, 'extend', { days: sign * days });
   }
   async function resetQuota(id: string) {
@@ -65,7 +64,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
         <div>
           <p className="dashboard-eyebrow">Admin</p>
           <h1 className="text-3xl font-bold">Người dùng</h1>
-          <p className="body-sm text-[var(--stone-600)] mt-1">Lọc theo gói, sắp xếp user và reset quota từng tài khoản.</p>
+          <p className="body-sm text-[var(--stone-600)] mt-1">Lọc theo gói, sắp xếp user, cấp gói, reset quota, cộng trừ ngày gia hạn từng tài khoản.</p>
         </div>
         <div className="app-header-stat">{filtered.length} / {users.length} user</div>
       </div>
@@ -85,6 +84,10 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
           <option value="keyCount">Sắp xếp: số key</option>
         </select>
         <button className="btn-secondary admin-users-sort-dir" onClick={() => setSortDir((v) => v === 'asc' ? 'desc' : 'asc')}>{sortDir === 'asc' ? 'Tăng dần' : 'Giảm dần'}</button>
+      </div>
+
+      <div className="caption" style={{ marginBottom: '8px', color: 'var(--stone-600)' }}>
+        Gia hạn = cộng/trừ ngày vào hạn hiện tại. Nhập số ngày, sau đó chọn Cộng ngày hoặc Trừ ngày.
       </div>
 
       <div className="card overflow-x-auto">
@@ -110,8 +113,8 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
                   {u.banned && <span className="mt-1 badge bg-red-500/15 text-red-700">Đã chặn</span>}
                 </td>
                 <td className="p-3">{u.role}</td>
-                <td className="p-3">{u.planName ?? '—'}</td>
-                <td className="p-3 text-xs">{u.expiresAt ? new Date(u.expiresAt).toLocaleDateString('vi-VN') : '—'}</td>
+                <td className="p-3">{u.planName ?? '-'}</td>
+                <td className="p-3 text-xs">{u.expiresAt ? new Date(u.expiresAt).toLocaleDateString('vi-VN') : '-'}</td>
                 <td className="p-3">{u.keyCount}</td>
                 <td className="p-3 font-mono text-xs">{u.totalTokens.toLocaleString('vi-VN')}</td>
                 <td className="p-3 text-xs">{new Date(u.createdAt).toLocaleDateString('vi-VN')}</td>
@@ -120,20 +123,23 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
                     <button onClick={() => setPicking(picking === u.id ? null : u.id)} className="btn-ghost text-xs"><Sparkles className="h-3.5 w-3.5" /> Cấp gói</button>
                     <button onClick={() => resetQuota(u.id)} disabled={resetting === u.id} className="btn-ghost text-xs"><RotateCcw className="h-3.5 w-3.5" /> Reset token</button>
                     {u.banned
-                      ? <button onClick={() => call(u.id, 'unban')} className="btn-ghost text-xs"><ShieldCheck className="h-3.5 w-3.5" /></button>
-                      : <button onClick={() => call(u.id, 'ban')} className="btn-danger text-xs py-1 px-2"><Ban className="h-3.5 w-3.5" /></button>}
+                      ? <button onClick={() => call(u.id, 'unban')} className="btn-ghost text-xs" title="Mở chặn user"><ShieldCheck className="h-3.5 w-3.5" /></button>
+                      : <button onClick={() => call(u.id, 'ban')} className="btn-danger text-xs py-1 px-2" title="Chặn user"><Ban className="h-3.5 w-3.5" /></button>}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2 justify-end">
-                    <input
-                      type="number"
-                      min={1}
-                      className="input max-w-[90px]"
-                      value={extendDays[u.id] ?? 1}
-                      onChange={(e) => setExtendDays({ ...extendDays, [u.id]: +e.target.value })}
-                      title="So ngay gia han"
-                    />
-                    <button onClick={() => adjustDays(u.id, 1)} className="btn-secondary text-xs"><Plus className="h-3.5 w-3.5" /> Ngay</button>
-                    <button onClick={() => adjustDays(u.id, -1)} className="btn-ghost text-xs"><Minus className="h-3.5 w-3.5" /> Ngay</button>
+                  <div className="mt-2 flex flex-wrap gap-2 justify-end items-end">
+                    <label className="flex flex-col items-end gap-1">
+                      <span className="caption" style={{ fontWeight: 700 }}>Số ngày gia hạn</span>
+                      <input
+                        type="number"
+                        min={1}
+                        className="input max-w-[110px]"
+                        value={extendDays[u.id] ?? 1}
+                        onChange={(e) => setExtendDays({ ...extendDays, [u.id]: +e.target.value })}
+                        title="Nhập số ngày để cộng hoặc trừ"
+                      />
+                    </label>
+                    <button onClick={() => adjustDays(u.id, 1)} className="btn-secondary text-xs" title="Cộng ngày vào hạn hiện tại"><Plus className="h-3.5 w-3.5" /> Cộng ngày</button>
+                    <button onClick={() => adjustDays(u.id, -1)} className="btn-ghost text-xs" title="Trừ ngày khỏi hạn hiện tại"><Minus className="h-3.5 w-3.5" /> Trừ ngày</button>
                   </div>
                   {picking === u.id && (
                     <div className="mt-2 flex gap-2 justify-end">
