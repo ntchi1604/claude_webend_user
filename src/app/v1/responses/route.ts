@@ -179,6 +179,17 @@ function messageId() {
   return `msg_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
 }
 
+function decodeSseJsonLines(text: string) {
+  const out: any[] = [];
+  for (const block of text.split(/\n\n/)) {
+    const line = block.split('\n').find((l) => l.startsWith('data:'));
+    if (!line) continue;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === '[DONE]') continue;
+    try { out.push(JSON.parse(payload)); } catch { }
+  }
+  return out;
+}
 function buildResponseObject(id: string, model: string, content: string, usage: any) {
   return {
     id,
@@ -323,18 +334,18 @@ async function logUsage(apiKeyId: string, userId: string, modelId: string, model
 
 export async function POST(req: NextRequest) {
   const key = await authKey(req);
-  if (!key) return errJson('API key không hợp lệ', 401);
+  if (!key) return errJson('API key khÃ´ng há»£p lá»‡', 401);
 
   let body: any;
-  try { body = await req.json(); } catch { return errJson('Body JSON không hợp lệ'); }
+  try { body = await req.json(); } catch { return errJson('Body JSON khÃ´ng há»£p lá»‡'); }
 
   const modelName: string = body?.model;
   const input = body?.input;
   const stream = !!body?.stream;
   const instructions = body?.instructions;
 
-  if (!modelName) return errJson('Thiếu trường "model"');
-  if (!input) return errJson('Thiếu trường "input"');
+  if (!modelName) return errJson('Thiáº¿u trÆ°á»ng "model"');
+  if (!input) return errJson('Thiáº¿u trÆ°á»ng "input"');
 
   const convertedTools = responsesToolsToChatTools(body.tools);
   const messages = inputToMessages(input, convertedTools.nameToChat);
@@ -350,13 +361,13 @@ export async function POST(req: NextRequest) {
 
   const promptTokens = countResponsePromptTokens(finalMessages);
   const rl = checkRateLimit(key.userId, await getUserRequestsPerMinute(key.userId));
-  if (!rl.ok) return errJson(`Vượt giới hạn tần suất (${rl.reason})`, 429);
+  if (!rl.ok) return errJson(`VÆ°á»£t giá»›i háº¡n táº§n suáº¥t (${rl.reason})`, 429);
 
   const quota = await checkQuota(key.userId, modelName, promptTokens);
   if (!quota.allowed) return errJson(quotaMessage(quota), 403);
 
   const resolved = await resolveModelEndpoint(modelName);
-  if (!resolved) return errJson('Model chưa được cấu hình', 404);
+  if (!resolved) return errJson('Model chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh', 404);
 
   const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
   if (body.temperature != null) upstreamBody.temperature = body.temperature;
@@ -385,7 +396,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error('[responses] upstream fetch error:', e?.message);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch(() => {});
-    return errJson(`Lỗi upstream: ${e?.message}`, 502);
+    return errJson(`Lá»—i upstream: ${e?.message}`, 502);
   }
 
   if (!upstream.ok) {
@@ -414,7 +425,7 @@ export async function POST(req: NextRequest) {
           if (idleTimer) clearTimeout(idleTimer);
           idleTimer = setTimeout(() => {
             upstreamReader?.cancel('idle_timeout').catch(() => { });
-            try { controller.error(new Error('Stream idle timeout — upstream hung')); } catch { }
+            try { controller.error(new Error('Stream idle timeout â€” upstream hung')); } catch { }
           }, STREAM_IDLE_TIMEOUT_MS);
         };
         const stopTimers = () => {
@@ -707,7 +718,7 @@ export async function POST(req: NextRequest) {
           console.log(`[responses] stream done model=${modelName} content_length=${fullContent.length}`);
         } catch (e: any) {
           console.error('[responses] stream error:', e?.message);
-          try { send('error', { type: 'error', message: e?.message || 'Lỗi stream' }); } catch { }
+          try { send('error', { type: 'error', message: e?.message || 'Lá»—i stream' }); } catch { }
         } finally {
           stopTimers();
         }
@@ -727,10 +738,21 @@ export async function POST(req: NextRequest) {
   }
 
   // --- NON-STREAMING PATH ---
-  const data = await upstream.json();
-  const message = data?.choices?.[0]?.message || {};
-  const content = message?.content || '';
-  const upstreamUsage = data?.usage;
+  const text = await upstream.text();
+  const contentType = upstream.headers.get('content-type') || '';
+  const looksLikeSse = contentType.includes('text/event-stream') || text.includes('\ndata: ') || text.startsWith('data:');
+  let parsed: any = null;
+  let sseJsons: any[] = [];
+  if (!looksLikeSse) {
+    try { parsed = JSON.parse(text); } catch { }
+  } else {
+    sseJsons = decodeSseJsonLines(text);
+  }
+
+  const message = parsed?.choices?.[0]?.message || {};
+  const sseText = sseJsons.map((j) => j?.choices?.[0]?.delta?.content || j?.delta?.content || j?.output_text || '').join('');
+  const content = typeof message?.content === 'string' && message.content ? message.content : sseText;
+  const upstreamUsage = parsed?.usage || sseJsons.find((j) => j?.usage)?.usage;
   const completionTokens = upstreamUsage?.completion_tokens || Math.max(countTokens(content), estimateToolCallTokens((message?.tool_calls || []).map((call: any) => ({
     name: call?.function?.name || call?.name || 'tool',
     arguments: call?.function?.arguments || ''
@@ -739,7 +761,7 @@ export async function POST(req: NextRequest) {
   const usage = { input_tokens: upstreamUsage?.prompt_tokens || promptTokens, output_tokens: completionTokens, total_tokens: totalTokens };
 
   recordTokens(key.id, totalTokens);
-  await logUsage(key.id, key.userId, resolved.model.id, modelName, usage.input_tokens, usage.output_tokens, upstream.status, null).catch(() => {});
+  await logUsage(key.id, key.userId, resolved.model.id, modelName, usage.input_tokens, usage.output_tokens, upstream.status, !upstream.ok ? text.slice(0, 500) : null).catch(() => {});
 
   console.log(`[responses] done model=${modelName} content_length=${content.length} stream_requested=${stream}`);
 

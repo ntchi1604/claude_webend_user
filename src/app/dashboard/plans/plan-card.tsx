@@ -12,10 +12,25 @@ type Props = {
   durationDays: number;
   models: string[];
   current: boolean;
+  expiresAt?: string | null;
 };
 
-export default function PlanCard({ id, name, description, price, tokenLimit, windowHours, durationDays, models, current }: Props) {
+function formatRemainingTime(expiresAt?: string | null) {
+  if (!expiresAt) return null;
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) return 'Đã hết hạn';
+  const totalMinutes = Math.ceil(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `còn ${days} ngày ${hours} giờ`;
+  if (hours > 0) return `còn ${hours} giờ ${minutes} phút`;
+  return `còn ${minutes} phút`;
+}
+
+export default function PlanCard({ id, name, description, price, tokenLimit, windowHours, durationDays, models, current, expiresAt }: Props) {
   const isHighlight = name === 'Pro';
+  const remaining = current ? formatRemainingTime(expiresAt) : null;
 
   return (
     <div className={`card relative ${isHighlight ? 'border-[var(--brand-orange)] shadow-elevated' : ''}`}>
@@ -29,6 +44,12 @@ export default function PlanCard({ id, name, description, price, tokenLimit, win
         <span className="display-md">{price}</span>
         <span className="body-sm text-[var(--stone-600)]"> / {durationDays} ngày</span>
       </div>
+
+      {remaining && (
+        <div className="mt-3 caption" style={{ color: 'var(--stone-600)' }}>
+          Thời gian còn lại: {remaining}
+        </div>
+      )}
 
       <ul className="mt-4 space-y-2">
         <li className="flex items-center gap-2 body-sm">

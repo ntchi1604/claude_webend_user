@@ -31,6 +31,7 @@ export default async function PlansPage() {
             durationDays={p.durationDays}
             models={parseModelIds(p.modelIds).map((id) => modelMap.get(id)).filter((n): n is string => !!n)}
             current={sub?.planId === p.id}
+            expiresAt={sub?.planId === p.id ? sub.expiresAt.toISOString() : null}
           />
         ))}
       </div>

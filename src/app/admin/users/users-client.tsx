@@ -7,6 +7,19 @@ type U = { id: string; email: string; name: string | null; role: string; banned:
 type P = { id: string; name: string; durationDays: number };
 type SortKey = 'createdAt' | 'email' | 'planName' | 'totalTokens' | 'keyCount';
 
+function formatRemaining(expiresAt: string | null) {
+  if (!expiresAt) return '—';
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) return 'Đã hết hạn';
+  const totalMinutes = Math.ceil(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days} ngày ${hours} giờ`;
+  if (hours > 0) return `${hours} giờ ${minutes} phút`;
+  return `${minutes} phút`;
+}
+
 export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }) {
   const [q, setQ] = useState('');
   const [planFilter, setPlanFilter] = useState('all');
@@ -97,6 +110,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
               <th className="p-3">Email</th>
               <th className="p-3">Vai trò</th>
               <th className="p-3">Gói</th>
+              <th className="p-3">Còn lại</th>
               <th className="p-3">Hết hạn</th>
               <th className="p-3">Key</th>
               <th className="p-3">Token</th>
@@ -114,6 +128,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
                 </td>
                 <td className="p-3">{u.role}</td>
                 <td className="p-3">{u.planName ?? '-'}</td>
+                <td className="p-3 text-xs" title={u.expiresAt ?? undefined}>{formatRemaining(u.expiresAt)}</td>
                 <td className="p-3 text-xs">{u.expiresAt ? new Date(u.expiresAt).toLocaleDateString('vi-VN') : '-'}</td>
                 <td className="p-3">{u.keyCount}</td>
                 <td className="p-3 font-mono text-xs">{u.totalTokens.toLocaleString('vi-VN')}</td>
@@ -152,7 +167,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-zinc-500">Không có user phù hợp.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} className="p-6 text-center text-zinc-500">Không có user phù hợp.</td></tr>}
           </tbody>
         </table>
       </div>

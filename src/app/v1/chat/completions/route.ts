@@ -85,6 +85,38 @@ async function authKey(req: NextRequest) {
   return null;
 }
 
+function decodeSseText(text: string) {
+  const chunks: string[] = [];
+  let buf = '';
+  for (const part of text.split(/\n\n/)) {
+    buf = part.trim();
+    if (!buf) continue;
+    const line = buf.split('\n').find((l) => l.startsWith('data:'));
+    if (!line) continue;
+    const payload = line.slice(5).trim();
+    if (payload && payload !== '[DONE]') chunks.push(payload);
+  }
+  return chunks;
+}
+
+function estimateCompletion(parsed: any): number {
+  try {
+    const choices = parsed?.choices ?? [];
+    let total = 0;
+    for (const c of choices) {
+      const content = c?.message?.content;
+      if (typeof content === 'string') total += countTokens(content);
+    }
+    return total;
+  } catch { return 0; }
+}
+
+async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
+  await prisma.usageLog.create({
+    data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
+  });
+}
+
 export async function POST(req: NextRequest) {
   const key = await authKey(req);
   if (!key) return errJson('API key không hợp lệ', 'invalid_api_key', 401);
@@ -125,7 +157,7 @@ export async function POST(req: NextRequest) {
     ...filteredMessages
   ];
 
-  const upstreamBody = { ...body, model: resolved.upstreamName, messages: finalMessages, stream, max_tokens: ensureMaxTokens(body.max_tokens) };
+  const upstreamBody = { ...body, model: resolved.upstreamName, messages: finalMessages, stream: true, max_tokens: ensureMaxTokens(body.max_tokens) };
 
   const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
   const apiKey = resolved.candidates[0]?.apiKey || '';
@@ -154,7 +186,7 @@ export async function POST(req: NextRequest) {
       system: sysParts.join('\n\n'),
       messages: conv,
       max_tokens: ensureMaxTokens(body.max_tokens),
-      stream
+      stream: true
     };
     if (body.temperature != null) upstreamBodyFinal.temperature = body.temperature;
     if (body.top_p != null) upstreamBodyFinal.top_p = body.top_p;
@@ -179,12 +211,19 @@ export async function POST(req: NextRequest) {
   if (!stream) {
     const text = await upstream.text();
     let parsed: any = null;
-    try { parsed = JSON.parse(text); } catch {}
+    let sseJsons: any[] = [];
+    try { parsed = JSON.parse(text); } catch {
+      sseJsons = decodeSseText(text).flatMap((line) => {
+        try { return [JSON.parse(line)]; } catch { return []; }
+      });
+    }
 
     if (isAnthropicProvider) {
       const contentText = Array.isArray(parsed?.content)
         ? parsed.content.map((b: any) => b?.text || '').join('')
-        : '';
+        : sseJsons
+            .map((j) => j?.type === 'content_block_delta' ? j?.delta?.text || '' : '')
+            .join('');
       const pt = parsed?.usage?.input_tokens ?? promptTokens;
       const ct = parsed?.usage?.output_tokens ?? countTokens(contentText);
       console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=anthropic)`);
@@ -211,13 +250,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const usage = parsed?.usage;
+    const usage = parsed?.usage ?? sseJsons.find((j) => j?.usage)?.usage;
     const pt = usage?.prompt_tokens ?? promptTokens;
     const ct = usage?.completion_tokens ?? estimateCompletion(parsed);
+    const contentText = typeof parsed?.choices?.[0]?.message?.content === 'string'
+      ? parsed.choices[0].message.content
+      : sseJsons.map((j) => j?.choices?.[0]?.delta?.content || '').join('');
+    const finalContent = contentText || (parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text);
     console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=${!!usage})`);
     recordTokens(key.id, pt + ct);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
-    const responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text;
+    const responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : finalContent;
     return new Response(responseText, {
       status: upstream.status,
       headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' }
@@ -337,23 +380,5 @@ export async function POST(req: NextRequest) {
       connection: 'keep-alive',
       'x-accel-buffering': 'no'
     }
-  });
-}
-
-function estimateCompletion(parsed: any): number {
-  try {
-    const choices = parsed?.choices ?? [];
-    let total = 0;
-    for (const c of choices) {
-      const content = c?.message?.content;
-      if (typeof content === 'string') total += countTokens(content);
-    }
-    return total;
-  } catch { return 0; }
-}
-
-async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
-  await prisma.usageLog.create({
-    data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
   });
 }

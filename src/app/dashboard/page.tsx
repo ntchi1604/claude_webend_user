@@ -9,9 +9,20 @@ import { Activity, ArrowUpRight, Clock, KeyRound, MessageSquare, Package, Shield
 
 export const dynamic = 'force-dynamic';
 
+function formatRemainingTime(expiresAt: Date) {
+  const diff = expiresAt.getTime() - Date.now();
+  if (diff <= 0) return 'Đã hết hạn';
+  const totalMinutes = Math.ceil(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days} ngày ${hours} giờ`;
+  if (hours > 0) return `${hours} giờ ${minutes} phút`;
+  return `${minutes} phút`;
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
-
   const sub = await getActiveSubscriptionOrFree(user.id);
 
   const windowHours = sub?.plan.windowHours ?? 5;
@@ -41,12 +52,14 @@ export default async function DashboardPage() {
   const totalRequests = await prisma.usageLog.count({ where: { userId: user.id } });
   const planName = sub?.plan.name ?? 'Chưa có gói';
   const status = sub ? 'Đang hoạt động' : 'Chưa kích hoạt';
+  const planRemaining = sub ? formatRemainingTime(sub.expiresAt) : '—';
 
   const stats = [
-    { label: 'Token còn lại', value: unlimitedTokens ? 'Khong gioi han' : formatNumber(remaining), icon: Activity, href: '/dashboard/usage', tone: 'blue' },
+    { label: 'Token còn lại', value: unlimitedTokens ? 'Không giới hạn' : formatNumber(remaining), icon: Activity, href: '/dashboard/usage', tone: 'blue' },
     { label: 'API key hoạt động', value: formatNumber(keyCount), icon: KeyRound, href: '/dashboard/keys', tone: 'green' },
     { label: 'Tổng request', value: formatNumber(totalRequests), icon: Terminal, href: '/dashboard/usage', tone: 'mauve' },
-    { label: 'Gói hiện tại', value: planName, icon: Package, href: '/dashboard/plans', tone: 'orange' }
+    { label: 'Gói hiện tại', value: planName, icon: Package, href: '/dashboard/plans', tone: 'orange' },
+    { label: 'Thời gian còn lại', value: planRemaining, icon: Clock, href: '/dashboard/plans', tone: 'green' }
   ];
 
   return (
@@ -82,7 +95,7 @@ export default async function DashboardPage() {
             />
           </div>
           <div className="dashboard-quota-meta">
-            <span>{unlimitedTokens ? 'Unlimited tokens' : `Remaining ${formatNumber(remaining)} token`}</span>
+            <span>{unlimitedTokens ? 'Unlimited tokens' : `Còn ${formatNumber(remaining)} token`}</span>
             <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Reset <Countdown resetAt={resetAt ? resetAt.toISOString() : null} /></span>
           </div>
           <div className="dashboard-actions-row">
@@ -117,7 +130,6 @@ export default async function DashboardPage() {
         <pre>{`# Claude Code
 Base URL: https://lccaptcha.io.vn
 API Key:  YOUR_API_KEY
-
 
 # Codex CLI
 Base URL: https://lccaptcha.io.vn/v1
