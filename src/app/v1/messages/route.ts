@@ -6,6 +6,7 @@ import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
+import { buildIdentity, detectLanguage, enforceLanguageInLastMessage, injectPeriodicIdentity } from '@/lib/identity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
