@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/setup/:tool/uninstall?os=windows|mac
- * Trả về script PowerShell hoặc Bash để gỡ cấu hình Claude Code hoặc Codex CLI.
+ * Trả về script PowerShell hoặc Bash để gỡ cấu hình Claude Code, Codex CLI hoặc VS Code Extension.
  */
 export async function GET(
   req: NextRequest,
@@ -20,6 +20,9 @@ export async function GET(
       break;
     case 'codex-cli':
       script = os === 'windows' ? uninstallCodexCliWindows() : uninstallCodexCliUnix();
+      break;
+    case 'vscode-ext':
+      script = os === 'windows' ? uninstallVsCodeExtWindows() : uninstallVsCodeExtUnix();
       break;
     default:
       return NextResponse.json({ error: 'Công cụ không được hỗ trợ' }, { status: 404 });
@@ -168,6 +171,91 @@ if [ -f "$AUTH_BACKUP" ]; then
 elif [ -f "$AUTH_FILE" ]; then
   rm -f "$AUTH_FILE"
   echo "  OK Đã xoá auth.json"
+fi
+
+echo ""
+echo "  Gỡ cấu hình hoàn tất!"
+echo ""
+`;
+}
+
+function uninstallVsCodeExtWindows() {
+  return [
+    `Write-Host ""`,
+    `Write-Host "================================" -ForegroundColor Yellow`,
+    `Write-Host "  Gỡ cấu hình Api4Cheap cho VS Code Extension" -ForegroundColor Yellow`,
+    `Write-Host "================================" -ForegroundColor Yellow`,
+    `Write-Host ""`,
+    ``,
+    `$vsCodeSettingsDir = Join-Path $env:APPDATA "Code\\User"`,
+    `$vsCodeSettingsFile = Join-Path $vsCodeSettingsDir "settings.json"`,
+    `$backupFile = "$vsCodeSettingsFile.api4cheap-backup"`,
+    ``,
+    `if (Test-Path $backupFile) {`,
+    `    Copy-Item $backupFile $vsCodeSettingsFile -Force`,
+    `    Remove-Item $backupFile -Force`,
+    `    Write-Host "  OK Đã khôi phục settings.json từ backup" -ForegroundColor Green`,
+    `} elseif (Test-Path $vsCodeSettingsFile) {`,
+    `    try {`,
+    `        $settings = Get-Content $vsCodeSettingsFile -Raw | ConvertFrom-Json`,
+    `        if ($settings.PSObject.Properties['claudeCode.environmentVariables']) {`,
+    `            $settings.PSObject.Properties.Remove('claudeCode.environmentVariables')`,
+    `            $utf8NoBom = New-Object System.Text.UTF8Encoding $false`,
+    `            $settings | ConvertTo-Json -Depth 10 | Out-File -FilePath $vsCodeSettingsFile -Encoding utf8`,
+    `            Write-Host "  OK Đã xoá claudeCode.environmentVariables khỏi settings.json" -ForegroundColor Green`,
+    `        } else {`,
+    `            Write-Host "  Không tìm thấy claudeCode.environmentVariables trong settings.json" -ForegroundColor Yellow`,
+    `        }`,
+    `    } catch {`,
+    `        Write-Host "  CẢNH BÁO Không thể đọc settings.json, vui lòng xoá thủ công" -ForegroundColor Yellow`,
+    `    }`,
+    `} else {`,
+    `    Write-Host "  Không tìm thấy settings.json" -ForegroundColor Yellow`,
+    `}`,
+    ``,
+    `Write-Host ""`,
+    `Write-Host "  Gỡ cấu hình hoàn tất!" -ForegroundColor Green`,
+    `Write-Host ""`,
+  ].join('\n');
+}
+
+function uninstallVsCodeExtUnix() {
+  return `#!/bin/bash
+echo "================================"
+echo "  Gỡ cấu hình Api4Cheap cho VS Code Extension"
+echo "================================"
+echo ""
+
+if [ "$(uname)" = "Darwin" ]; then
+  VSCODE_DIR="$HOME/Library/Application Support/Code/User"
+else
+  VSCODE_DIR="$HOME/.config/Code/User"
+fi
+VSCODE_SETTINGS="$VSCODE_DIR/settings.json"
+BACKUP_FILE="$VSCODE_SETTINGS.api4cheap-backup"
+
+if [ -f "$BACKUP_FILE" ]; then
+  mv "$BACKUP_FILE" "$VSCODE_SETTINGS"
+  echo "  OK Đã khôi phục settings.json từ backup"
+elif [ -f "$VSCODE_SETTINGS" ]; then
+  if command -v node >/dev/null 2>&1; then
+    node -e '
+      const fs = require("fs");
+      const file = process.argv[1];
+      try {
+        const settings = JSON.parse(fs.readFileSync(file, "utf8"));
+        delete settings["claudeCode.environmentVariables"];
+        fs.writeFileSync(file, JSON.stringify(settings, null, 2) + "\\n", "utf8");
+        console.log("  OK Đã xoá claudeCode.environmentVariables khỏi settings.json");
+      } catch (e) {
+        console.log("  CẢNH BÁO Không thể đọc settings.json, vui lòng xoá thủ công");
+      }
+    ' "$VSCODE_SETTINGS"
+  else
+    echo "  CẢNH BÁO Cần Node.js để xoá tự động. Vui lòng xoá thủ công key claudeCode.environmentVariables"
+  fi
+else
+  echo "  Không tìm thấy settings.json"
 fi
 
 echo ""

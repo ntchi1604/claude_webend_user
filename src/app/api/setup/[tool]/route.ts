@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * GET /api/setup/:tool?key=...&os=windows|mac
  * GET /api/v1/setup/:tool?key=...&os=windows|mac
- * Trả về script PowerShell hoặc Bash cho Claude Code hoặc Codex CLI.
+ * Trả về script PowerShell hoặc Bash cho Claude Code, Codex CLI hoặc VS Code Extension.
  */
 export async function GET(
   req: NextRequest,
@@ -41,6 +41,19 @@ export async function GET(
         ? generateCodexCliWindows({ baseUrl: codexBaseUrl, key, keyShort, ...codexModels })
         : generateCodexCliUnix({ baseUrl: codexBaseUrl, key, keyShort, ...codexModels });
       break;
+    case 'vscode-ext': {
+      const vscodeModels = {
+        haiku: clean(url.searchParams.get('haiku'), 'claude-haiku-4-5'),
+        sonnet: clean(url.searchParams.get('sonnet'), 'claude-sonnet-4-6'),
+        opus: clean(url.searchParams.get('opus'), 'claude-opus-4-7'),
+        mainModel: clean(url.searchParams.get('mainModel'), clean(url.searchParams.get('sonnet'), 'claude-sonnet-4-6')),
+        effortLevel: clean(url.searchParams.get('effortLevel'), 'medium'),
+      };
+      script = os === 'windows'
+        ? generateVsCodeExtWindows({ baseUrl: claudeBaseUrl, key, keyShort, ...vscodeModels })
+        : generateVsCodeExtUnix({ baseUrl: claudeBaseUrl, key, keyShort, ...vscodeModels });
+      break;
+    }
     default:
       return NextResponse.json({ error: 'Công cụ không được hỗ trợ' }, { status: 404 });
   }
@@ -425,6 +438,175 @@ echo "Bước tiếp theo:"
 echo "  1. Khởi động lại terminal"
 echo "  2. Chạy: codex -V"
 echo "  3. Chạy: codex"
+echo ""
+`;
+}
+
+function generateVsCodeExtWindows(p: {
+  baseUrl: string;
+  key: string;
+  keyShort: string;
+  haiku: string;
+  sonnet: string;
+  opus: string;
+  mainModel: string;
+  effortLevel: string;
+}) {
+  return [
+    `Write-Host ""`,
+    `Write-Host "================================" -ForegroundColor Cyan`,
+    `Write-Host "  Thiết lập Api4Cheap cho VS Code Extension" -ForegroundColor Cyan`,
+    `Write-Host "================================" -ForegroundColor Cyan`,
+    `Write-Host ""`,
+    `Write-Host "Endpoint:       ${p.baseUrl}"`,
+    `Write-Host "API Key:        ${p.keyShort}"`,
+    `Write-Host "Model chính:    ${p.mainModel}"`,
+    `Write-Host "Haiku:          ${p.haiku}"`,
+    `Write-Host "Sonnet:         ${p.sonnet}"`,
+    `Write-Host "Opus:           ${p.opus}"`,
+    `Write-Host "Effort Level:   ${p.effortLevel}"`,
+    `Write-Host ""`,
+    ``,
+    `$vsCodeSettingsDir = Join-Path $env:APPDATA "Code\\User"`,
+    `$vsCodeSettingsFile = Join-Path $vsCodeSettingsDir "settings.json"`,
+    `if (-not (Test-Path $vsCodeSettingsDir)) {`,
+    `    Write-Host "  Thư mục VS Code User settings không tồn tại." -ForegroundColor Yellow`,
+    `    Write-Host "  Đang tạo: $vsCodeSettingsDir" -ForegroundColor Yellow`,
+    `    New-Item -ItemType Directory -Path $vsCodeSettingsDir -Force | Out-Null`,
+    `}`,
+    ``,
+    `if (Test-Path $vsCodeSettingsFile) {`,
+    `    $backupFile = "$vsCodeSettingsFile.api4cheap-backup"`,
+    `    Copy-Item $vsCodeSettingsFile $backupFile -Force`,
+    `    Write-Host "  Đã backup: $backupFile" -ForegroundColor Yellow`,
+    `} else {`,
+    `    '{}' | Out-File -FilePath $vsCodeSettingsFile -Encoding utf8`,
+    `    Write-Host "  OK Đã tạo file settings.json mới" -ForegroundColor Green`,
+    `}`,
+    ``,
+    `Write-Host "Đang cập nhật VS Code settings.json..."`,
+    `$settings = Get-Content $vsCodeSettingsFile -Raw | ConvertFrom-Json`,
+    `if (-not $settings) { $settings = @{} }`,
+    `$envVars = @{`,
+    `    'ANTHROPIC_BASE_URL' = '${p.baseUrl}'`,
+    `    'ANTHROPIC_AUTH_TOKEN' = '${p.key}'`,
+    `    'ANTHROPIC_MODEL' = '${p.mainModel}'`,
+    `    'ANTHROPIC_DEFAULT_HAIKU_MODEL' = '${p.haiku}'`,
+    `    'ANTHROPIC_DEFAULT_SONNET_MODEL' = '${p.sonnet}'`,
+    `    'ANTHROPIC_DEFAULT_OPUS_MODEL' = '${p.opus}'`,
+    `    'CLAUDE_CODE_SUBAGENT_MODEL' = '${p.haiku}'`,
+    `    'CLAUDE_CODE_EFFORT_LEVEL' = '${p.effortLevel}'`,
+    `}`,
+    `$settings | Add-Member -NotePropertyName 'claudeCode.environmentVariables' -NotePropertyValue $envVars -Force`,
+    `$settings | ConvertTo-Json -Depth 10 | Out-File -FilePath $vsCodeSettingsFile -Encoding utf8`,
+    `Write-Host "  OK Đã cập nhật $vsCodeSettingsFile" -ForegroundColor Green`,
+    `Write-Host ""`,
+    ``,
+    `Write-Host "================================" -ForegroundColor Green`,
+    `Write-Host "  Cấu hình hoàn tất!" -ForegroundColor Green`,
+    `Write-Host "================================" -ForegroundColor Green`,
+    `Write-Host ""`,
+    `Write-Host "Bước tiếp theo:" -ForegroundColor Cyan`,
+    `Write-Host "  1. Khởi động lại VS Code"`,
+    `Write-Host "  2. Mở Claude Code extension và kiểm tra /status"`,
+    `Write-Host ""`,
+  ].filter(Boolean).join('\n');
+}
+
+function generateVsCodeExtUnix(p: {
+  baseUrl: string;
+  key: string;
+  keyShort: string;
+  haiku: string;
+  sonnet: string;
+  opus: string;
+  mainModel: string;
+  effortLevel: string;
+}) {
+  return `#!/bin/bash
+echo ""
+echo "================================"
+echo "  Thiết lập Api4Cheap cho VS Code Extension"
+echo "================================"
+echo ""
+echo "Endpoint:       ${p.baseUrl}"
+echo "API Key:        ${p.keyShort}"
+echo "Model chính:    ${p.mainModel}"
+echo "Haiku:          ${p.haiku}"
+echo "Sonnet:         ${p.sonnet}"
+echo "Opus:           ${p.opus}"
+echo "Effort Level:   ${p.effortLevel}"
+echo ""
+
+if [ "$(uname)" = "Darwin" ]; then
+  VSCODE_DIR="$HOME/Library/Application Support/Code/User"
+else
+  VSCODE_DIR="$HOME/.config/Code/User"
+fi
+VSCODE_SETTINGS="$VSCODE_DIR/settings.json"
+
+if [ ! -d "$VSCODE_DIR" ]; then
+  echo "  Thư mục VS Code User settings không tồn tại."
+  echo "  Đang tạo: $VSCODE_DIR"
+  mkdir -p "$VSCODE_DIR"
+fi
+
+if [ -f "$VSCODE_SETTINGS" ]; then
+  cp "$VSCODE_SETTINGS" "$VSCODE_SETTINGS.api4cheap-backup"
+  echo "  Đã backup: $VSCODE_SETTINGS.api4cheap-backup"
+else
+  echo '{}' > "$VSCODE_SETTINGS"
+  echo "  OK Đã tạo file settings.json mới"
+fi
+
+echo "Đang cập nhật VS Code settings.json..."
+if command -v node >/dev/null 2>&1; then
+  node -e '
+    const fs = require("fs");
+    const file = process.argv[1];
+    let settings = {};
+    try { settings = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
+    settings["claudeCode.environmentVariables"] = {
+      "ANTHROPIC_BASE_URL": process.argv[2],
+      "ANTHROPIC_AUTH_TOKEN": process.argv[3],
+      "ANTHROPIC_MODEL": process.argv[4],
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": process.argv[5],
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": process.argv[6],
+      "ANTHROPIC_DEFAULT_OPUS_MODEL": process.argv[7],
+      "CLAUDE_CODE_SUBAGENT_MODEL": process.argv[5],
+      "CLAUDE_CODE_EFFORT_LEVEL": process.argv[8]
+    };
+    fs.writeFileSync(file, JSON.stringify(settings, null, 2) + "\\n", "utf8");
+  ' "$VSCODE_SETTINGS" "${p.baseUrl}" "${p.key}" "${p.mainModel}" "${p.haiku}" "${p.sonnet}" "${p.opus}" "${p.effortLevel}"
+  echo "  OK Đã cập nhật $VSCODE_SETTINGS"
+else
+  echo "  CẢNH BÁO Cần Node.js để cập nhật JSON tự động."
+  echo "  Vui lòng thêm thủ công vào $VSCODE_SETTINGS:"
+  echo ""
+  cat << JSONEOF
+{
+  "claudeCode.environmentVariables": {
+    "ANTHROPIC_BASE_URL": "${p.baseUrl}",
+    "ANTHROPIC_AUTH_TOKEN": "${p.key}",
+    "ANTHROPIC_MODEL": "${p.mainModel}",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "${p.haiku}",
+    "CLAUDE_CODE_EFFORT_LEVEL": "${p.effortLevel}"
+  }
+}
+JSONEOF
+fi
+
+echo ""
+echo "================================"
+echo "  Cấu hình hoàn tất!"
+echo "================================"
+echo ""
+echo "Bước tiếp theo:"
+echo "  1. Khởi động lại VS Code"
+echo "  2. Mở Claude Code extension và kiểm tra /status"
 echo ""
 `;
 }

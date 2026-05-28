@@ -216,17 +216,21 @@ export default function DocsPage() {
       query.set('small', small);
       query.set('medium', medium);
       query.set('large', large);
+    } else if (tool === 'vscode-ext') {
+      query.set('haiku', haiku);
+      query.set('sonnet', sonnet);
+      query.set('opus', opus);
+      query.set('mainModel', vscodeMainModel || sonnet);
+      query.set('effortLevel', vscodeEffortLevel);
     }
     return query;
-  }, [apiKey, haiku, large, medium, opus, os, small, sonnet, tool]);
+  }, [apiKey, haiku, large, medium, opus, os, small, sonnet, tool, vscodeMainModel, vscodeEffortLevel]);
 
   const setupUrl = `${SETUP_BASE}/${tool}?${params.toString()}`;
   const uninstallUrl = `${SETUP_BASE}/${tool}/uninstall?os=${os}`;
-  const setupCmd = tool === 'vscode-ext'
-    ? ''
-    : canCreateSetup
-      ? os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`
-      : 'Gói hiện tại chưa có model phù hợp để tạo lệnh cài đặt.';
+  const setupCmd = canCreateSetup
+    ? os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`
+    : 'Gói hiện tại chưa có model phù hợp để tạo lệnh cài đặt.';
   const uninstallCmd = os === 'windows' ? `irm "${uninstallUrl}" | iex` : `curl -fsSL "${uninstallUrl}" | bash`;
 
   const copy = useCallback(async (text: string, setter: (value: boolean) => void) => {
@@ -366,11 +370,20 @@ export default function DocsPage() {
 
             {tool === 'vscode-ext' ? (
               <>
+                <CommandSection
+                  title="Lệnh cài đặt"
+                  command={setupCmd}
+                  copied={copiedSetup}
+                  onCopy={() => copy(setupCmd, setCopiedSetup)}
+                  tone="setup"
+                  disabled={!canCreateSetup}
+                />
+
                 <section>
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <span className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--stone-600)]">
                       <Code2 className="h-4 w-4" />
-                      JSON cấu hình
+                      JSON sẽ được thêm vào settings.json
                     </span>
                     <button
                       type="button"
@@ -382,33 +395,18 @@ export default function DocsPage() {
                       {copiedLabel(copiedVscodeSnippet)}
                     </button>
                   </div>
-                  <div className="rounded-lg bg-[#111724] px-4 py-3 shadow-[0_10px_24px_rgba(9,12,19,0.18)] min-h-[92px]">
+                  <div className="rounded-lg bg-[#111724] px-4 py-3 shadow-[0_10px_24px_rgba(9,12,19,0.18)] min-h-[58px]">
                     <code className="block whitespace-pre-wrap break-all font-mono text-[12px] leading-6 text-[#7ee6a1]">{vscodeJsonText || 'Chọn model và dán API key để tạo cấu hình.'}</code>
                   </div>
                 </section>
 
                 <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
-                  <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Đường dẫn settings.json</p>
-                  <p className="font-mono text-[12px] leading-6 text-[var(--charcoal-900)]">
-                    {os === 'windows'
-                      ? '%APPDATA%\\Code\\User\\settings.json'
-                      : '~/Library/Application Support/Code/User/settings.json'
-                    }
-                  </p>
-                  {os === 'mac' && (
-                    <p className="mt-1 text-[11px] leading-5 text-[var(--stone-600)]">
-                      Linux: ~/.config/Code/User/settings.json
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
                   <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Hướng dẫn</p>
                   <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-5 text-[var(--stone-600)]">
-                    <li>Mở VS Code, nhấn <span className="font-mono">{os === 'windows' ? 'Ctrl+Shift+P' : 'Cmd+Shift+P'}</span>.</li>
-                    <li>Gõ <span className="font-mono">Preferences: Open User Settings (JSON)</span> và nhấn Enter.</li>
-                    <li>Sao chép JSON cấu hình ở trên và dán vào file settings.json. Nếu đã có khoá <span className="font-mono">claudeCode.environmentVariables</span>, hãy thay thế khoá cũ.</li>
-                    <li>Lưu file và khởi động lại VS Code.</li>
+                    <li>Sao chép lệnh cài đặt ở trên.</li>
+                    <li>Mở {os === 'windows' ? 'PowerShell' : 'Terminal'}, dán lệnh và nhấn Enter.</li>
+                    <li>Script sẽ tự động cập nhật <span className="font-mono">settings.json</span> của VS Code.</li>
+                    <li>Khởi động lại VS Code để áp dụng cấu hình.</li>
                   </ol>
                 </div>
 
@@ -418,10 +416,14 @@ export default function DocsPage() {
                     Gỡ cấu hình Api4Cheap
                   </summary>
                   <div className="mt-3">
-                    <p className="text-[12px] leading-5 text-[var(--stone-600)]">
-                      Mở <span className="font-mono">settings.json</span> của VS Code và xoá khoá{' '}
-                      <span className="font-mono">claudeCode.environmentVariables</span>. Không cần script gỡ.
-                    </p>
+                    <CommandSection
+                      title="Lệnh gỡ cấu hình"
+                      command={uninstallCmd}
+                      copied={copiedUninstall}
+                      onCopy={() => copy(uninstallCmd, setCopiedUninstall)}
+                      tone="uninstall"
+                      compact
+                    />
                   </div>
                 </details>
               </>
