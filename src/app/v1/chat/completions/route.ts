@@ -6,6 +6,7 @@ import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
+import { sanitizeUpstreamError } from '@/lib/errors';
 import { buildIdentity, detectLanguage, enforceLanguageInLastMessage, injectPeriodicIdentity } from '@/lib/identity';
 
 export const runtime = 'nodejs';
@@ -231,7 +232,16 @@ export async function POST(req: NextRequest) {
       recordTokens(key.id, pt + ct);
       await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
       if (!upstream.ok) {
-        return new Response(text, { status: upstream.status, headers: { 'content-type': 'application/json' } });
+        let sanitized = text;
+        try {
+          const obj = JSON.parse(text);
+          if (obj?.error?.message) obj.error.message = sanitizeUpstreamError(obj.error.message, resolved.upstreamName, modelName);
+          if (obj?.message) obj.message = sanitizeUpstreamError(obj.message, resolved.upstreamName, modelName);
+          sanitized = JSON.stringify(obj);
+        } catch {
+          sanitized = sanitizeUpstreamError(text, resolved.upstreamName, modelName);
+        }
+        return new Response(sanitized, { status: upstream.status, headers: { 'content-type': 'application/json' } });
       }
       const openAIShape = {
         id: parsed?.id ?? 'chatcmpl_' + Math.random().toString(36).slice(2, 12),
@@ -261,7 +271,17 @@ export async function POST(req: NextRequest) {
     console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=${!!usage})`);
     recordTokens(key.id, pt + ct);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
-    const responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : finalContent;
+    let responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : finalContent;
+    if (!upstream.ok) {
+      try {
+        const obj = typeof responseText === 'string' ? JSON.parse(responseText) : responseText;
+        if (obj?.error?.message) obj.error.message = sanitizeUpstreamError(obj.error.message, resolved.upstreamName, modelName);
+        if (obj?.message) obj.message = sanitizeUpstreamError(obj.message, resolved.upstreamName, modelName);
+        responseText = JSON.stringify(obj);
+      } catch {
+        responseText = sanitizeUpstreamError(String(responseText), resolved.upstreamName, modelName);
+      }
+    }
     return new Response(responseText, {
       status: upstream.status,
       headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' }
@@ -271,7 +291,7 @@ export async function POST(req: NextRequest) {
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 500));
-    return errSSE(text.slice(0, 500) || 'Lỗi upstream', 'upstream_error', null);
+    return errSSE(sanitizeUpstreamError(text, resolved.upstreamName, modelName) || 'Lỗi upstream', 'upstream_error', null);
   }
 
   const reader = upstream.body.getReader();

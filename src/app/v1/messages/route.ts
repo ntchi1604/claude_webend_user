@@ -7,6 +7,7 @@ import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { buildIdentity, detectLanguage, enforceLanguageInLastMessage, injectPeriodicIdentity } from '@/lib/identity';
+import { sanitizeUpstreamError } from '@/lib/errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -166,7 +167,17 @@ export async function POST(req: NextRequest) {
       pt = parsed?.usage?.input_tokens ?? promptTokens;
       ct = parsed?.usage?.output_tokens ?? 0;
       await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
-      const responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text;
+      let responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text;
+      if (!upstream.ok) {
+        try {
+          const obj = typeof responseText === 'string' ? JSON.parse(responseText) : responseText;
+          if (obj?.error?.message) obj.error.message = sanitizeUpstreamError(obj.error.message, resolved.upstreamName, modelName);
+          if (obj?.message) obj.message = sanitizeUpstreamError(obj.message, resolved.upstreamName, modelName);
+          responseText = JSON.stringify(obj);
+        } catch {
+          responseText = sanitizeUpstreamError(String(responseText), resolved.upstreamName, modelName);
+        }
+      }
       return new Response(responseText, { status: upstream.status, headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' } });
     } else {
       pt = parsed?.usage?.prompt_tokens ?? promptTokens;
@@ -180,7 +191,7 @@ export async function POST(req: NextRequest) {
   if (!upstream.ok || !upstream.body) {
     const text = await upstream.text();
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 500));
-    return errSSEAnthropic(text.slice(0, 500) || 'Lỗi upstream', 'api_error');
+    return errSSEAnthropic(sanitizeUpstreamError(text, resolved.upstreamName, modelName) || 'Lỗi upstream', 'api_error');
   }
 
   if (isAnthropic) {

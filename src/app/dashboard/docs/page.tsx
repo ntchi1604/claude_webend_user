@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Apple,
+  Blocks,
   Check,
   ChevronDown,
   Code2,
@@ -14,7 +15,7 @@ import {
   Zap,
 } from 'lucide-react';
 
-type ActiveTool = 'claude-code' | 'codex-cli';
+type ActiveTool = 'claude-code' | 'codex-cli' | 'vscode-ext';
 type Os = 'windows' | 'mac';
 type AllowedModel = { id: string; name: string; provider: string };
 type ModelOption = { label: string; value: string };
@@ -39,6 +40,12 @@ const TOOL_OPTIONS: {
     label: 'Codex CLI',
     description: 'Thiết lập provider Api4Cheap cho Codex CLI và Responses API.',
     icon: Code2,
+  },
+  {
+    id: 'vscode-ext',
+    label: 'VS Code Extension',
+    description: 'Cấu hình Claude Code extension cho VS Code qua settings.json.',
+    icon: Blocks,
   },
 ];
 
@@ -118,6 +125,9 @@ export default function DocsPage() {
   const [large, setLarge] = useState(CODEX_FALLBACK_OPTIONS[0].value);
   const [copiedSetup, setCopiedSetup] = useState(false);
   const [copiedUninstall, setCopiedUninstall] = useState(false);
+  const [copiedVscodeSnippet, setCopiedVscodeSnippet] = useState(false);
+  const [vscodeMainModel, setVscodeMainModel] = useState('');
+  const [vscodeEffortLevel, setVscodeEffortLevel] = useState<'low' | 'medium' | 'high' | 'max'>('medium');
   const [allowedModels, setAllowedModels] = useState<AllowedModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
 
@@ -171,7 +181,30 @@ export default function DocsPage() {
     setLarge((value) => ensureAllowed(value, codexAllowedOptions, CODEX_FALLBACK_OPTIONS[0].value));
   }, [codexAllowedOptions]);
 
-  const canCreateSetup = tool === 'claude-code' ? claudeAllowedOptions.length > 0 : codexAllowedOptions.length > 0;
+  useEffect(() => {
+    if (claudeAllowedOptions.length > 0 && !vscodeMainModel) {
+      setVscodeMainModel(pickByKeyword(claudeAllowedOptions, 'sonnet', claudeAllowedOptions[0].value));
+    }
+  }, [claudeAllowedOptions, vscodeMainModel]);
+
+  const canCreateSetup = tool === 'codex-cli' ? codexAllowedOptions.length > 0 : claudeAllowedOptions.length > 0;
+
+  const vscodeSnippet = useMemo(() => {
+    if (tool !== 'vscode-ext') return null;
+    const env: Record<string, string> = {
+      ANTHROPIC_AUTH_TOKEN: apiKey || 'YOUR_API_KEY',
+      ANTHROPIC_BASE_URL: BASE_URL,
+      ANTHROPIC_MODEL: vscodeMainModel || sonnet,
+      ANTHROPIC_DEFAULT_OPUS_MODEL: opus,
+      ANTHROPIC_DEFAULT_SONNET_MODEL: sonnet,
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: haiku,
+      CLAUDE_CODE_SUBAGENT_MODEL: haiku,
+      CLAUDE_CODE_EFFORT_LEVEL: vscodeEffortLevel,
+    };
+    return { 'claudeCode.environmentVariables': env };
+  }, [tool, apiKey, vscodeMainModel, opus, sonnet, haiku, vscodeEffortLevel]);
+
+  const vscodeJsonText = vscodeSnippet ? JSON.stringify(vscodeSnippet, null, 2) : '';
 
   const params = useMemo(() => {
     const query = new URLSearchParams({ key: apiKey || 'YOUR_API_KEY', os });
@@ -179,7 +212,7 @@ export default function DocsPage() {
       query.set('haiku', haiku);
       query.set('sonnet', sonnet);
       query.set('opus', opus);
-    } else {
+    } else if (tool === 'codex-cli') {
       query.set('small', small);
       query.set('medium', medium);
       query.set('large', large);
@@ -189,9 +222,11 @@ export default function DocsPage() {
 
   const setupUrl = `${SETUP_BASE}/${tool}?${params.toString()}`;
   const uninstallUrl = `${SETUP_BASE}/${tool}/uninstall?os=${os}`;
-  const setupCmd = canCreateSetup
-    ? os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`
-    : 'Gói hiện tại chưa có model phù hợp để tạo lệnh cài đặt.';
+  const setupCmd = tool === 'vscode-ext'
+    ? ''
+    : canCreateSetup
+      ? os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`
+      : 'Gói hiện tại chưa có model phù hợp để tạo lệnh cài đặt.';
   const uninstallCmd = os === 'windows' ? `irm "${uninstallUrl}" | iex` : `curl -fsSL "${uninstallUrl}" | bash`;
 
   const copy = useCallback(async (text: string, setter: (value: boolean) => void) => {
@@ -292,55 +327,142 @@ export default function DocsPage() {
                 </div>
               </div>
 
-              {tool === 'claude-code' ? (
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <ModelSelect label="Haiku" value={haiku} onChange={setHaiku} options={claudeAllowedOptions} />
-                  <ModelSelect label="Sonnet" value={sonnet} onChange={setSonnet} options={claudeAllowedOptions} />
-                  <ModelSelect label="Opus" value={opus} onChange={setOpus} options={claudeAllowedOptions} />
-                </div>
-              ) : (
+              {tool === 'codex-cli' ? (
                 <div className="grid gap-2 sm:grid-cols-3">
                   <ModelSelect label="Nhỏ" value={small} onChange={setSmall} options={codexAllowedOptions} />
                   <ModelSelect label="Trung bình" value={medium} onChange={setMedium} options={codexAllowedOptions} />
                   <ModelSelect label="Lớn" value={large} onChange={setLarge} options={codexAllowedOptions} />
                 </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <ModelSelect label="Haiku" value={haiku} onChange={setHaiku} options={claudeAllowedOptions} />
+                  <ModelSelect label="Sonnet" value={sonnet} onChange={setSonnet} options={claudeAllowedOptions} />
+                  <ModelSelect label="Opus" value={opus} onChange={setOpus} options={claudeAllowedOptions} />
+                </div>
+              )}
+
+              {tool === 'vscode-ext' && (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <ModelSelect label="Model chính (ANTHROPIC_MODEL)" value={vscodeMainModel} onChange={setVscodeMainModel} options={claudeAllowedOptions} />
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-[12px] font-medium text-[var(--stone-600)]">Effort Level</span>
+                    <span className="relative block">
+                      <select
+                        value={vscodeEffortLevel}
+                        onChange={(event) => setVscodeEffortLevel(event.target.value as typeof vscodeEffortLevel)}
+                        className="h-10 w-full appearance-none rounded-md border border-[var(--lavender-100)] bg-white px-3 pr-8 text-[12px] font-medium text-[var(--charcoal-900)] outline-none transition focus:border-[var(--brand-blue)] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:bg-[#222221]"
+                      >
+                        <option value="low">Thấp</option>
+                        <option value="medium">Trung bình</option>
+                        <option value="high">Cao</option>
+                        <option value="max">Tối đa</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--stone-600)]" />
+                    </span>
+                  </label>
+                </div>
               )}
             </div>
 
-            <CommandSection
-              title="Lệnh cài đặt"
-              command={setupCmd}
-              copied={copiedSetup}
-              onCopy={() => copy(setupCmd, setCopiedSetup)}
-              tone="setup"
-              disabled={!canCreateSetup}
-            />
+            {tool === 'vscode-ext' ? (
+              <>
+                <section>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--stone-600)]">
+                      <Code2 className="h-4 w-4" />
+                      JSON cấu hình
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copy(vscodeJsonText, setCopiedVscodeSnippet)}
+                      disabled={!canCreateSetup}
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-[var(--stone-600)] transition hover:bg-black/5 hover:text-[var(--charcoal-900)] disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-white/10"
+                    >
+                      {copiedVscodeSnippet ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiedLabel(copiedVscodeSnippet)}
+                    </button>
+                  </div>
+                  <div className="rounded-lg bg-[#111724] px-4 py-3 shadow-[0_10px_24px_rgba(9,12,19,0.18)] min-h-[92px]">
+                    <code className="block whitespace-pre-wrap break-all font-mono text-[12px] leading-6 text-[#7ee6a1]">{vscodeJsonText || 'Chọn model và dán API key để tạo cấu hình.'}</code>
+                  </div>
+                </section>
 
-            <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
-              <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Hướng dẫn</p>
-              <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-5 text-[var(--stone-600)]">
-                <li>Sao chép lệnh cài đặt ở trên.</li>
-                <li>Mở {os === 'windows' ? 'PowerShell' : 'Terminal'}, dán lệnh và nhấn Enter.</li>
-                <li>Sau khi cài xong, mở terminal mới rồi chạy <span className="font-mono text-[var(--charcoal-900)]">{tool === 'claude-code' ? 'claude' : 'codex'}</span>.</li>
-              </ol>
-            </div>
+                <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
+                  <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Đường dẫn settings.json</p>
+                  <p className="font-mono text-[12px] leading-6 text-[var(--charcoal-900)]">
+                    {os === 'windows'
+                      ? '%APPDATA%\\Code\\User\\settings.json'
+                      : '~/Library/Application Support/Code/User/settings.json'
+                    }
+                  </p>
+                  {os === 'mac' && (
+                    <p className="mt-1 text-[11px] leading-5 text-[var(--stone-600)]">
+                      Linux: ~/.config/Code/User/settings.json
+                    </p>
+                  )}
+                </div>
 
-            <details className="group">
-              <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-medium text-[#d95b68]">
-                <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-                Gỡ cấu hình Api4Cheap
-              </summary>
-              <div className="mt-3">
+                <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
+                  <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Hướng dẫn</p>
+                  <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-5 text-[var(--stone-600)]">
+                    <li>Mở VS Code, nhấn <span className="font-mono">{os === 'windows' ? 'Ctrl+Shift+P' : 'Cmd+Shift+P'}</span>.</li>
+                    <li>Gõ <span className="font-mono">Preferences: Open User Settings (JSON)</span> và nhấn Enter.</li>
+                    <li>Sao chép JSON cấu hình ở trên và dán vào file settings.json. Nếu đã có khoá <span className="font-mono">claudeCode.environmentVariables</span>, hãy thay thế khoá cũ.</li>
+                    <li>Lưu file và khởi động lại VS Code.</li>
+                  </ol>
+                </div>
+
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-medium text-[#d95b68]">
+                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                    Gỡ cấu hình Api4Cheap
+                  </summary>
+                  <div className="mt-3">
+                    <p className="text-[12px] leading-5 text-[var(--stone-600)]">
+                      Mở <span className="font-mono">settings.json</span> của VS Code và xoá khoá{' '}
+                      <span className="font-mono">claudeCode.environmentVariables</span>. Không cần script gỡ.
+                    </p>
+                  </div>
+                </details>
+              </>
+            ) : (
+              <>
                 <CommandSection
-                  title="Lệnh gỡ cấu hình"
-                  command={uninstallCmd}
-                  copied={copiedUninstall}
-                  onCopy={() => copy(uninstallCmd, setCopiedUninstall)}
-                  tone="uninstall"
-                  compact
+                  title="Lệnh cài đặt"
+                  command={setupCmd}
+                  copied={copiedSetup}
+                  onCopy={() => copy(setupCmd, setCopiedSetup)}
+                  tone="setup"
+                  disabled={!canCreateSetup}
                 />
-              </div>
-            </details>
+
+                <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
+                  <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Hướng dẫn</p>
+                  <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-5 text-[var(--stone-600)]">
+                    <li>Sao chép lệnh cài đặt ở trên.</li>
+                    <li>Mở {os === 'windows' ? 'PowerShell' : 'Terminal'}, dán lệnh và nhấn Enter.</li>
+                    <li>Sau khi cài xong, mở terminal mới rồi chạy <span className="font-mono text-[var(--charcoal-900)]">{tool === 'claude-code' ? 'claude' : 'codex'}</span>.</li>
+                  </ol>
+                </div>
+
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-[13px] font-medium text-[#d95b68]">
+                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                    Gỡ cấu hình Api4Cheap
+                  </summary>
+                  <div className="mt-3">
+                    <CommandSection
+                      title="Lệnh gỡ cấu hình"
+                      command={uninstallCmd}
+                      copied={copiedUninstall}
+                      onCopy={() => copy(uninstallCmd, setCopiedUninstall)}
+                      tone="uninstall"
+                      compact
+                    />
+                  </div>
+                </details>
+              </>
+            )}
 
             <p className="text-[11px] leading-5 text-[var(--stone-600)]">
               Lệnh sẽ dùng khóa <span className="font-mono">{maskedKey(apiKey)}</span> và địa chỉ API <span className="font-mono">{BASE_URL}</span>.

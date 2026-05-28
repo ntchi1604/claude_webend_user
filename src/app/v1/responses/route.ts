@@ -6,6 +6,7 @@ import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
+import { sanitizeUpstreamError } from '@/lib/errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -396,14 +397,14 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error('[responses] upstream fetch error:', e?.message);
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch(() => {});
-    return errJson(`Lá»—i upstream: ${e?.message}`, 502);
+    return errJson(`Lỗi upstream: ${sanitizeUpstreamError(e?.message || '', resolved.upstreamName, modelName)}`, 502);
   }
 
   if (!upstream.ok) {
     const text = await upstream.text();
     console.error('[responses] upstream error body:', text.slice(0, 300));
     await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, upstream.status, text.slice(0, 500)).catch(() => {});
-    return new Response(JSON.stringify({ error: { message: text.slice(0, 500), type: 'upstream_error' } }), {
+    return new Response(JSON.stringify({ error: { message: sanitizeUpstreamError(text.slice(0, 500), resolved.upstreamName, modelName), type: 'upstream_error' } }), {
       status: upstream.status, headers: { 'content-type': 'application/json' }
     });
   }
@@ -718,7 +719,7 @@ export async function POST(req: NextRequest) {
           console.log(`[responses] stream done model=${modelName} content_length=${fullContent.length}`);
         } catch (e: any) {
           console.error('[responses] stream error:', e?.message);
-          try { send('error', { type: 'error', message: e?.message || 'Lá»—i stream' }); } catch { }
+          try { send('error', { type: 'error', message: sanitizeUpstreamError(e?.message || '', resolved.upstreamName, modelName) || 'Lỗi stream' }); } catch { }
         } finally {
           stopTimers();
         }
