@@ -487,16 +487,17 @@ function generateVsCodeExtWindows(p: {
     `Write-Host "Đang cập nhật VS Code settings.json..."`,
     `$settings = Get-Content $vsCodeSettingsFile -Raw | ConvertFrom-Json`,
     `if (-not $settings) { $settings = @{} }`,
-    `$envVars = @{`,
-    `    'ANTHROPIC_BASE_URL' = '${p.baseUrl}'`,
-    `    'ANTHROPIC_AUTH_TOKEN' = '${p.key}'`,
-    `    'ANTHROPIC_MODEL' = '${p.mainModel}'`,
-    `    'ANTHROPIC_DEFAULT_HAIKU_MODEL' = '${p.haiku}'`,
-    `    'ANTHROPIC_DEFAULT_SONNET_MODEL' = '${p.sonnet}'`,
-    `    'ANTHROPIC_DEFAULT_OPUS_MODEL' = '${p.opus}'`,
-    `    'CLAUDE_CODE_SUBAGENT_MODEL' = '${p.haiku}'`,
-    `    'CLAUDE_CODE_EFFORT_LEVEL' = '${p.effortLevel}'`,
-    `}`,
+    `$envVars = @(`,
+    `    [PSCustomObject]@{ name = 'ANTHROPIC_BASE_URL'; value = '${p.baseUrl}' },`,
+    `    [PSCustomObject]@{ name = 'ANTHROPIC_AUTH_TOKEN'; value = '${p.key}' },`,
+    `    [PSCustomObject]@{ name = 'ANTHROPIC_MODEL'; value = '${p.sonnet}' },`,
+    `    [PSCustomObject]@{ name = 'ANTHROPIC_SMALL_FAST_MODEL'; value = '${p.haiku}' },`,
+    `    [PSCustomObject]@{ name = 'ANTHROPIC_DEFAULT_HAIKU_MODEL'; value = '${p.haiku}' },`,
+    `    [PSCustomObject]@{ name = 'ANTHROPIC_DEFAULT_SONNET_MODEL'; value = '${p.sonnet}' },`,
+    `    [PSCustomObject]@{ name = 'ANTHROPIC_DEFAULT_OPUS_MODEL'; value = '${p.opus}' },`,
+    `    [PSCustomObject]@{ name = 'CLAUDE_CODE_SUBAGENT_MODEL'; value = '${p.haiku}' },`,
+    `    [PSCustomObject]@{ name = 'CLAUDE_CODE_EFFORT_LEVEL'; value = '${p.effortLevel}' }`,
+    `)`,
     `$settings | Add-Member -NotePropertyName 'claudeCode.environmentVariables' -NotePropertyValue $envVars -Force`,
     `$settings | ConvertTo-Json -Depth 10 | Out-File -FilePath $vsCodeSettingsFile -Encoding utf8`,
     `Write-Host "  OK Đã cập nhật $vsCodeSettingsFile" -ForegroundColor Green`,
@@ -566,16 +567,17 @@ if command -v node >/dev/null 2>&1; then
     const file = process.argv[1];
     let settings = {};
     try { settings = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
-    settings["claudeCode.environmentVariables"] = {
-      "ANTHROPIC_BASE_URL": process.argv[2],
-      "ANTHROPIC_AUTH_TOKEN": process.argv[3],
-      "ANTHROPIC_MODEL": process.argv[4],
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": process.argv[5],
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": process.argv[6],
-      "ANTHROPIC_DEFAULT_OPUS_MODEL": process.argv[7],
-      "CLAUDE_CODE_SUBAGENT_MODEL": process.argv[5],
-      "CLAUDE_CODE_EFFORT_LEVEL": process.argv[8]
-    };
+    settings["claudeCode.environmentVariables"] = [
+      { name: "ANTHROPIC_BASE_URL", value: process.argv[2] },
+      { name: "ANTHROPIC_AUTH_TOKEN", value: process.argv[3] },
+      { name: "ANTHROPIC_MODEL", value: process.argv[5] },
+      { name: "ANTHROPIC_SMALL_FAST_MODEL", value: process.argv[4] },
+      { name: "ANTHROPIC_DEFAULT_HAIKU_MODEL", value: process.argv[4] },
+      { name: "ANTHROPIC_DEFAULT_SONNET_MODEL", value: process.argv[5] },
+      { name: "ANTHROPIC_DEFAULT_OPUS_MODEL", value: process.argv[6] },
+      { name: "CLAUDE_CODE_SUBAGENT_MODEL", value: process.argv[4] },
+      { name: "CLAUDE_CODE_EFFORT_LEVEL", value: process.argv[7] }
+    ];
     fs.writeFileSync(file, JSON.stringify(settings, null, 2) + "\\n", "utf8");
   ' "$VSCODE_SETTINGS" "${p.baseUrl}" "${p.key}" "${p.mainModel}" "${p.haiku}" "${p.sonnet}" "${p.opus}" "${p.effortLevel}"
   echo "  OK Đã cập nhật $VSCODE_SETTINGS"
@@ -585,16 +587,19 @@ else
   echo ""
   cat << JSONEOF
 {
-  "claudeCode.environmentVariables": {
-    "ANTHROPIC_BASE_URL": "${p.baseUrl}",
-    "ANTHROPIC_AUTH_TOKEN": "${p.key}",
-    "ANTHROPIC_MODEL": "${p.mainModel}",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "${p.haiku}",
-    "CLAUDE_CODE_EFFORT_LEVEL": "${p.effortLevel}"
-  }
+  "claudeCode.environmentVariables": [
+    { "name": "ANTHROPIC_BASE_URL", "value": "${p.baseUrl}" },
+    { "name": "ANTHROPIC_AUTH_TOKEN", "value": "${p.key}" },
+    { "name": "ANTHROPIC_MODEL", "value": "${p.sonnet}" },
+    { "name": "ANTHROPIC_SMALL_FAST_MODEL", "value": "${p.haiku}" },
+    { "name": "ANTHROPIC_DEFAULT_HAIKU_MODEL", "value": "${p.haiku}" },
+    { "name": "ANTHROPIC_DEFAULT_SONNET_MODEL", "value": "${p.sonnet}" },
+    { "name": "ANTHROPIC_DEFAULT_OPUS_MODEL", "value": "${p.opus}" },
+    { "name": "CLAUDE_CODE_SUBAGENT_MODEL", "value": "${p.haiku}" },
+    { "name": "CLAUDE_CODE_EFFORT_LEVEL", "value": "${p.effortLevel}" },
+    { "name": "ANTHROPIC_DISABLE_INTERLEAVED_STREAMING", "value": "1" },
+    { "name": "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "value": "1" }
+  ]
 }
 JSONEOF
 fi
