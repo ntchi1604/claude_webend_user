@@ -125,9 +125,6 @@ export default function DocsPage() {
   const [large, setLarge] = useState(CODEX_FALLBACK_OPTIONS[0].value);
   const [copiedSetup, setCopiedSetup] = useState(false);
   const [copiedUninstall, setCopiedUninstall] = useState(false);
-  const [copiedVscodeSnippet, setCopiedVscodeSnippet] = useState(false);
-  const [vscodeMainModel, setVscodeMainModel] = useState('');
-  const [vscodeEffortLevel, setVscodeEffortLevel] = useState<'low' | 'medium' | 'high' | 'max'>('medium');
   const [allowedModels, setAllowedModels] = useState<AllowedModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
 
@@ -181,30 +178,7 @@ export default function DocsPage() {
     setLarge((value) => ensureAllowed(value, codexAllowedOptions, CODEX_FALLBACK_OPTIONS[0].value));
   }, [codexAllowedOptions]);
 
-  useEffect(() => {
-    if (claudeAllowedOptions.length > 0 && !vscodeMainModel) {
-      setVscodeMainModel(pickByKeyword(claudeAllowedOptions, 'sonnet', claudeAllowedOptions[0].value));
-    }
-  }, [claudeAllowedOptions, vscodeMainModel]);
-
   const canCreateSetup = tool === 'codex-cli' ? codexAllowedOptions.length > 0 : claudeAllowedOptions.length > 0;
-
-  const vscodeSnippet = useMemo(() => {
-    if (tool !== 'vscode-ext') return null;
-    const env: Record<string, string> = {
-      ANTHROPIC_AUTH_TOKEN: apiKey || 'YOUR_API_KEY',
-      ANTHROPIC_BASE_URL: BASE_URL,
-      ANTHROPIC_MODEL: vscodeMainModel || sonnet,
-      ANTHROPIC_DEFAULT_OPUS_MODEL: opus,
-      ANTHROPIC_DEFAULT_SONNET_MODEL: sonnet,
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: haiku,
-      CLAUDE_CODE_SUBAGENT_MODEL: haiku,
-      CLAUDE_CODE_EFFORT_LEVEL: vscodeEffortLevel,
-    };
-    return { 'claudeCode.environmentVariables': env };
-  }, [tool, apiKey, vscodeMainModel, opus, sonnet, haiku, vscodeEffortLevel]);
-
-  const vscodeJsonText = vscodeSnippet ? JSON.stringify(vscodeSnippet, null, 2) : '';
 
   const params = useMemo(() => {
     const query = new URLSearchParams({ key: apiKey || 'YOUR_API_KEY', os });
@@ -220,11 +194,11 @@ export default function DocsPage() {
       query.set('haiku', haiku);
       query.set('sonnet', sonnet);
       query.set('opus', opus);
-      query.set('mainModel', vscodeMainModel || sonnet);
-      query.set('effortLevel', vscodeEffortLevel);
+      query.set('mainModel', sonnet);
+      query.set('effortLevel', 'medium');
     }
     return query;
-  }, [apiKey, haiku, large, medium, opus, os, small, sonnet, tool, vscodeMainModel, vscodeEffortLevel]);
+  }, [apiKey, haiku, large, medium, opus, os, small, sonnet, tool]);
 
   const setupUrl = `${SETUP_BASE}/${tool}?${params.toString()}`;
   const uninstallUrl = `${SETUP_BASE}/${tool}/uninstall?os=${os}`;
@@ -345,27 +319,6 @@ export default function DocsPage() {
                 </div>
               )}
 
-              {tool === 'vscode-ext' && (
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <ModelSelect label="Model chính (ANTHROPIC_MODEL)" value={vscodeMainModel} onChange={setVscodeMainModel} options={claudeAllowedOptions} />
-                  <label className="min-w-0">
-                    <span className="mb-1 block text-[12px] font-medium text-[var(--stone-600)]">Effort Level</span>
-                    <span className="relative block">
-                      <select
-                        value={vscodeEffortLevel}
-                        onChange={(event) => setVscodeEffortLevel(event.target.value as typeof vscodeEffortLevel)}
-                        className="h-10 w-full appearance-none rounded-md border border-[var(--lavender-100)] bg-white px-3 pr-8 text-[12px] font-medium text-[var(--charcoal-900)] outline-none transition focus:border-[var(--brand-blue)] focus:shadow-[0_0_0_3px_rgba(44,132,219,0.12)] dark:bg-[#222221]"
-                      >
-                        <option value="low">Thấp</option>
-                        <option value="medium">Trung bình</option>
-                        <option value="high">Cao</option>
-                        <option value="max">Tối đa</option>
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--stone-600)]" />
-                    </span>
-                  </label>
-                </div>
-              )}
             </div>
 
             {tool === 'vscode-ext' ? (
@@ -378,27 +331,6 @@ export default function DocsPage() {
                   tone="setup"
                   disabled={!canCreateSetup}
                 />
-
-                <section>
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--stone-600)]">
-                      <Code2 className="h-4 w-4" />
-                      JSON sẽ được thêm vào settings.json
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copy(vscodeJsonText, setCopiedVscodeSnippet)}
-                      disabled={!canCreateSetup}
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-[var(--stone-600)] transition hover:bg-black/5 hover:text-[var(--charcoal-900)] disabled:cursor-not-allowed disabled:opacity-45 dark:hover:bg-white/10"
-                    >
-                      {copiedVscodeSnippet ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                      {copiedLabel(copiedVscodeSnippet)}
-                    </button>
-                  </div>
-                  <div className="rounded-lg bg-[#111724] px-4 py-3 shadow-[0_10px_24px_rgba(9,12,19,0.18)] min-h-[58px]">
-                    <code className="block whitespace-pre-wrap break-all font-mono text-[12px] leading-6 text-[#7ee6a1]">{vscodeJsonText || 'Chọn model và dán API key để tạo cấu hình.'}</code>
-                  </div>
-                </section>
 
                 <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
                   <p className="mb-2 text-[13px] font-medium text-[var(--charcoal-900)]">Hướng dẫn</p>
