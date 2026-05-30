@@ -143,17 +143,24 @@ export async function POST(req: NextRequest) {
     upstreamHeaders.authorization = `Bearer ${apiKey}`;
   }
 
+  const upstreamController = new AbortController();
+  const upstreamTimeout = setTimeout(() => upstreamController.abort(), 60_000);
+
   let upstream: Response;
   try {
     upstream = await fetch(baseUrl + upstreamPath, {
       method: 'POST',
       headers: upstreamHeaders,
-      body: JSON.stringify(upstreamBody)
+      body: JSON.stringify(upstreamBody),
+      signal: upstreamController.signal,
     });
+    clearTimeout(upstreamTimeout);
     console.log(`[messages] upstream status=${upstream.status} base=${baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message);
-    return errOut(stream, 'Upstream không khả dụng', 'api_error', 502);
+    clearTimeout(upstreamTimeout);
+    const isAbort = e?.name === 'AbortError';
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, isAbort ? 504 : 502, isAbort ? 'upstream_timeout' : e?.message);
+    return errOut(stream, isAbort ? 'Upstream timeout (60s)' : 'Upstream không khả dụng', 'api_error', isAbort ? 504 : 502);
   }
 
   prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => { });
@@ -237,8 +244,8 @@ async function logUsage(apiKeyId: string, userId: string, modelId: string, model
   });
 }
 
-const STREAM_IDLE_TIMEOUT_MS = 30 * 1000; // 30s không có byte nào từ upstream → coi như đứng
-const STREAM_HEARTBEAT_MS = 15 * 1000;    // cứ 15s ping client để giữ kết nối
+const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 phút — reasoning models có thể nghĩ lâu trước khi output
+const STREAM_HEARTBEAT_MS = 15 * 1000;        // cứ 15s ping client để giữ kết nối
 
 function passthroughAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number) {
   const reader = upstream.body!.getReader();
@@ -247,16 +254,19 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
   let completionBuf = '';
   let inputTokens = promptTokens;
   let outputTokens = 0;
+  let streamFailed = false;
 
   const stream = new ReadableStream({
     async start(controller) {
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+      let timedOut = false;
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
+          timedOut = true;
+          streamFailed = true;
           reader.cancel('idle_timeout').catch(() => { });
-          controller.error(new Error('Stream idle timeout — upstream/MITM may be hung'));
         }, STREAM_IDLE_TIMEOUT_MS);
       };
       heartbeatTimer = setInterval(() => {
@@ -267,7 +277,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
         resetIdle();
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done || timedOut) break;
           resetIdle();
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
@@ -297,16 +307,25 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
             }
           }
         }
+        if (timedOut) {
+          const ct = countTokens(completionBuf);
+          if (completionBuf.length > 0) {
+            controller.enqueue(encoder.encode(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`));
+          }
+          controller.enqueue(encoder.encode(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'timeout', stop_sequence: null }, usage: { output_tokens: ct } })}\n\n`));
+          controller.enqueue(encoder.encode(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`));
+        }
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.close();
       } catch (e) {
+        streamFailed = true;
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-        controller.error(e);
+        try { controller.close(); } catch { }
       } finally {
         const ct = outputTokens || countTokens(completionBuf);
-        logUsage(key.id, key.userId, resolved.model.id, modelName, inputTokens, ct, 200, null).catch(() => { });
+        logUsage(key.id, key.userId, resolved.model.id, modelName, inputTokens, ct, streamFailed ? 500 : 200, streamFailed ? 'stream_error' : null).catch(() => { });
       }
     }
   });
@@ -322,6 +341,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
   const encoder = new TextEncoder();
   let completionBuf = '';
   const msgId = 'msg_' + Math.random().toString(36).slice(2, 12);
+  let streamFailed = false;
 
   function sse(event: string, data: any) {
     return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -331,11 +351,13 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
     async start(controller) {
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+      let timedOut = false;
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
+          timedOut = true;
+          streamFailed = true;
           reader.cancel('idle_timeout').catch(() => { });
-          controller.error(new Error('Stream idle timeout — upstream/MITM may be hung'));
         }, STREAM_IDLE_TIMEOUT_MS);
       };
       heartbeatTimer = setInterval(() => {
@@ -356,7 +378,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         resetIdle();
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done || timedOut) break;
           resetIdle();
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
@@ -384,16 +406,21 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         const ct = countTokens(completionBuf);
         controller.enqueue(sse('content_block_stop', { type: 'content_block_stop', index: 0 }));
         controller.enqueue(sse('message_delta', {
-          type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null },
+          type: 'message_delta', delta: { stop_reason: timedOut ? 'timeout' : 'end_turn', stop_sequence: null },
           usage: { output_tokens: ct }
         }));
         controller.enqueue(sse('message_stop', { type: 'message_stop' }));
         controller.close();
-        logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, ct, 200, null).catch(() => { });
       } catch (e) {
+        streamFailed = true;
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-        controller.error(e);
+        try { controller.close(); } catch { }
+      } finally {
+        if (idleTimer) clearTimeout(idleTimer);
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        const ct = countTokens(completionBuf);
+        logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, ct, streamFailed ? 500 : 200, streamFailed ? 'stream_error' : null).catch(() => { });
       }
     }
   });

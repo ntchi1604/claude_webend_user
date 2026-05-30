@@ -32,7 +32,12 @@
       "Read(//c/Users/NguyenThanhChi/**)",
       "Bash(ls -la /Users/dev-de4dad/workspace-b4f6fde5)",
       "Read(//Users/dev-de4dad/**)",
-      "Bash(npx ts-node *)"
+      "Bash(npx ts-node *)",
+      "Read(//c//**)",
+      "Read(//c/nginx/**)",
+      "Bash(xxd /c/Work/claude_webend_user/src/app/v1/responses/route.ts)",
+      "Bash(python /c/Work/claude_webend_user/check_mojibake.py)",
+      "Bash(python /c/Work/claude_webend_user/check_encoding.py)"
     ]
   }
 }
