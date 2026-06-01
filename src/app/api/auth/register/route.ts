@@ -16,12 +16,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { email, password, name } = schema.parse(body);
     const lower = email.toLowerCase();
-    const exists = await prisma.user.findUnique({ where: { email: lower } });
-    if (exists) return NextResponse.json({ error: 'Email đã tồn tại' }, { status: 409 });
     const hash = await hashPassword(password);
-    const user = await prisma.user.create({
-      data: { email: lower, password: hash, name: name ?? null }
-    });
+
+    // Use upsert-style pattern: try create, catch unique violation
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: { email: lower, password: hash, name: name ?? null }
+      });
+    } catch (e: any) {
+      // P2002 = Prisma unique constraint violation
+      if (e?.code === 'P2002') {
+        return NextResponse.json({ error: 'Email đã tồn tại' }, { status: 409 });
+      }
+      throw e;
+    }
 
     const free = await prisma.plan.findUnique({ where: { name: 'Free' } });
     if (free) {
@@ -45,6 +54,9 @@ export async function POST(req: NextRequest) {
     });
     return res;
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? 'Bad request' }, { status: 400 });
+    if (e?.name === 'ZodError') {
+      return NextResponse.json({ error: 'Dữ liệu không hợp lệ' }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

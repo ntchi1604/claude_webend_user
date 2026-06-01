@@ -6,39 +6,52 @@ import { z } from 'zod';
 
 const schema = z.object({ action: z.enum(['approve', 'reject']) });
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const admin = await requireAdmin();
+    const { id } = await params;
     const { action } = schema.parse(await req.json());
-    const payment = await prisma.payment.findUnique({ where: { id: params.id }, include: { plan: true } });
-    if (!payment) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (payment.status !== 'PENDING') return NextResponse.json({ error: 'Already processed' }, { status: 400 });
 
+    // Atomic: update WHERE status='PENDING' prevents race condition
     if (action === 'reject') {
-      await prisma.payment.update({
-        where: { id: payment.id },
+      const updated = await prisma.payment.updateMany({
+        where: { id, status: 'PENDING' },
         data: { status: 'REJECTED', reviewedBy: admin.id, reviewedAt: new Date() }
       });
+      if (updated.count === 0) {
+        return NextResponse.json({ error: 'Payment not found or already processed' }, { status: 404 });
+      }
       return NextResponse.json({ ok: true });
     }
 
-    // approve: deactivate previous subs, create new
-    await prisma.$transaction([
-      prisma.subscription.updateMany({ where: { userId: payment.userId, active: true }, data: { active: false } }),
-      prisma.subscription.create({
+    // approve: find payment first for plan info
+    const payment = await prisma.payment.findUnique({ where: { id }, include: { plan: true } });
+    if (!payment) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (payment.status !== 'PENDING') return NextResponse.json({ error: 'Already processed' }, { status: 400 });
+
+    // Use transaction with atomic status update to prevent double-approve
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: { status: 'APPROVED', reviewedBy: admin.id, reviewedAt: new Date() }
+      });
+      if (claimed.count === 0) throw new Error('ALREADY_PROCESSED');
+
+      await tx.subscription.updateMany({ where: { userId: payment.userId, active: true }, data: { active: false } });
+      await tx.subscription.create({
         data: {
           userId: payment.userId,
           planId: payment.planId,
           expiresAt: planExpiresAt(payment.plan)
         }
-      }),
-      prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: 'APPROVED', reviewedBy: admin.id, reviewedAt: new Date() }
-      })
-    ]);
+      });
+    });
+
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 400 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (e?.message === 'ALREADY_PROCESSED') return NextResponse.json({ error: 'Already processed' }, { status: 409 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

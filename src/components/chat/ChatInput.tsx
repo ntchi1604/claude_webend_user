@@ -59,7 +59,7 @@ export default function ChatInput({
   }
 
   function processImage(file: File) {
-    if (file.size > 10 * 1024 * 1024) return;
+    if (file.size > 10 * 1024 * 1024) { alert('File quá lớn (tối đa 10MB)'); return; }
     const reader = new FileReader();
     reader.onload = () => {
       addAttachment({
@@ -74,7 +74,7 @@ export default function ChatInput({
   }
 
   function processFile(file: File) {
-    if (file.size > 10 * 1024 * 1024) return;
+    if (file.size > 10 * 1024 * 1024) { alert('File quá lớn (tối đa 10MB)'); return; }
     const reader = new FileReader();
     reader.onload = () => {
       addAttachment({
@@ -143,7 +143,7 @@ export default function ChatInput({
           )}
         </div>
       </div>
-      <input ref={fileRef} type="file" hidden multiple accept=".txt,.md,.py,.js,.ts,.json,.csv,.html,.css,.pdf,.xml,.yaml,.yml,.toml,.rs,.go,.java,.c,.cpp,.h" onChange={handleFileSelect} />
+      <input ref={fileRef} type="file" hidden multiple accept=".txt,.md,.py,.js,.ts,.json,.csv,.html,.css,.xml,.yaml,.yml,.toml,.rs,.go,.java,.c,.cpp,.h" onChange={handleFileSelect} />
       <input ref={imgRef} type="file" hidden multiple accept="image/*" onChange={handleImageSelect} />
     </div>
   );

@@ -6,7 +6,12 @@
       "Bash(Format-Table -AutoSize)",
       "Bash(npx tsc *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Work\\\\claude_webend_user\" -Recurse -File -Exclude \"node_modules\" -Depth 1)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(powershell -Command \"Get-Content 'c:\\\\Work\\\\claude_webend_user\\\\src\\\\app\\\\v1\\\\responses\\\\route.ts' -Encoding UTF8 | Select-Object -Skip 347 -First 2\")",
+      "Bash(node -e ' *)",
+      "Bash(cat)",
+      "Bash(node /tmp/fix-encoding.js)",
+      "Bash(npx next *)"
     ]
   }
 }

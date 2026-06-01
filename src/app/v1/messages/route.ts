@@ -6,7 +6,6 @@ import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
-import { buildIdentity, detectLanguage, enforceLanguageInLastMessage, injectPeriodicIdentity } from '@/lib/identity';
 import { sanitizeUpstreamError } from '@/lib/errors';
 
 export const runtime = 'nodejs';
@@ -159,7 +158,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     clearTimeout(upstreamTimeout);
     const isAbort = e?.name === 'AbortError';
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, isAbort ? 504 : 502, isAbort ? 'upstream_timeout' : e?.message);
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, isAbort ? 504 : 502, isAbort ? 'upstream_timeout' : e?.message).catch(() => {});
     return errOut(stream, isAbort ? 'Upstream timeout (60s)' : 'Upstream không khả dụng', 'api_error', isAbort ? 504 : 502);
   }
 
@@ -239,6 +238,8 @@ function openAIToAnthropic(parsed: any, model: string) {
 }
 
 async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
+  // Skip logging for session-based auth (no real API key)
+  if (apiKeyId.startsWith('session_')) return;
   await prisma.usageLog.create({
     data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
   });

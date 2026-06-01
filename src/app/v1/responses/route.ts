@@ -4,7 +4,7 @@ import { hashApiKey, verifySession } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
-import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
+import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 
@@ -335,18 +335,18 @@ async function logUsage(apiKeyId: string, userId: string, modelId: string, model
 
 export async function POST(req: NextRequest) {
   const key = await authKey(req);
-  if (!key) return errJson('API key khÃ´ng há»£p lá»‡', 401);
+  if (!key) return errJson('API key không hợp lệ', 401);
 
   let body: any;
-  try { body = await req.json(); } catch { return errJson('Body JSON khÃ´ng há»£p lá»‡'); }
+  try { body = await req.json(); } catch { return errJson('Body JSON không hợp lệ'); }
 
   const modelName: string = body?.model;
   const input = body?.input;
   const stream = !!body?.stream;
   const instructions = body?.instructions;
 
-  if (!modelName) return errJson('Thiáº¿u trÆ°á»ng "model"');
-  if (!input) return errJson('Thiáº¿u trÆ°á»ng "input"');
+  if (!modelName) return errJson('Thiếu trường "model"');
+  if (!input) return errJson('Thiếu trường "input"');
 
   const convertedTools = responsesToolsToChatTools(body.tools);
   const messages = inputToMessages(input, convertedTools.nameToChat);
@@ -362,13 +362,13 @@ export async function POST(req: NextRequest) {
 
   const promptTokens = countResponsePromptTokens(finalMessages);
   const rl = checkRateLimit(key.userId, await getUserRequestsPerMinute(key.userId));
-  if (!rl.ok) return errJson(`VÆ°á»£t giá»›i háº¡n táº§n suáº¥t (${rl.reason})`, 429);
+  if (!rl.ok) return errJson(`Vượt giới hạn tần suất (${rl.reason})`, 429);
 
   const quota = await checkQuota(key.userId, modelName, promptTokens);
   if (!quota.allowed) return errJson(quotaMessage(quota), 403);
 
   const resolved = await resolveModelEndpoint(modelName);
-  if (!resolved) return errJson('Model chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh', 404);
+  if (!resolved) return errJson('Model chưa được cấu hình', 404);
 
   const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
   if (body.temperature != null) upstreamBody.temperature = body.temperature;
@@ -615,7 +615,7 @@ export async function POST(req: NextRequest) {
           const totalTokens = promptTokens + completionTokens;
           const usage = { input_tokens: promptTokens, output_tokens: completionTokens, total_tokens: totalTokens };
 
-          recordTokens(key.id, totalTokens);
+    
 
           // Send output_text.done
           if (messageStarted && textOutputIndex !== null) {
@@ -761,7 +761,6 @@ export async function POST(req: NextRequest) {
   const totalTokens = (upstreamUsage?.prompt_tokens || promptTokens) + completionTokens;
   const usage = { input_tokens: upstreamUsage?.prompt_tokens || promptTokens, output_tokens: completionTokens, total_tokens: totalTokens };
 
-  recordTokens(key.id, totalTokens);
   await logUsage(key.id, key.userId, resolved.model.id, modelName, usage.input_tokens, usage.output_tokens, upstream.status, !upstream.ok ? text.slice(0, 500) : null).catch(() => {});
 
   console.log(`[responses] done model=${modelName} content_length=${content.length} stream_requested=${stream}`);

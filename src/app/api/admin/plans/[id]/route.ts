@@ -2,43 +2,44 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 
-function numberOrDefault(value: unknown, fallback: number) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin();
+    const { id } = await params;
     const b = await req.json();
-    const plan = await prisma.plan.update({
-      where: { id: params.id },
-      data: {
-        name: b.name,
-        description: b.description || null,
-        tokenLimit: b.unlimitedTokens ? 0 : numberOrDefault(b.tokenLimit, 0),
-        unlimitedTokens: b.unlimitedTokens ?? false,
-        windowHours: numberOrDefault(b.windowHours, 5),
-        durationDays: numberOrDefault(b.durationDays, 30),
-        durationHours: b.durationHours ? +b.durationHours : null,
-        requestsPerMinute: numberOrDefault(b.requestsPerMinute, 60),
-        priceVND: numberOrDefault(b.priceVND, 0),
-        modelIds: JSON.stringify(b.modelIds || []),
-        enabled: b.enabled
-      }
-    });
+
+    // Only update fields that are actually provided
+    const data: any = {};
+    if (b.name !== undefined) data.name = b.name;
+    if (b.description !== undefined) data.description = b.description || null;
+    if (b.unlimitedTokens !== undefined) data.unlimitedTokens = b.unlimitedTokens;
+    if (b.tokenLimit !== undefined) data.tokenLimit = b.unlimitedTokens ? 0 : Number(b.tokenLimit);
+    if (b.windowHours !== undefined) data.windowHours = Number(b.windowHours) || 5;
+    if (b.durationDays !== undefined) data.durationDays = Number(b.durationDays) || 30;
+    if (b.durationHours !== undefined) data.durationHours = b.durationHours ? Number(b.durationHours) : null;
+    if (b.requestsPerMinute !== undefined) data.requestsPerMinute = Number(b.requestsPerMinute) || 60;
+    if (b.priceVND !== undefined) data.priceVND = Number(b.priceVND) || 0;
+    if (b.modelIds !== undefined) data.modelIds = JSON.stringify(b.modelIds || []);
+    if (b.enabled !== undefined) data.enabled = b.enabled;
+
+    const plan = await prisma.plan.update({ where: { id }, data });
     return NextResponse.json({ ok: true, plan: { ...plan, tokenLimit: Number(plan.tokenLimit) } });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 400 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin();
-    await prisma.plan.delete({ where: { id: params.id } });
+    const { id } = await params;
+    await prisma.plan.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 400 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

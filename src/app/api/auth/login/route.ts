@@ -6,8 +6,30 @@ import { z } from 'zod';
 
 const schema = z.object({ email: z.string().min(3), password: z.string().min(6) });
 
+// Simple in-memory login rate limiter per IP
+const loginAttempts = new Map<string, { count: number; windowStart: number }>();
+const LOGIN_WINDOW_MS = 60_000;
+const LOGIN_MAX_ATTEMPTS = 5;
+
+function checkLoginRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now - entry.windowStart >= LOGIN_WINDOW_MS) {
+    loginAttempts.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= LOGIN_MAX_ATTEMPTS) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (!checkLoginRateLimit(ip)) {
+      return NextResponse.json({ error: 'Quá nhiều lần thử. Vui lòng thử lại sau.' }, { status: 429 });
+    }
+
     const body = await req.json();
     const { email, password } = schema.parse(body);
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
@@ -26,6 +48,7 @@ export async function POST(req: NextRequest) {
     });
     return res;
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? 'Bad request' }, { status: 400 });
+    if (e?.name === 'ZodError') return NextResponse.json({ error: 'Dữ liệu không hợp lệ' }, { status: 400 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

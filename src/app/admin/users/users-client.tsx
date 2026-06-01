@@ -26,7 +26,7 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [picking, setPicking] = useState<string | null>(null);
-  const [planId, setPlanId] = useState(plans[0]?.id ?? '');
+  const [planSelections, setPlanSelections] = useState<Record<string, string>>({});
   const [resetting, setResetting] = useState<string | null>(null);
   const [extendDays, setExtendDays] = useState<Record<string, number>>({});
 
@@ -158,10 +158,10 @@ export default function UsersClient({ users, plans }: { users: U[]; plans: P[] }
                   </div>
                   {picking === u.id && (
                     <div className="mt-2 flex gap-2 justify-end">
-                      <select value={planId} onChange={(e) => setPlanId(e.target.value)} className="input max-w-[160px]">
+                      <select value={planSelections[u.id] ?? plans[0]?.id ?? ''} onChange={(e) => setPlanSelections({ ...planSelections, [u.id]: e.target.value })} className="input max-w-[160px]">
                         {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
-                      <button onClick={() => call(u.id, 'grant', { planId })} className="btn-primary text-xs">Cấp</button>
+                      <button onClick={() => call(u.id, 'grant', { planId: planSelections[u.id] ?? plans[0]?.id })} className="btn-primary text-xs">Cấp</button>
                     </div>
                   )}
                 </td>

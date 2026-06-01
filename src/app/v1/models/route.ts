@@ -36,8 +36,12 @@ export async function GET(req: NextRequest) {
 
   const { sub } = result;
   const allowedIds = sub ? parseModelIds(sub.plan.modelIds) : [];
+  // No subscription = no models allowed
+  if (allowedIds.length === 0) {
+    return Response.json({ object: 'list', data: [] });
+  }
   const models = await prisma.model.findMany({
-    where: { enabled: true, ...(allowedIds.length > 0 ? { id: { in: allowedIds } } : {}) }
+    where: { enabled: true, id: { in: allowedIds } }
   });
 
   return Response.json({

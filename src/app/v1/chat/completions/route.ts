@@ -4,10 +4,9 @@ import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
-import { checkRateLimit, recordTokens, getUserRequestsPerMinute } from '@/lib/rate-limit';
+import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
-import { buildIdentity, detectLanguage, enforceLanguageInLastMessage, injectPeriodicIdentity } from '@/lib/identity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -114,6 +113,7 @@ function estimateCompletion(parsed: any): number {
 }
 
 async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
+  if (apiKeyId.startsWith('session_')) return;
   await prisma.usageLog.create({
     data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
   });
@@ -194,18 +194,25 @@ export async function POST(req: NextRequest) {
     if (body.top_p != null) upstreamBodyFinal.top_p = body.top_p;
   }
 
+  const upstreamController = new AbortController();
+  const upstreamTimeout = setTimeout(() => upstreamController.abort(), 60_000);
+
   let upstream: Response;
   try {
     upstream = await fetch(baseUrl + upstreamPath, {
       method: 'POST',
       headers: upstreamHeaders,
-      body: JSON.stringify(upstreamBodyFinal)
+      body: JSON.stringify(upstreamBodyFinal),
+      signal: upstreamController.signal
     });
+    clearTimeout(upstreamTimeout);
     console.log(`[gateway] upstream status=${upstream.status} base=${baseUrl}${upstreamPath} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
+    clearTimeout(upstreamTimeout);
+    const isAbort = e?.name === 'AbortError';
     console.error('[gateway] upstream error:', e?.message);
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch((err) => console.error('[logUsage] write failed:', err?.message));
-    return errOut(stream, 'Upstream không khả dụng', 'upstream_error', 502);
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, isAbort ? 504 : 502, isAbort ? 'upstream_timeout' : e?.message).catch(() => {});
+    return errOut(stream, isAbort ? 'Upstream timeout (60s)' : 'Upstream không khả dụng', isAbort ? 'api_error' : 'upstream_error', isAbort ? 504 : 502);
   }
 
   prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
@@ -229,7 +236,7 @@ export async function POST(req: NextRequest) {
       const pt = parsed?.usage?.input_tokens ?? promptTokens;
       const ct = parsed?.usage?.output_tokens ?? countTokens(contentText);
       console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=anthropic)`);
-      recordTokens(key.id, pt + ct);
+  
       await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
       if (!upstream.ok) {
         let sanitized = text;
@@ -269,7 +276,7 @@ export async function POST(req: NextRequest) {
       : sseJsons.map((j) => j?.choices?.[0]?.delta?.content || '').join('');
     const finalContent = contentText || (parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text);
     console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=${!!usage})`);
-    recordTokens(key.id, pt + ct);
+
     await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
     let responseText = parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : finalContent;
     if (!upstream.ok) {
@@ -387,7 +394,7 @@ export async function POST(req: NextRequest) {
         const ct = lastUsage?.completion_tokens ?? countTokens(completionBuf);
         const source = lastUsage ? 'upstream' : 'tiktoken';
         console.log(`[usage] stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (source=${source})`);
-        recordTokens(key.id, pt + ct);
+    
         logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, 200, null).catch((err) => console.error('[logUsage] write failed:', err?.message));
       }
     }

@@ -7,11 +7,15 @@ interface Props {
   language?: string;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export default function CodeBlock({ code, language }: Props) {
   const [copied, setCopied] = useState(false);
 
   function copy() {
-    navigator.clipboard.writeText(code);
+    navigator.clipboard.writeText(code).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -25,7 +29,7 @@ export default function CodeBlock({ code, language }: Props) {
         </button>
       </div>
       <pre className="code-block-pre">
-        <code className={language ? `hljs language-${language}` : 'hljs'} dangerouslySetInnerHTML={{ __html: code }} />
+        <code className={language ? `hljs language-${language}` : 'hljs'}>{code}</code>
       </pre>
     </div>
   );

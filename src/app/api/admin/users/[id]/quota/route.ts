@@ -3,9 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 
 // GET /api/admin/users/[id]/quota — debug quota state
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  await requireAdmin();
-  const userId = params.id;
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireAdmin();
+  } catch (e: any) {
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
+  }
+  const { id: userId } = await params;
 
   const sub = await prisma.subscription.findFirst({
     where: { userId, active: true, expiresAt: { gt: new Date() } },
@@ -55,9 +61,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // POST /api/admin/users/[id]/quota — force reset quota
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  await requireAdmin();
-  const userId = params.id;
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireAdmin();
+  } catch (e: any) {
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
+  }
+  const { id: userId } = await params;
 
   const sub = await prisma.subscription.findFirst({
     where: { userId, active: true, expiresAt: { gt: new Date() } },

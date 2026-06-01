@@ -2,7 +2,13 @@ import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'dev-secret-change-me-please-32chars');
+const JWT_DEFAULT = 'dev-secret-change-me-please-32chars';
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET === JWT_DEFAULT) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be set in production');
+  }
+}
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || JWT_DEFAULT);
 
 export type SessionPayload = {
   uid: string;

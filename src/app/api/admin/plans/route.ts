@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true, plan: { ...plan, tokenLimit: Number(plan.tokenLimit) } });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 400 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (e?.code === 'P2002') return NextResponse.json({ error: 'Plan name already exists' }, { status: 409 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

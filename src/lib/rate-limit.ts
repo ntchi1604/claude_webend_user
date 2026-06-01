@@ -35,10 +35,6 @@ export function checkRateLimit(userId: string, limitPerMin: number): { ok: boole
   return { ok: true };
 }
 
-export function recordTokens(_userId: string, _tokens: number) {
-  // Token spend is enforced via checkQuota / UsageLog, not here.
-}
-
 import { prisma } from './prisma';
 
 export async function getUserRequestsPerMinute(userId: string): Promise<number> {

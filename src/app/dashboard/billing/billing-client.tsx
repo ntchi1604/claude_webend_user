@@ -45,8 +45,18 @@ export default function BillingClient({
   }
 
   function copy(s: string) {
-    navigator.clipboard.writeText(s);
-    toast.success('Đã copy');
+    navigator.clipboard.writeText(s).then(() => {
+      toast.success('Đã copy');
+    }).catch(() => {
+      const textarea = document.createElement('textarea');
+      textarea.value = s;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand('copy'); toast.success('Đã copy'); } catch { toast.error('Không thể copy'); }
+      document.body.removeChild(textarea);
+    });
   }
 
   return (

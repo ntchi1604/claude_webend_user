@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const model = await prisma.model.create({
       data: {
         name: b.name,
-        upstreamName: b.upstreamName,
+        upstreamName: b.upstreamName || b.name,
         endpoint: b.endpoint || null,
         fallbackEndpoints: normalizeFallbackEndpoints(b.fallbackEndpoints),
         provider: b.provider || 'openai',
@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true, model });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 400 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (e?.code === 'P2002') return NextResponse.json({ error: 'Model name already exists' }, { status: 409 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

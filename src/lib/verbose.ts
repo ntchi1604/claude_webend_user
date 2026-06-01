@@ -15,7 +15,10 @@ export const MIN_MAX_TOKENS = 8192;
 
 export function ensureMaxTokens(current: unknown): number {
   const n = typeof current === 'number' && Number.isFinite(current) ? current : 0;
-  return n >= MIN_MAX_TOKENS ? n : MIN_MAX_TOKENS;
+  // Only apply minimum when no explicit value was provided (0 or undefined)
+  // If user explicitly set a value > 0, respect it even if below minimum
+  if (n > 0) return n;
+  return MIN_MAX_TOKENS;
 }
 
 export function injectVerboseIntoAnthropicSystem(system: unknown): any {

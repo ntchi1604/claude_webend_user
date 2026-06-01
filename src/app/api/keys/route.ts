@@ -14,7 +14,8 @@ export async function GET() {
     });
     return NextResponse.json({ keys });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 401 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }
 
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ key, id: created.id });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 400 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

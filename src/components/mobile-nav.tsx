@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, X, LogOut } from 'lucide-react';
 
@@ -7,6 +7,16 @@ type NavItem = { href: string; label: string };
 
 export default function MobileNav({ nav, email, isAdmin }: { nav: NavItem[]; email: string; isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
+
+  // Lock body scroll when sidebar is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
 
   return (
     <>

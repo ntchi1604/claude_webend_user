@@ -10,21 +10,31 @@ export async function getActiveSubscriptionOrFree(userId: string) {
   });
   if (active) return active;
 
+  // Wrap deactivate + create in a transaction to prevent duplicate Free subs
   const free = await prisma.plan.findUnique({ where: { name: 'Free' } });
   if (!free || !free.enabled) return null;
 
-  await prisma.subscription.updateMany({
-    where: { userId, active: true },
-    data: { active: false }
-  });
+  return prisma.$transaction(async (tx) => {
+    // Double-check inside transaction
+    const recheck = await tx.subscription.findFirst({
+      where: { userId, active: true, expiresAt: { gt: new Date() } },
+      include: { plan: true }
+    });
+    if (recheck) return recheck;
 
-  return prisma.subscription.create({
-    data: {
-      userId,
-      planId: free.id,
-      expiresAt: planExpiresAt(free),
-      quotaResetAt: null
-    },
-    include: { plan: true }
+    await tx.subscription.updateMany({
+      where: { userId, active: true },
+      data: { active: false }
+    });
+
+    return tx.subscription.create({
+      data: {
+        userId,
+        planId: free.id,
+        expiresAt: planExpiresAt(free),
+        quotaResetAt: null
+      },
+      include: { plan: true }
+    });
   });
 }

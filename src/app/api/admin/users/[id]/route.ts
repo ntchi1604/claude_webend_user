@@ -3,23 +3,24 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 import { planExpiresAt } from '@/lib/plans';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin();
+    const { id } = await params;
     const body = await req.json();
     const action = body.action as string;
     if (action === 'ban') {
-      await prisma.user.update({ where: { id: params.id }, data: { banned: true } });
+      await prisma.user.update({ where: { id }, data: { banned: true } });
     } else if (action === 'unban') {
-      await prisma.user.update({ where: { id: params.id }, data: { banned: false } });
+      await prisma.user.update({ where: { id }, data: { banned: false } });
     } else if (action === 'grant') {
       const plan = await prisma.plan.findUnique({ where: { id: body.planId } });
       if (!plan) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
       await prisma.$transaction([
-        prisma.subscription.updateMany({ where: { userId: params.id, active: true }, data: { active: false } }),
+        prisma.subscription.updateMany({ where: { userId: id, active: true }, data: { active: false } }),
         prisma.subscription.create({
           data: {
-            userId: params.id,
+            userId: id,
             planId: plan.id,
             expiresAt: planExpiresAt(plan)
           }
@@ -29,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       const days = Number(body.days);
       if (!Number.isFinite(days) || days === 0) return NextResponse.json({ error: 'days must be a non-zero number' }, { status: 400 });
       const sub = await prisma.subscription.findFirst({
-        where: { userId: params.id, active: true },
+        where: { userId: id, active: true },
         orderBy: { expiresAt: 'desc' }
       });
       if (!sub) return NextResponse.json({ error: 'No active subscription' }, { status: 404 });
@@ -45,6 +46,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 400 });
+    if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }
