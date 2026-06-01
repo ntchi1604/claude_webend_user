@@ -256,11 +256,20 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
   let outputTokens = 0;
   let streamFailed = false;
 
+  function emit(controller: ReadableStreamDefaultController, event: string, data: any) {
+    controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
       let timedOut = false;
+      let sawMessageStart = false;
+      let sawContentBlockStart = false;
+      let sawMessageStop = false;
+      let sawError = false;
+
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
@@ -272,6 +281,47 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
       heartbeatTimer = setInterval(() => {
         try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { }
       }, STREAM_HEARTBEAT_MS);
+
+      const msgId = 'msg_' + Math.random().toString(36).slice(2, 12);
+
+      function ensureMessageStart() {
+        if (sawMessageStart) return;
+        sawMessageStart = true;
+        emit(controller, 'message_start', {
+          type: 'message_start',
+          message: {
+            id: msgId, type: 'message', role: 'assistant', model: modelName,
+            content: [], stop_reason: null, stop_sequence: null,
+            usage: { input_tokens: promptTokens, output_tokens: 0 }
+          }
+        });
+      }
+
+      function ensureContentBlockStart() {
+        if (sawContentBlockStart) return;
+        ensureMessageStart();
+        sawContentBlockStart = true;
+        emit(controller, 'content_block_start', {
+          type: 'content_block_start', index: 0,
+          content_block: { type: 'text', text: '' }
+        });
+      }
+
+      function finalizeStream(stopReason: string) {
+        if (sawMessageStop) return;
+        if (sawContentBlockStart) {
+          emit(controller, 'content_block_stop', { type: 'content_block_stop', index: 0 });
+        }
+        const ct = outputTokens || countTokens(completionBuf);
+        emit(controller, 'message_delta', {
+          type: 'message_delta',
+          delta: { stop_reason: stopReason, stop_sequence: null },
+          usage: { output_tokens: ct }
+        });
+        emit(controller, 'message_stop', { type: 'message_stop' });
+        sawMessageStop = true;
+      }
+
       try {
         let buf = '';
         resetIdle();
@@ -290,10 +340,34 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
               if (payload) {
                 try {
                   const j = JSON.parse(payload);
-                  if (j.type === 'content_block_delta' && j.delta?.text) completionBuf += j.delta.text;
-                  if (j.type === 'message_start' && j.message?.usage?.input_tokens) inputTokens = j.message.usage.input_tokens;
+
+                  if (j.type === 'error') {
+                    sawError = true;
+                    streamFailed = true;
+                    ensureMessageStart();
+                    ensureContentBlockStart();
+                    completionBuf += `[Error: ${j.error?.message || 'upstream error'}]`;
+                    emit(controller, 'content_block_delta', {
+                      type: 'content_block_delta', index: 0,
+                      delta: { type: 'text_delta', text: completionBuf }
+                    });
+                    finalizeStream('error');
+                    break;
+                  }
+
+                  if (j.type === 'message_start') {
+                    sawMessageStart = true;
+                    if (j.message?.usage?.input_tokens) inputTokens = j.message.usage.input_tokens;
+                    if (j.message?.model) j.message.model = modelName;
+                  }
+                  if (j.type === 'content_block_start') sawContentBlockStart = true;
+                  if (j.type === 'content_block_delta') {
+                    ensureContentBlockStart();
+                    if (j.delta?.text) completionBuf += j.delta.text;
+                  }
                   if (j.type === 'message_delta' && j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
-                  if (j.type === 'message_start' && j.message?.model) j.message.model = modelName;
+                  if (j.type === 'message_stop') sawMessageStop = true;
+
                   const eventName = eventLine ? eventLine.slice(6).trim() : j.type;
                   controller.enqueue(encoder.encode(`event: ${eventName}\ndata: ${JSON.stringify(j)}\n\n`));
                 } catch {
@@ -306,14 +380,10 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
               controller.enqueue(encoder.encode(`${evt}\n\n`));
             }
           }
+          if (sawError) break;
         }
-        if (timedOut) {
-          const ct = countTokens(completionBuf);
-          if (completionBuf.length > 0) {
-            controller.enqueue(encoder.encode(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`));
-          }
-          controller.enqueue(encoder.encode(`event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'timeout', stop_sequence: null }, usage: { output_tokens: ct } })}\n\n`));
-          controller.enqueue(encoder.encode(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`));
+        if (!sawMessageStop) {
+          finalizeStream(timedOut ? 'timeout' : 'end_turn');
         }
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -322,7 +392,12 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
         streamFailed = true;
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-        try { controller.close(); } catch { }
+        try {
+          if (!sawMessageStop) {
+            finalizeStream('error');
+          }
+          controller.close();
+        } catch { }
       } finally {
         const ct = outputTokens || countTokens(completionBuf);
         logUsage(key.id, key.userId, resolved.model.id, modelName, inputTokens, ct, streamFailed ? 500 : 200, streamFailed ? 'stream_error' : null).catch(() => { });

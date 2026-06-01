@@ -1,43 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "mcp__claude-peers__set_summary",
-      "Bash(npx next *)",
-      "Bash(Select-Object -Last 30)",
-      "PowerShell(npx next build 2>&1 | Select-Object -Last 40)",
-      "Bash(npm install *)",
-      "Bash(npx prisma *)",
-      "PowerShell(New-Item *)",
-      "WebSearch",
-      "PowerShell(npm run *)",
-      "WebFetch(domain:platform.openai.com)",
-      "WebFetch(domain:github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(gh repo *)",
-      "Bash(sqlite3 --version)",
-      "Bash(npx tsx *)",
-      "Bash(npm run *)",
-      "Bash(npx tsc *)",
-      "Bash(grep -v \"^$\")",
-      "Bash(sqlite3 *)",
-      "Bash(node *)",
-      "Bash(git -C /c/Work/claude_webend_user status --short)",
-      "Bash(git *)",
-      "Bash(DATABASE_URL=\"file:./prisma/dev.db\" npx prisma *)",
-      "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma *)",
-      "Bash(DATABASE_URL=\"file:./prisma/dev.db\" node *)",
-      "Bash(ls /Users/dev/workspace-f0196321)",
-      "Read(//Users/dev/**)",
-      "Read(//Users/dev-25cf7d/**)",
-      "Read(//c/Users/NguyenThanhChi/**)",
-      "Bash(ls -la /Users/dev-de4dad/workspace-b4f6fde5)",
-      "Read(//Users/dev-de4dad/**)",
-      "Bash(npx ts-node *)",
-      "Read(//c//**)",
-      "Read(//c/nginx/**)",
-      "Bash(xxd /c/Work/claude_webend_user/src/app/v1/responses/route.ts)",
-      "Bash(python /c/Work/claude_webend_user/check_mojibake.py)",
-      "Bash(python /c/Work/claude_webend_user/check_encoding.py)"
+      "Bash(Get-ChildItem -Path \"c:\\\\Work\\\\claude_webend_user\" -Recurse -Exclude \"node_modules\",\".next\",\"*.lock\" -File)",
+      "Bash(Select-Object FullName, Length)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(npx tsc *)"
     ]
   }
 }
