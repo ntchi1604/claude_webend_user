@@ -266,9 +266,12 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
       let timedOut = false;
       let sawMessageStart = false;
-      let sawContentBlockStart = false;
       let sawMessageStop = false;
       let sawError = false;
+      // Track content blocks per index — prevents duplicate content_block_start
+      // from corrupting the SDK's internal block map (causes "Content block not found")
+      const startedBlocks = new Set<number>();
+      const stoppedBlocks = new Set<number>();
 
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
@@ -298,9 +301,9 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
       }
 
       function ensureContentBlockStart() {
-        if (sawContentBlockStart) return;
+        if (startedBlocks.has(0)) return;
         ensureMessageStart();
-        sawContentBlockStart = true;
+        startedBlocks.add(0);
         emit(controller, 'content_block_start', {
           type: 'content_block_start', index: 0,
           content_block: { type: 'text', text: '' }
@@ -309,8 +312,12 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
 
       function finalizeStream(stopReason: string) {
         if (sawMessageStop) return;
-        if (sawContentBlockStart) {
-          emit(controller, 'content_block_stop', { type: 'content_block_stop', index: 0 });
+        // Close any open content blocks
+        for (const idx of startedBlocks) {
+          if (!stoppedBlocks.has(idx)) {
+            emit(controller, 'content_block_stop', { type: 'content_block_stop', index: idx });
+            stoppedBlocks.add(idx);
+          }
         }
         const ct = outputTokens || countTokens(completionBuf);
         emit(controller, 'message_delta', {
@@ -344,6 +351,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                   if (j.type === 'error') {
                     sawError = true;
                     streamFailed = true;
+                    console.error(`[passthrough] upstream error event: ${j.error?.message}`);
                     ensureMessageStart();
                     ensureContentBlockStart();
                     completionBuf += `[Error: ${j.error?.message || 'upstream error'}]`;
@@ -361,16 +369,29 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                     if (j.message?.usage?.input_tokens) inputTokens = j.message.usage.input_tokens;
                     if (j.message?.model) j.message.model = modelName;
                   }
+
                   if (j.type === 'content_block_start') {
-                    if (sawContentBlockStart) continue;
-                    sawContentBlockStart = true;
+                    const idx = j.index ?? 0;
+                    if (startedBlocks.has(idx)) continue; // duplicate — skip
+                    startedBlocks.add(idx);
                   }
-                  if (j.type === 'content_block_stop') sawContentBlockStart = false;
+
+                  if (j.type === 'content_block_stop') {
+                    const idx = j.index ?? 0;
+                    stoppedBlocks.add(idx);
+                  }
+
                   if (j.type === 'content_block_delta') {
                     if (sawMessageStop) continue;
-                    ensureContentBlockStart();
+                    const idx = j.index ?? 0;
+                    // If block wasn't started, synthesize it
+                    if (!startedBlocks.has(idx)) {
+                      ensureContentBlockStart();
+                    }
                     if (j.delta?.text) completionBuf += j.delta.text;
+                    if (j.delta?.thinking) completionBuf += j.delta.thinking;
                   }
+
                   if (j.type === 'message_delta') {
                     if (j.delta?.stop_reason) sawMessageStop = true;
                     if (j.usage?.output_tokens) outputTokens = j.usage.output_tokens;

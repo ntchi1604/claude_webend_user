@@ -4,7 +4,9 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Work\\\\claude_webend_user\" -Recurse -Exclude \"node_modules\",\".next\",\"*.lock\" -File)",
       "Bash(Select-Object FullName, Length)",
       "Bash(Format-Table -AutoSize)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Work\\\\claude_webend_user\" -Recurse -File -Exclude \"node_modules\" -Depth 1)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }
