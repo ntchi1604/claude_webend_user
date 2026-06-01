@@ -356,20 +356,30 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                   }
 
                   if (j.type === 'message_start') {
+                    if (sawMessageStart) continue;
                     sawMessageStart = true;
                     if (j.message?.usage?.input_tokens) inputTokens = j.message.usage.input_tokens;
                     if (j.message?.model) j.message.model = modelName;
                   }
-                  if (j.type === 'content_block_start') sawContentBlockStart = true;
+                  if (j.type === 'content_block_start') {
+                    if (sawContentBlockStart) continue;
+                    sawContentBlockStart = true;
+                  }
+                  if (j.type === 'content_block_stop') sawContentBlockStart = false;
                   if (j.type === 'content_block_delta') {
+                    if (sawMessageStop) continue;
                     ensureContentBlockStart();
                     if (j.delta?.text) completionBuf += j.delta.text;
                   }
-                  if (j.type === 'message_delta' && j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
+                  if (j.type === 'message_delta') {
+                    if (j.delta?.stop_reason) sawMessageStop = true;
+                    if (j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
+                  }
                   if (j.type === 'message_stop') sawMessageStop = true;
 
                   const eventName = eventLine ? eventLine.slice(6).trim() : j.type;
                   controller.enqueue(encoder.encode(`event: ${eventName}\ndata: ${JSON.stringify(j)}\n\n`));
+                  if (sawMessageStop) break;
                 } catch {
                   controller.enqueue(encoder.encode(`${evt}\n\n`));
                 }
@@ -380,7 +390,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
               controller.enqueue(encoder.encode(`${evt}\n\n`));
             }
           }
-          if (sawError) break;
+          if (sawError || sawMessageStop) break;
         }
         if (!sawMessageStop) {
           finalizeStream(timedOut ? 'timeout' : 'end_turn');
