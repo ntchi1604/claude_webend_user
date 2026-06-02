@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
-import { Users, Package, Cpu, CreditCard, ArrowLeft, Settings, LayoutDashboard } from 'lucide-react';
+import { Users, Package, Cpu, CreditCard, ArrowLeft, Settings, LayoutDashboard, KeyRound } from 'lucide-react';
 import ThemeToggle from '@/components/theme-toggle';
 import MobileNav from '@/components/mobile-nav';
 
@@ -15,7 +15,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/plans', label: 'Gói cước', icon: Package },
     { href: '/admin/models', label: 'Model', icon: Cpu },
     { href: '/admin/payments', label: 'Thanh toán', icon: CreditCard },
-    { href: '/admin/settings', label: 'Cài đặt', icon: Settings }
+    { href: '/admin/settings', label: 'Cài đặt', icon: Settings },
+    { href: '/admin/change-password', label: 'Đổi mật khẩu', icon: KeyRound }
   ];
 
   return (
