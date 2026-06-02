@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashApiKey, verifySession } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
+import { authKeyWithCookie, logUsage } from '@/lib/api-gateway';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,36 +27,6 @@ function errJson(message: string, status = 400) {
   });
 }
 
-async function authKey(req: NextRequest) {
-  const auth = req.headers.get('authorization') || '';
-  const m = auth.match(/^Bearer\s+(.+)$/i);
-  if (m) {
-    const raw = m[1].trim();
-    const hash = hashApiKey(raw);
-    const key = await prisma.apiKey.findUnique({ where: { keyHash: hash }, include: { user: true } });
-    if (!key || !key.active || key.user.banned) return null;
-    return key;
-  }
-  const cookieHeader = req.headers.get('cookie') || '';
-  const sessionMatch = cookieHeader.match(/cw_session=([^;]+)/);
-  if (sessionMatch) {
-    const payload = await verifySession(sessionMatch[1]);
-    if (!payload) return null;
-    const key = await prisma.apiKey.findFirst({
-      where: { userId: payload.uid, active: true },
-      include: { user: true },
-      orderBy: { createdAt: 'asc' }
-    });
-    if (key) {
-      if (key.user.banned) return null;
-      return key;
-    }
-    const user = await prisma.user.findUnique({ where: { id: payload.uid } });
-    if (!user || user.banned) return null;
-    return { id: `session_${user.id}`, userId: user.id, user, active: true } as any;
-  }
-  return null;
-}
 
 function contentToText(content: any): string {
   if (typeof content === 'string') return content;
@@ -326,15 +296,9 @@ function estimateToolCallTokens(toolCalls: Iterable<{ name: string; arguments: s
   return total;
 }
 
-async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
-  if (apiKeyId.startsWith('session_')) return;
-  await prisma.usageLog.create({
-    data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
-  });
-}
 
 export async function POST(req: NextRequest) {
-  const key = await authKey(req);
+  const key = await authKeyWithCookie(req);
   if (!key) return errJson('API key không hợp lệ', 401);
 
   let body: any;
@@ -383,12 +347,44 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
   const apiKey = resolved.candidates[0]?.apiKey || '';
+  const isAnthropicProvider = resolved.model.provider === 'anthropic';
   const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
-  if (apiKey) upstreamHeaders.authorization = `Bearer ${apiKey}`;
+  if (apiKey) {
+    if (isAnthropicProvider) {
+      upstreamHeaders['x-api-key'] = apiKey;
+      upstreamHeaders['anthropic-version'] = '2023-06-01';
+    }
+    upstreamHeaders.authorization = `Bearer ${apiKey}`;
+  }
+
+  let upstreamPath = '/v1/chat/completions';
+  let upstreamBodyFinal: any = upstreamBody;
+  if (isAnthropicProvider) {
+    upstreamPath = '/v1/messages';
+    const sysParts: string[] = [];
+    const conv: any[] = [];
+    for (const m of finalMessages) {
+      if (m.role === 'system') sysParts.push(typeof m.content === 'string' ? m.content : JSON.stringify(m.content));
+      else conv.push({ role: m.role, content: m.content });
+    }
+    upstreamBodyFinal = {
+      model: resolved.upstreamName,
+      system: sysParts.join('\n\n'),
+      messages: conv,
+      max_tokens: ensureMaxTokens(body.max_output_tokens || body.max_tokens),
+      stream
+    };
+    if (body.temperature != null) upstreamBodyFinal.temperature = body.temperature;
+    if (body.top_p != null) upstreamBodyFinal.top_p = body.top_p;
+    if (convertedTools.tools) {
+      upstreamBodyFinal.tools = convertedTools.tools;
+      upstreamBodyFinal.tool_choice = responsesToolChoiceToChat(body.tool_choice, convertedTools.nameToChat);
+    }
+  }
 
   let upstream: Response;
   try {
-    upstream = await fetch(baseUrl + '/v1/chat/completions', {
+    upstream = await fetch(baseUrl + upstreamPath, {
       method: 'POST',
       headers: upstreamHeaders,
       body: JSON.stringify(upstreamBody)

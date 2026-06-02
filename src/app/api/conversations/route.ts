@@ -51,24 +51,26 @@ async function getSessionUser(req: NextRequest) {
 async function cleanup(userId: string) {
   try {
     const cutoff = new Date(Date.now() - MAX_AGE_DAYS * 86400000);
-    await prisma.chatMessage.deleteMany({
-      where: { conversation: { userId, updatedAt: { lt: cutoff } } }
-    });
-    await prisma.conversation.deleteMany({
-      where: { userId, updatedAt: { lt: cutoff } }
-    });
-
-    const count = await prisma.conversation.count({ where: { userId } });
-    if (count > MAX_CONVERSATIONS) {
-      const oldest = await prisma.conversation.findMany({
-        where: { userId },
-        orderBy: { updatedAt: 'asc' },
-        take: count - MAX_CONVERSATIONS,
-        select: { id: true }
+    await prisma.$transaction(async (tx) => {
+      await tx.chatMessage.deleteMany({
+        where: { conversation: { userId, updatedAt: { lt: cutoff } } }
       });
-      const ids = oldest.map((c) => c.id);
-      await prisma.chatMessage.deleteMany({ where: { conversationId: { in: ids } } });
-      await prisma.conversation.deleteMany({ where: { id: { in: ids } } });
-    }
+      await tx.conversation.deleteMany({
+        where: { userId, updatedAt: { lt: cutoff } }
+      });
+
+      const count = await tx.conversation.count({ where: { userId } });
+      if (count > MAX_CONVERSATIONS) {
+        const oldest = await tx.conversation.findMany({
+          where: { userId },
+          orderBy: { updatedAt: 'asc' },
+          take: count - MAX_CONVERSATIONS,
+          select: { id: true }
+        });
+        const ids = oldest.map((c) => c.id);
+        await tx.chatMessage.deleteMany({ where: { conversationId: { in: ids } } });
+        await tx.conversation.deleteMany({ where: { id: { in: ids } } });
+      }
+    });
   } catch {}
 }

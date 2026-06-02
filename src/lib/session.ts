@@ -21,7 +21,14 @@ export async function getSessionFromRequest(req: NextRequest): Promise<SessionPa
 export async function getCurrentUser() {
   const s = await getSession();
   if (!s) return null;
-  return prisma.user.findUnique({ where: { id: s.uid } });
+  const user = await prisma.user.findUnique({ where: { id: s.uid } });
+  if (!user) return null;
+  // Invalidate JWT issued before password change
+  if (user.passwordChangedAt && s.pwChangedAt) {
+    const changedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
+    if (s.pwChangedAt < changedAtSec) return null;
+  }
+  return user;
 }
 
 export async function requireUser() {

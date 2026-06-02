@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
+import { authKeyWithCookie, logUsage, estimateCompletion } from '@/lib/api-gateway';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,37 +54,6 @@ function errOut(stream: boolean, message: string, type: string, status: number, 
   return errJson(message, type, status, code);
 }
 
-async function authKey(req: NextRequest) {
-  const auth = req.headers.get('authorization') || '';
-  const m = auth.match(/^Bearer\s+(.+)$/i);
-  if (m) {
-    const raw = m[1].trim();
-    const hash = hashApiKey(raw);
-    const key = await prisma.apiKey.findUnique({ where: { keyHash: hash }, include: { user: true } });
-    if (!key || !key.active || key.user.banned) return null;
-    return key;
-  }
-  const cookieHeader = req.headers.get('cookie') || '';
-  const sessionMatch = cookieHeader.match(/cw_session=([^;]+)/);
-  if (sessionMatch) {
-    const { verifySession } = await import('@/lib/auth');
-    const payload = await verifySession(sessionMatch[1]);
-    if (!payload) return null;
-    const key = await prisma.apiKey.findFirst({
-      where: { userId: payload.uid, active: true },
-      include: { user: true },
-      orderBy: { createdAt: 'asc' }
-    });
-    if (key) {
-      if (key.user.banned) return null;
-      return key;
-    }
-    const user = await prisma.user.findUnique({ where: { id: payload.uid } });
-    if (!user || user.banned) return null;
-    return { id: `session_${user.id}`, userId: user.id, user, active: true } as any;
-  }
-  return null;
-}
 
 function decodeSseText(text: string) {
   const chunks: string[] = [];
@@ -100,27 +69,9 @@ function decodeSseText(text: string) {
   return chunks;
 }
 
-function estimateCompletion(parsed: any): number {
-  try {
-    const choices = parsed?.choices ?? [];
-    let total = 0;
-    for (const c of choices) {
-      const content = c?.message?.content;
-      if (typeof content === 'string') total += countTokens(content);
-    }
-    return total;
-  } catch { return 0; }
-}
-
-async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
-  if (apiKeyId.startsWith('session_')) return;
-  await prisma.usageLog.create({
-    data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
-  });
-}
 
 export async function POST(req: NextRequest) {
-  const key = await authKey(req);
+  const key = await authKeyWithCookie(req);
   if (!key) return errJson('API key không hợp lệ', 'invalid_api_key', 401);
 
   let body: any;
@@ -306,6 +257,7 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
   let completionBuf = '';
   let lastUsage: any = null;
+  let streamFailed = false;
 
   const STREAM_IDLE_TIMEOUT_MS = 30 * 1000;
   const STREAM_HEARTBEAT_MS = 15 * 1000;
@@ -317,6 +269,7 @@ export async function POST(req: NextRequest) {
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
+          streamFailed = true;
           reader.cancel('idle_timeout').catch(() => { });
           controller.error(new Error('Stream idle timeout — upstream hung'));
         }, STREAM_IDLE_TIMEOUT_MS);
@@ -386,6 +339,7 @@ export async function POST(req: NextRequest) {
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.close();
       } catch (e) {
+        streamFailed = true;
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         controller.error(e);
@@ -394,8 +348,8 @@ export async function POST(req: NextRequest) {
         const ct = lastUsage?.completion_tokens ?? countTokens(completionBuf);
         const source = lastUsage ? 'upstream' : 'tiktoken';
         console.log(`[usage] stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (source=${source})`);
-    
-        logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, 200, null).catch((err) => console.error('[logUsage] write failed:', err?.message));
+
+        logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, streamFailed ? 500 : 200, streamFailed ? 'stream_error' : null).catch((err) => console.error('[logUsage] write failed:', err?.message));
       }
     }
   });

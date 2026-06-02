@@ -1,6 +1,3 @@
-// Fix: BigInt cannot be serialized by JSON.stringify
-(BigInt.prototype as any).toJSON = function () { return Number(this); };
-
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };

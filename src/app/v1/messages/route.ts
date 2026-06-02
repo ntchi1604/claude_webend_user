@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashApiKey } from '@/lib/auth';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
+import { authKeyHeaderOnly, logUsage, estimateCompletion } from '@/lib/api-gateway';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,23 +43,6 @@ function errOut(stream: boolean, message: string, type: string, status: number) 
   return errJson(message, type, status);
 }
 
-async function authKey(req: NextRequest) {
-  const xkey = req.headers.get('x-api-key');
-  const auth = req.headers.get('authorization') || '';
-  let raw: string | null = null;
-  if (xkey) raw = xkey.trim();
-  else {
-    const m = auth.match(/^Bearer\s+(.+)$/i);
-    if (m) raw = m[1].trim();
-  }
-  if (!raw) return null;
-  const key = await prisma.apiKey.findUnique({
-    where: { keyHash: hashApiKey(raw) },
-    include: { user: true }
-  });
-  if (!key || !key.active || key.user.banned) return null;
-  return key;
-}
 
 function msgsToOpenAIFormat(messages: any[], system?: any) {
   const out: any[] = [];
@@ -76,7 +59,7 @@ function msgsToOpenAIFormat(messages: any[], system?: any) {
 }
 
 export async function POST(req: NextRequest) {
-  const key = await authKey(req);
+  const key = await authKeyHeaderOnly(req);
   if (!key) return errJson('API key không hợp lệ', 'authentication_error', 401);
 
   let body: any;
@@ -207,17 +190,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function estimateCompletion(parsed: any): number {
-  try {
-    const choices = parsed?.choices ?? [];
-    let total = 0;
-    for (const c of choices) {
-      const content = c?.message?.content;
-      if (typeof content === 'string') total += countTokens(content);
-    }
-    return total;
-  } catch { return 0; }
-}
 
 function openAIToAnthropic(parsed: any, model: string) {
   const choice = parsed?.choices?.[0];
@@ -237,13 +209,6 @@ function openAIToAnthropic(parsed: any, model: string) {
   };
 }
 
-async function logUsage(apiKeyId: string, userId: string, modelId: string, modelName: string, pt: number, ct: number, status: number, errorMessage: string | null) {
-  // Skip logging for session-based auth (no real API key)
-  if (apiKeyId.startsWith('session_')) return;
-  await prisma.usageLog.create({
-    data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
-  });
-}
 
 const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 phút — reasoning models có thể nghĩ lâu trước khi output
 const STREAM_HEARTBEAT_MS = 15 * 1000;        // cứ 15s ping client để giữ kết nối

@@ -14,6 +14,7 @@ export type SessionPayload = {
   uid: string;
   email: string;
   role: 'USER' | 'ADMIN';
+  pwChangedAt?: number; // epoch seconds — if present, JWT issued before this are invalid
 };
 
 export async function signSession(payload: SessionPayload, exp = '30d') {

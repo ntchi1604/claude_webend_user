@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, comparePassword } from '@/lib/auth';
+import { hashPassword, comparePassword, signSession } from '@/lib/auth';
 import { getSessionFromRequest, SESSION_COOKIE } from '@/lib/session';
 import { z } from 'zod';
 
@@ -32,9 +32,25 @@ export async function POST(req: NextRequest) {
     }
 
     const hashed = await hashPassword(newPassword);
-    await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    const now = new Date();
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashed, passwordChangedAt: now } });
 
-    return NextResponse.json({ success: true });
+    // Re-issue session with pwChangedAt so old JWTs are invalidated
+    const newToken = await signSession({
+      uid: user.id,
+      email: user.email,
+      role: user.role as any,
+      pwChangedAt: Math.floor(now.getTime() / 1000)
+    });
+    const res = NextResponse.json({ success: true });
+    res.cookies.set(SESSION_COOKIE, newToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30
+    });
+    return res;
   } catch (e: any) {
     if (e?.name === 'ZodError') {
       return NextResponse.json({ error: 'Dữ liệu không hợp lệ' }, { status: 400 });
