@@ -259,19 +259,20 @@ export async function POST(req: NextRequest) {
   let lastUsage: any = null;
   let streamFailed = false;
 
-  const STREAM_IDLE_TIMEOUT_MS = 30 * 1000;
+  const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 phút — reasoning models có thể nghĩ lâu
   const STREAM_HEARTBEAT_MS = 15 * 1000;
 
   const respStream = new ReadableStream({
     async start(controller) {
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
       let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+      let timedOut = false;
       const resetIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
+          timedOut = true;
           streamFailed = true;
           reader.cancel('idle_timeout').catch(() => { });
-          controller.error(new Error('Stream idle timeout — upstream hung'));
         }, STREAM_IDLE_TIMEOUT_MS);
       };
       heartbeatTimer = setInterval(() => {
@@ -292,7 +293,7 @@ export async function POST(req: NextRequest) {
         if (isAnthropicProvider) emitOpenAIChunk({ role: 'assistant', content: '' });
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done || timedOut) break;
           resetIdle();
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
@@ -331,8 +332,31 @@ export async function POST(req: NextRequest) {
             }
           }
         }
+        // Drain remaining buffer — critical: last SSE chunk may still be in buf
+        if (buf.trim()) {
+          const line = buf.split('\n').find((l) => l.startsWith('data:'));
+          if (line) {
+            const payload = line.slice(5).trim();
+            if (payload && payload !== '[DONE]') {
+              try {
+                const j = JSON.parse(payload);
+                if (isAnthropicProvider) {
+                  if (j.type === 'content_block_delta' && j.delta?.text) completionBuf += j.delta.text;
+                  if (j.type === 'message_delta' && j.usage?.output_tokens) lastUsage = { ...(lastUsage || {}), completion_tokens: j.usage.output_tokens };
+                } else {
+                  const delta = j?.choices?.[0]?.delta?.content;
+                  if (typeof delta === 'string') completionBuf += delta;
+                  if (j?.usage) lastUsage = j.usage;
+                }
+              } catch {}
+            }
+          }
+        }
         if (isAnthropicProvider) {
           emitOpenAIChunk({}, 'stop');
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+        } else {
+          // Ensure non-Anthropic streams also get [DONE]
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
         }
         if (idleTimer) clearTimeout(idleTimer);
@@ -342,7 +366,13 @@ export async function POST(req: NextRequest) {
         streamFailed = true;
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-        controller.error(e);
+        try {
+          if (isAnthropicProvider) {
+            emitOpenAIChunk({}, 'stop');
+          }
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        } catch {}
       } finally {
         const pt = lastUsage?.prompt_tokens ?? promptTokens;
         const ct = lastUsage?.completion_tokens ?? countTokens(completionBuf);

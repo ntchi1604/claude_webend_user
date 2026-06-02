@@ -12,7 +12,8 @@
       "Bash(cat)",
       "Bash(node /tmp/fix-encoding.js)",
       "Bash(npx next *)",
-      "Bash(npx prisma *)"
+      "Bash(npx prisma *)",
+      "Bash(Select-Object -Last 25)"
     ]
   }
 }

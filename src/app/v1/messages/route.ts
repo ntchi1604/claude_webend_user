@@ -379,6 +379,21 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           }
           if (sawError || sawMessageStop) break;
         }
+        // Drain remaining buffer — last SSE event may still be in buf
+        if (buf.trim() && !sawError && !sawMessageStop) {
+          const dataLine = buf.split('\n').find((l) => l.startsWith('data:'));
+          if (dataLine) {
+            const payload = dataLine.slice(5).trim();
+            if (payload) {
+              try {
+                const j = JSON.parse(payload);
+                if (j.type === 'content_block_delta' && j.delta?.text) completionBuf += j.delta.text;
+                if (j.type === 'message_delta' && j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
+                if (j.type === 'message_stop') sawMessageStop = true;
+              } catch {}
+            }
+          }
+        }
         if (!sawMessageStop) {
           finalizeStream(timedOut ? 'timeout' : 'end_turn');
         }
@@ -471,6 +486,20 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
                 }));
               }
             } catch { }
+          }
+        }
+        // Drain remaining buffer
+        if (buf.trim()) {
+          const dataLine = buf.split('\n').find((l) => l.startsWith('data:'));
+          if (dataLine) {
+            const payload = dataLine.slice(5).trim();
+            if (payload && payload !== '[DONE]') {
+              try {
+                const j = JSON.parse(payload);
+                const delta = j?.choices?.[0]?.delta?.content;
+                if (typeof delta === 'string' && delta.length > 0) completionBuf += delta;
+              } catch {}
+            }
           }
         }
         if (idleTimer) clearTimeout(idleTimer);

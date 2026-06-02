@@ -411,7 +411,7 @@ export async function POST(req: NextRequest) {
   // --- STREAMING PATH ---
   if (stream) {
     const encoder = new TextEncoder();
-    const STREAM_IDLE_TIMEOUT_MS = 30 * 1000;
+    const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 phút — reasoning models
     const STREAM_HEARTBEAT_MS = 15 * 1000;
     const readableStream = new ReadableStream({
       async start(controller) {
@@ -421,8 +421,8 @@ export async function POST(req: NextRequest) {
         const resetIdle = () => {
           if (idleTimer) clearTimeout(idleTimer);
           idleTimer = setTimeout(() => {
+            timedOut = true;
             upstreamReader?.cancel('idle_timeout').catch(() => { });
-            try { controller.error(new Error('Stream idle timeout â€” upstream hung')); } catch { }
           }, STREAM_IDLE_TIMEOUT_MS);
         };
         const stopTimers = () => {
@@ -450,6 +450,7 @@ export async function POST(req: NextRequest) {
         });
 
         let fullContent = '';
+        let timedOut = false;
         let messageStarted = false;
         let textOutputIndex: number | null = null;
         let nextOutputIndex = 0;
@@ -560,7 +561,7 @@ export async function POST(req: NextRequest) {
 
             while (true) {
               const { done, value } = await reader.read();
-              if (done) break;
+              if (done || timedOut) break;
               resetIdle();
 
               const decoded = decoder.decode(value, { stream: true });
@@ -590,6 +591,26 @@ export async function POST(req: NextRequest) {
                     completionTokens = chunk.usage.completion_tokens || 0;
                   }
                 } catch { /* skip malformed chunks */ }
+              }
+            }
+            // Drain remaining buffer
+            if (buffer.trim()) {
+              const line = buffer.split('\n').find((l) => l.startsWith('data: '));
+              if (line) {
+                const payload = line.slice(6).trim();
+                if (payload && payload !== '[DONE]') {
+                  try {
+                    const chunk = JSON.parse(payload);
+                    const choice = chunk?.choices?.[0];
+                    const delta = choice?.delta?.content;
+                    if (delta) emitTextDelta(delta);
+                    const deltaToolCalls = choice?.delta?.tool_calls || [];
+                    for (const tc of deltaToolCalls) {
+                      const idx = typeof tc.index === 'number' ? tc.index : 0;
+                      emitToolCallDelta(idx, tc.id, tc?.function?.name, tc?.function?.arguments || '');
+                    }
+                  } catch {}
+                }
               }
             }
           }

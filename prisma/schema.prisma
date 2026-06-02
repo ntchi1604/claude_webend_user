@@ -8,18 +8,19 @@ datasource db {
 }
 
 model User {
-  id                 String         @id @default(cuid())
-  email              String         @unique
-  password           String
-  name               String?
-  role               String         @default("USER") // USER | ADMIN
-  banned             Boolean        @default(false)
-  passwordChangedAt  DateTime?
-  createdAt          DateTime       @default(now())
-  apiKeys            ApiKey[]
-  subscriptions      Subscription[]
-  payments           Payment[]
-  conversations      Conversation[]
+  id                    String         @id @default(cuid())
+  email                 String         @unique
+  password              String
+  name                  String?
+  role                  String         @default("USER") // USER | ADMIN
+  banned                Boolean        @default(false)
+  passwordChangedAt     DateTime?
+  adminConfirmPassword  String?        // bcrypt hash — admin-only, used as confirmation layer
+  createdAt             DateTime       @default(now())
+  apiKeys               ApiKey[]
+  subscriptions         Subscription[]
+  payments              Payment[]
+  conversations         Conversation[]
 }
 
 model Plan {
