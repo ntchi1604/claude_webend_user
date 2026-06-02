@@ -15,7 +15,6 @@ model User {
   role                  String         @default("USER") // USER | ADMIN
   banned                Boolean        @default(false)
   passwordChangedAt     DateTime?
-  adminConfirmPassword  String?        // bcrypt hash — admin-only, used as confirmation layer
   createdAt             DateTime       @default(now())
   apiKeys               ApiKey[]
   subscriptions         Subscription[]
