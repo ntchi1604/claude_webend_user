@@ -13,7 +13,7 @@ export async function GET(
   const url = new URL(req.url);
   const key = clean(url.searchParams.get('key'), 'YOUR_API_KEY');
   const os = url.searchParams.get('os') || 'windows';
-  const baseUrl = 'https://tcauto.id.vn';
+  const baseUrl = getRequestOrigin(req, url);
   const claudeBaseUrl = baseUrl;
   const codexBaseUrl = `${baseUrl}/v1`;
   const keyShort = key.slice(0, 8) + '...';
@@ -66,6 +66,24 @@ export async function GET(
 function clean(value: string | null, fallback: string) {
   const cleaned = (value || fallback).replace(/[\r\n]/g, '').trim();
   return cleaned || fallback;
+}
+
+function cleanHeader(value: string | null) {
+  return value?.split(',')[0]?.replace(/[\r\n]/g, '').trim() || '';
+}
+
+function cleanHost(value: string | null) {
+  const host = cleanHeader(value).toLowerCase();
+  return /^(\[[0-9a-f:.]+\]|[a-z0-9.-]+)(:\d{1,5})?$/i.test(host) ? host : '';
+}
+
+function getRequestOrigin(req: NextRequest, url: URL) {
+  const host = cleanHost(req.headers.get('x-forwarded-host')) || cleanHost(req.headers.get('host')) || cleanHost(url.host) || url.host;
+  const forwardedProto = cleanHeader(req.headers.get('x-forwarded-proto')).toLowerCase();
+  const protocol = forwardedProto === 'http' || forwardedProto === 'https'
+    ? forwardedProto
+    : url.protocol === 'http:' ? 'http' : 'https';
+  return `${protocol}://${host}`;
 }
 
 function generateClaudeCodeWindows(p: {

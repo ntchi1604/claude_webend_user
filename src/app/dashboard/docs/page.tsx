@@ -20,8 +20,7 @@ type Os = 'windows' | 'mac';
 type AllowedModel = { id: string; name: string; provider: string };
 type ModelOption = { label: string; value: string };
 
-const BASE_URL = 'https://tcauto.id.vn';
-const SETUP_BASE = `${BASE_URL}/api/v1/setup`;
+const SETUP_PATH = '/api/v1/setup';
 
 const TOOL_OPTIONS: {
   id: ActiveTool;
@@ -127,6 +126,11 @@ export default function DocsPage() {
   const [copiedUninstall, setCopiedUninstall] = useState(false);
   const [allowedModels, setAllowedModels] = useState<AllowedModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [baseUrl, setBaseUrl] = useState('');
+
+  useEffect(() => {
+    setBaseUrl(window.location.origin);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,12 +204,17 @@ export default function DocsPage() {
     return query;
   }, [apiKey, haiku, large, medium, opus, os, small, sonnet, tool]);
 
-  const setupUrl = `${SETUP_BASE}/${tool}?${params.toString()}`;
-  const uninstallUrl = `${SETUP_BASE}/${tool}/uninstall?os=${os}`;
-  const setupCmd = canCreateSetup
+  const setupUrl = baseUrl ? `${baseUrl}${SETUP_PATH}/${tool}?${params.toString()}` : '';
+  const uninstallUrl = baseUrl ? `${baseUrl}${SETUP_PATH}/${tool}/uninstall?os=${os}` : '';
+  const canCopySetup = canCreateSetup && Boolean(baseUrl);
+  const setupCmd = canCopySetup
     ? os === 'windows' ? `irm "${setupUrl}" | iex` : `curl -fsSL "${setupUrl}" | bash`
-    : 'Gói hiện tại chưa có model phù hợp để tạo lệnh cài đặt.';
-  const uninstallCmd = os === 'windows' ? `irm "${uninstallUrl}" | iex` : `curl -fsSL "${uninstallUrl}" | bash`;
+    : canCreateSetup
+      ? 'Đang nhận diện domain hiện tại...'
+      : 'Gói hiện tại chưa có model phù hợp để tạo lệnh cài đặt.';
+  const uninstallCmd = baseUrl
+    ? os === 'windows' ? `irm "${uninstallUrl}" | iex` : `curl -fsSL "${uninstallUrl}" | bash`
+    : 'Đang nhận diện domain hiện tại...';
 
   const copy = useCallback(async (text: string, setter: (value: boolean) => void) => {
     await navigator.clipboard.writeText(text);
@@ -261,7 +270,7 @@ export default function DocsPage() {
               <h2 className="mt-1 text-[20px] font-semibold leading-7 text-[var(--charcoal-900)]">{activeTool.label}</h2>
             </div>
             <span className="rounded-md bg-[var(--cream-50)] px-3 py-1.5 text-[12px] font-medium text-[var(--stone-600)]">
-              Địa chỉ API: {BASE_URL}
+              Địa chỉ API: {baseUrl || 'Đang nhận diện...'}
             </span>
           </div>
 
@@ -329,7 +338,7 @@ export default function DocsPage() {
                   copied={copiedSetup}
                   onCopy={() => copy(setupCmd, setCopiedSetup)}
                   tone="setup"
-                  disabled={!canCreateSetup}
+                  disabled={!canCopySetup}
                 />
 
                 <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
@@ -355,6 +364,7 @@ export default function DocsPage() {
                       onCopy={() => copy(uninstallCmd, setCopiedUninstall)}
                       tone="uninstall"
                       compact
+                      disabled={!baseUrl}
                     />
                   </div>
                 </details>
@@ -367,7 +377,7 @@ export default function DocsPage() {
                   copied={copiedSetup}
                   onCopy={() => copy(setupCmd, setCopiedSetup)}
                   tone="setup"
-                  disabled={!canCreateSetup}
+                  disabled={!canCopySetup}
                 />
 
                 <div className="rounded-lg border border-[var(--lavender-100)] bg-[var(--cream-50)] p-4">
@@ -392,6 +402,7 @@ export default function DocsPage() {
                       onCopy={() => copy(uninstallCmd, setCopiedUninstall)}
                       tone="uninstall"
                       compact
+                      disabled={!baseUrl}
                     />
                   </div>
                 </details>
@@ -399,7 +410,7 @@ export default function DocsPage() {
             )}
 
             <p className="text-[11px] leading-5 text-[var(--stone-600)]">
-              Lệnh sẽ dùng khóa <span className="font-mono">{maskedKey(apiKey)}</span> và địa chỉ API <span className="font-mono">{BASE_URL}</span>.
+              Lệnh sẽ dùng khóa <span className="font-mono">{maskedKey(apiKey)}</span> và địa chỉ API <span className="font-mono">{baseUrl || 'đang nhận diện'}</span>.
             </p>
           </div>
         </section>
