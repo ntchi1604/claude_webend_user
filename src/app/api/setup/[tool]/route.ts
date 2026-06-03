@@ -13,7 +13,7 @@ export async function GET(
   const url = new URL(req.url);
   const key = clean(url.searchParams.get('key'), 'YOUR_API_KEY');
   const os = url.searchParams.get('os') || 'windows';
-  const baseUrl = 'https://lccaptcha.io.vn';
+  const baseUrl = 'https://tcauto.id.vn';
   const claudeBaseUrl = baseUrl;
   const codexBaseUrl = `${baseUrl}/v1`;
   const keyShort = key.slice(0, 8) + '...';

@@ -20,7 +20,7 @@ type Os = 'windows' | 'mac';
 type AllowedModel = { id: string; name: string; provider: string };
 type ModelOption = { label: string; value: string };
 
-const BASE_URL = 'https://lccaptcha.io.vn';
+const BASE_URL = 'https://tcauto.id.vn';
 const SETUP_BASE = `${BASE_URL}/api/v1/setup`;
 
 const TOOL_OPTIONS: {
