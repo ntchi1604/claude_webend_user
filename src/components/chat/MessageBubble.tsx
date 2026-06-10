@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Copy, Check, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
+import { stringifyChatContent } from '@/lib/chat-content';
 
 interface Props {
   role: 'user' | 'assistant';
@@ -21,12 +22,13 @@ function parseBlocks(content: string | any[]) {
   const textParts: string[] = [];
 
   for (const b of content) {
-    if (b.type !== 'text') continue;
-    const match = b.text.match(FILE_REGEX);
+    if (b.type !== 'text' && b.type !== 'input_text' && b.type !== 'output_text') continue;
+    const blockText = stringifyChatContent(b);
+    const match = blockText.match(FILE_REGEX);
     if (match) {
       files.push({ name: match[1], content: match[2] });
     } else {
-      textParts.push(b.text);
+      textParts.push(blockText);
     }
   }
 

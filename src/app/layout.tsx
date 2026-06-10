@@ -4,8 +4,8 @@ import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
-  title: 'Api4Cheap - Cổng cho Claude Code và Codex CLI',
-  description: 'Cổng Api4Cheap cho Claude Code và Codex CLI với base URL https://lccaptcha.io.vn.',
+  title: 'Api4Cheap - Cá»•ng cho Claude Code vÃ  Codex CLI',
+  description: 'Cá»•ng Api4Cheap cho Claude Code vÃ  Codex CLI vá»›i base URL tá»± nháº­n diá»‡n theo domain hiá»‡n táº¡i.',
   icons: {
     icon: [{ url: '/api4cheap-logo.svg', type: 'image/svg+xml' }],
     shortcut: ['/api4cheap-logo.svg'],

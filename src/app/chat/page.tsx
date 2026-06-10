@@ -6,6 +6,7 @@ import ChatArea, { type ChatMsg } from '@/components/chat/ChatArea';
 import ChatInput from '@/components/chat/ChatInput';
 import ModelSelector from '@/components/chat/ModelSelector';
 import { type Attachment } from '@/components/chat/AttachmentPreview';
+import { parseStoredChatContent } from '@/lib/chat-content';
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -58,9 +59,7 @@ export default function ChatPage() {
       const data = await r.json();
       setActiveConvId(id);
       const msgs: ChatMsg[] = data.messages.map((m: any) => {
-        let content: string | any[];
-        try { content = JSON.parse(m.content); } catch { content = m.content; }
-        return { role: m.role, content };
+        return { role: m.role, content: parseStoredChatContent(m.content) };
       });
       setMessages(msgs);
       if (data.model) {

@@ -43,9 +43,11 @@ function uninstallClaudeCodeWindows() {
     `[System.Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", $null, "User")`,
     `[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", $null, "User")`,
     `[System.Environment]::SetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN", $null, "User")`,
+    `[System.Environment]::SetEnvironmentVariable("ANTHROPIC_DISABLE_INTERLEAVED_STREAMING", $null, "User")`,
     `$env:ANTHROPIC_BASE_URL = $null`,
     `$env:ANTHROPIC_API_KEY = $null`,
     `$env:ANTHROPIC_AUTH_TOKEN = $null`,
+    `$env:ANTHROPIC_DISABLE_INTERLEAVED_STREAMING = $null`,
     `Write-Host "  OK Đã xoá biến môi trường Claude Code" -ForegroundColor Green`,
     ``,
     `$claudeDir = Join-Path $env:USERPROFILE ".claude"`,
@@ -81,13 +83,14 @@ elif [ -f "$HOME/.profile" ]; then PROFILE="$HOME/.profile"
 fi
 
 if [ -n "$PROFILE" ]; then
-  sed -i.bak '/ANTHROPIC_BASE_URL/d; /ANTHROPIC_API_KEY/d; /ANTHROPIC_AUTH_TOKEN/d; /# Api4Cheap/d' "$PROFILE"
+  sed -i.bak '/ANTHROPIC_BASE_URL/d; /ANTHROPIC_API_KEY/d; /ANTHROPIC_AUTH_TOKEN/d; /ANTHROPIC_DISABLE_INTERLEAVED_STREAMING/d; /# Api4Cheap/d' "$PROFILE"
   echo "  OK Đã dọn $PROFILE"
 fi
 
 unset ANTHROPIC_BASE_URL
 unset ANTHROPIC_API_KEY
 unset ANTHROPIC_AUTH_TOKEN
+unset ANTHROPIC_DISABLE_INTERLEAVED_STREAMING
 
 CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"

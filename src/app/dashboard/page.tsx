@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { formatNumber } from '@/lib/utils';
 import { getActiveSubscriptionOrFree } from '@/lib/subscription';
 import { isUnlimitedTokens } from '@/lib/plans';
+import { getPublicOrigin } from '@/lib/public-url';
 import Link from 'next/link';
 import Countdown from '@/components/countdown';
 import { Activity, ArrowUpRight, Clock, KeyRound, MessageSquare, Package, ShieldCheck, Terminal } from 'lucide-react';
@@ -22,6 +23,8 @@ function formatRemainingTime(expiresAt: Date) {
 }
 
 export default async function DashboardPage() {
+  const publicOrigin = getPublicOrigin();
+  const codexBaseUrl = publicOrigin ? `${publicOrigin}/v1` : '/v1';
   const user = await requireUser();
   const sub = await getActiveSubscriptionOrFree(user.id);
 
@@ -128,11 +131,11 @@ export default async function DashboardPage() {
           <h2 className="heading-5">Kết nối gateway</h2>
         </div>
         <pre>{`# Claude Code
-Base URL: https://lccaptcha.io.vn
+Base URL: ${publicOrigin || '/'}
 API Key:  YOUR_API_KEY
 
 # Codex CLI
-Base URL: https://lccaptcha.io.vn/v1
+Base URL: ${codexBaseUrl}
 API Key:  YOUR_API_KEY`}</pre>
       </section>
     </div>

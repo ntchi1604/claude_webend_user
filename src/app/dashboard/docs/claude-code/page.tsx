@@ -1,72 +1,76 @@
 import { DocLayout, H2, P, Code, Inline, Callout, Ol, Li, Ul, Divider } from '@/components/doc-elements';
 import Link from 'next/link';
+import { getPublicOrigin } from '@/lib/public-url';
 
-export const metadata = { title: 'Claude Code — Api4Cheap' };
+export const metadata = { title: 'Claude Code â€” Api4Cheap' };
 
 export default function Page() {
+  const publicOrigin = getPublicOrigin() || 'https://your-domain';
+
   return (
     <DocLayout
-      title="Hướng dẫn cài đặt Claude Code"
-      description="Cài đặt Claude Code client và cấu hình endpoint Api4Cheap theo hướng dẫn cài đặt."
+      title="HÆ°á»›ng dáº«n cÃ i Ä‘áº·t Claude Code"
+      description="CÃ i Ä‘áº·t Claude Code client vÃ  cáº¥u hÃ¬nh endpoint Api4Cheap theo hÆ°á»›ng dáº«n cÃ i Ä‘áº·t."
     >
-      <H2>Tổng quan</H2>
+      <H2>Tá»•ng quan</H2>
       <P>
-        <strong>Claude Code</strong> là coding client chạy trong terminal. Cấu hình bên dưới dùng package
-        <Inline>@anthropic-ai/claude-code</Inline>, xác thực bằng API key và route qua
-        <Inline>https://lccaptcha.io.vn</Inline>.
+        <strong>Claude Code</strong> lÃ  coding client cháº¡y trong terminal. Cáº¥u hÃ¬nh bÃªn dÆ°á»›i dÃ¹ng package
+        <Inline>@anthropic-ai/claude-code</Inline>, xÃ¡c thá»±c báº±ng API key vÃ  route qua
+        <Inline>{publicOrigin}</Inline>.
       </P>
 
       <Callout kind="tip">
-        Trên Windows nên chạy Claude Code trong Git Bash để việc xử lý path và quoting ổn định hơn CMD/PowerShell.
+        TrÃªn Windows nÃªn cháº¡y Claude Code trong Git Bash Ä‘á»ƒ viá»‡c xá»­ lÃ½ path vÃ  quoting á»•n Ä‘á»‹nh hÆ¡n CMD/PowerShell.
       </Callout>
 
       <Divider />
 
-      <H2>Yêu cầu</H2>
+      <H2>YÃªu cáº§u</H2>
       <Ul>
-        <Li>Windows 10 trở lên, macOS hoặc Linux.</Li>
+        <Li>Windows 10 trá»Ÿ lÃªn, macOS hoáº·c Linux.</Li>
         <Li>Node.js <strong>18+</strong>.</Li>
-        <Li>API key từ Api4Cheap dashboard.</Li>
+        <Li>API key tá»« Api4Cheap dashboard.</Li>
       </Ul>
 
       <Divider />
 
-      <H2>Bước 1: Cài Git Bash và Node.js</H2>
-      <P>Windows nên cài Git for Windows với tùy chọn mặc định. Kiểm tra Node.js:</P>
+      <H2>BÆ°á»›c 1: CÃ i Git Bash vÃ  Node.js</H2>
+      <P>Windows nÃªn cÃ i Git for Windows vá»›i tÃ¹y chá»n máº·c Ä‘á»‹nh. Kiá»ƒm tra Node.js:</P>
       <Code lang="bash">{`node --version`}</Code>
-      <P>Nếu version nhỏ hơn 18.0.0, cài Node.js LTS rồi mở lại terminal.</P>
+      <P>Náº¿u version nhá» hÆ¡n 18.0.0, cÃ i Node.js LTS rá»“i má»Ÿ láº¡i terminal.</P>
 
       <Divider />
 
-      <H2>Bước 2: Cài Claude Code</H2>
+      <H2>BÆ°á»›c 2: CÃ i Claude Code</H2>
       <Code lang="bash">{`npm install -g @anthropic-ai/claude-code`}</Code>
-      <P>Sau khi cài, đóng và mở lại terminal để PATH nhận lệnh <Inline>claude</Inline>.</P>
+      <P>Sau khi cÃ i, Ä‘Ã³ng vÃ  má»Ÿ láº¡i terminal Ä‘á»ƒ PATH nháº­n lá»‡nh <Inline>claude</Inline>.</P>
 
       <Divider />
 
-      <H2>Bước 3: Lấy API key</H2>
-      <P>Mở trang API key trong dashboard Api4Cheap, tạo key mới và sao chép secret.</P>
-      <Callout kind="warn">API key chỉ nên lưu ở máy của bạn. Bất kỳ ai có key đều có thể dùng credit của bạn.</Callout>
+      <H2>BÆ°á»›c 3: Láº¥y API key</H2>
+      <P>Má»Ÿ trang API key trong dashboard Api4Cheap, táº¡o key má»›i vÃ  sao chÃ©p secret.</P>
+      <Callout kind="warn">API key chá»‰ nÃªn lÆ°u á»Ÿ mÃ¡y cá»§a báº¡n. Báº¥t ká»³ ai cÃ³ key Ä‘á»u cÃ³ thá»ƒ dÃ¹ng credit cá»§a báº¡n.</Callout>
 
       <Divider />
 
-      <H2>Bước 4: Cài đặt nhanh</H2>
+      <H2>BÆ°á»›c 4: CÃ i Ä‘áº·t nhanh</H2>
       <Ol>
-        <Li>Vào <Link className="link" href="/dashboard/docs">Cài đặt nhanh</Link>.</Li>
-        <Li>Chọn tab <strong>Claude Code</strong>.</Li>
-        <Li>Dán API key đầy đủ vào ô <strong>API key</strong>.</Li>
-        <Li>Chọn hệ điều hành.</Li>
-        <Li>Sao chép lệnh cài đặt và chạy trong PowerShell, Git Bash hoặc terminal.</Li>
+        <Li>VÃ o <Link className="link" href="/dashboard/docs">CÃ i Ä‘áº·t nhanh</Link>.</Li>
+        <Li>Chá»n tab <strong>Claude Code</strong>.</Li>
+        <Li>DÃ¡n API key Ä‘áº§y Ä‘á»§ vÃ o Ã´ <strong>API key</strong>.</Li>
+        <Li>Chá»n há»‡ Ä‘iá»u hÃ nh.</Li>
+        <Li>Sao chÃ©p lá»‡nh cÃ i Ä‘áº·t vÃ  cháº¡y trong PowerShell, Git Bash hoáº·c terminal.</Li>
       </Ol>
-      <P>Script sẽ tạo <Inline>~/.claude/settings.json</Inline> theo mẫu sau:</P>
+      <P>Script sáº½ táº¡o <Inline>~/.claude/settings.json</Inline> theo máº«u sau:</P>
       <Code lang="json">{`{
   "model": "opus",
   "env": {
     "ANTHROPIC_API_KEY": "YOUR_API_KEY",
-    "ANTHROPIC_BASE_URL": "https://lccaptcha.io.vn",
+    "ANTHROPIC_BASE_URL": "${publicOrigin}",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
+    "ANTHROPIC_DISABLE_INTERLEAVED_STREAMING": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
   "permissions": {
@@ -78,27 +82,27 @@ export default function Page() {
 
       <Divider />
 
-      <H2>Cấu hình thủ công</H2>
+      <H2>Cáº¥u hÃ¬nh thá»§ cÃ´ng</H2>
       <Ol>
-        <Li>Nếu <Inline>~/.claude</Inline> chưa tồn tại, chạy <Inline>claude</Inline> một lần để client tạo thư mục.</Li>
-        <Li>Tạo hoặc thay thế <Inline>~/.claude/settings.json</Inline> bằng JSON ở trên.</Li>
-        <Li>Thay <Inline>YOUR_API_KEY</Inline> bằng secret của bạn.</Li>
-        <Li>Khởi động lại terminal.</Li>
+        <Li>Náº¿u <Inline>~/.claude</Inline> chÆ°a tá»“n táº¡i, cháº¡y <Inline>claude</Inline> má»™t láº§n Ä‘á»ƒ client táº¡o thÆ° má»¥c.</Li>
+        <Li>Táº¡o hoáº·c thay tháº¿ <Inline>~/.claude/settings.json</Inline> báº±ng JSON á»Ÿ trÃªn.</Li>
+        <Li>Thay <Inline>YOUR_API_KEY</Inline> báº±ng secret cá»§a báº¡n.</Li>
+        <Li>Khá»Ÿi Ä‘á»™ng láº¡i terminal.</Li>
       </Ol>
 
       <Divider />
 
-      <H2>Khởi chạy và kiểm tra</H2>
+      <H2>Khá»Ÿi cháº¡y vÃ  kiá»ƒm tra</H2>
       <Code lang="bash">{`claude`}</Code>
-      <P>Trong Claude Code, có thể gõ <Inline>/status</Inline> để kiểm tra base URL và thông tin auth.</P>
+      <P>Trong Claude Code, cÃ³ thá»ƒ gÃµ <Inline>/status</Inline> Ä‘á»ƒ kiá»ƒm tra base URL vÃ  thÃ´ng tin auth.</P>
 
       <Divider />
 
-      <H2>FAQ ngắn</H2>
+      <H2>FAQ ngáº¯n</H2>
       <Ul>
-        <Li>Cập nhật: chạy lại <Inline>npm install -g @anthropic-ai/claude-code</Inline>.</Li>
-        <Li>Gỡ client: <Inline>npm uninstall -g @anthropic-ai/claude-code</Inline>.</Li>
-        <Li>Nếu npm lỗi mạng, thử registry mirror: <Inline>npm install -g @anthropic-ai/claude-code --registry https://registry.npmmirror.com</Inline>.</Li>
+        <Li>Cáº­p nháº­t: cháº¡y láº¡i <Inline>npm install -g @anthropic-ai/claude-code</Inline>.</Li>
+        <Li>Gá»¡ client: <Inline>npm uninstall -g @anthropic-ai/claude-code</Inline>.</Li>
+        <Li>Náº¿u npm lá»—i máº¡ng, thá»­ registry mirror: <Inline>npm install -g @anthropic-ai/claude-code --registry https://registry.npmmirror.com</Inline>.</Li>
       </Ul>
     </DocLayout>
   );

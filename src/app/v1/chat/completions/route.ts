@@ -7,6 +7,7 @@ import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyWithCookie, logUsage, estimateCompletion } from '@/lib/api-gateway';
+import { stringifyChatContent } from '@/lib/chat-content';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,6 +68,10 @@ function decodeSseText(text: string) {
     if (payload && payload !== '[DONE]') chunks.push(payload);
   }
   return chunks;
+}
+
+function flattenOpenAIContent(content: unknown): string {
+  return stringifyChatContent(content);
 }
 
 
@@ -222,9 +227,9 @@ export async function POST(req: NextRequest) {
     const usage = parsed?.usage ?? sseJsons.find((j) => j?.usage)?.usage;
     const pt = usage?.prompt_tokens ?? promptTokens;
     const ct = usage?.completion_tokens ?? estimateCompletion(parsed);
-    const contentText = typeof parsed?.choices?.[0]?.message?.content === 'string'
-      ? parsed.choices[0].message.content
-      : sseJsons.map((j) => j?.choices?.[0]?.delta?.content || '').join('');
+    const contentText = parsed?.choices?.[0]?.message?.content != null
+      ? flattenOpenAIContent(parsed.choices[0].message.content)
+      : sseJsons.map((j) => flattenOpenAIContent(j?.choices?.[0]?.delta?.content)).join('');
     const finalContent = contentText || (parsed && parsed.model ? JSON.stringify({ ...parsed, model: modelName }) : text);
     console.log(`[usage] non-stream model=${modelName} prompt=${pt} completion=${ct} total=${pt + ct} (upstream=${!!usage})`);
 
@@ -321,10 +326,13 @@ export async function POST(req: NextRequest) {
                   lastUsage = { ...(lastUsage || {}), completion_tokens: j.usage.output_tokens };
                 }
               } else {
-                const delta = j?.choices?.[0]?.delta?.content;
-                if (typeof delta === 'string') completionBuf += delta;
+                const deltaText = flattenOpenAIContent(j?.choices?.[0]?.delta?.content);
+                if (deltaText) completionBuf += deltaText;
                 if (j?.usage) lastUsage = j.usage;
                 if (j.model) j.model = modelName;
+                if (j?.choices?.[0]?.delta && j.choices[0].delta.content != null) {
+                  j.choices[0].delta.content = deltaText;
+                }
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(j)}\n\n`));
               }
             } catch {
@@ -344,8 +352,8 @@ export async function POST(req: NextRequest) {
                   if (j.type === 'content_block_delta' && j.delta?.text) completionBuf += j.delta.text;
                   if (j.type === 'message_delta' && j.usage?.output_tokens) lastUsage = { ...(lastUsage || {}), completion_tokens: j.usage.output_tokens };
                 } else {
-                  const delta = j?.choices?.[0]?.delta?.content;
-                  if (typeof delta === 'string') completionBuf += delta;
+                  const deltaText = flattenOpenAIContent(j?.choices?.[0]?.delta?.content);
+                  if (deltaText) completionBuf += deltaText;
                   if (j?.usage) lastUsage = j.usage;
                 }
               } catch {}

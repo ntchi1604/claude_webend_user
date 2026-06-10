@@ -151,6 +151,7 @@ $settingsContent = @'
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
         "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
         "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
+        "ANTHROPIC_DISABLE_INTERLEAVED_STREAMING": "1",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
     },
     "permissions": {
@@ -230,6 +231,7 @@ cat > "$SETTINGS" << 'SETTINGSEOF'
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": "${p.haiku}",
         "ANTHROPIC_DEFAULT_SONNET_MODEL": "${p.sonnet}",
         "ANTHROPIC_DEFAULT_OPUS_MODEL": "${p.opus}",
+        "ANTHROPIC_DISABLE_INTERLEAVED_STREAMING": "1",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
     },
     "permissions": {
