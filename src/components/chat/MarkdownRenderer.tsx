@@ -1,5 +1,5 @@
 'use client';
-import { Children } from 'react';
+import { Children, isValidElement, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -7,6 +7,13 @@ import CodeBlock from './CodeBlock';
 
 interface Props {
   content: string;
+}
+
+function extractText(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join('');
+  if (isValidElement(node)) return extractText(node.props.children);
+  return '';
 }
 
 export default function MarkdownRenderer({ content }: Props) {
@@ -18,7 +25,7 @@ export default function MarkdownRenderer({ content }: Props) {
         code({ className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || '');
           const codeStr = Children.toArray(children)
-            .map((child) => (typeof child === 'string' ? child : ''))
+            .map((child) => extractText(child))
             .join('')
             .replace(/\n$/, '');
           if (match) {
