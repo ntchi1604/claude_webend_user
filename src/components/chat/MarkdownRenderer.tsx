@@ -1,4 +1,5 @@
 'use client';
+import { Children } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -16,7 +17,10 @@ export default function MarkdownRenderer({ content }: Props) {
       components={{
         code({ className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || '');
-          const codeStr = String(children).replace(/\n$/, '');
+          const codeStr = Children.toArray(children)
+            .map((child) => (typeof child === 'string' ? child : ''))
+            .join('')
+            .replace(/\n$/, '');
           if (match) {
             return <CodeBlock code={codeStr} language={match[1]} />;
           }
