@@ -1,13 +1,22 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
 import { LogOut, Key, BarChart3, CreditCard, Package, BookOpen, MessageSquare, Settings } from 'lucide-react';
 import ThemeToggle from '@/components/theme-toggle';
 import MobileNav from '@/components/mobile-nav';
+import AnnouncementPopup from '@/components/dashboard/AnnouncementPopup';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const announcementSetting = await prisma.setting.findUnique({ where: { key: 'dashboard_announcement' } });
+  let announcement: { enabled?: boolean; title?: string; message?: string; ctaLabel?: string; version?: string } | null = null;
+  try {
+    announcement = announcementSetting ? JSON.parse(announcementSetting.value) : null;
+  } catch {
+    announcement = null;
+  }
 
   const nav = [
     { href: '/dashboard', label: 'Tổng quan', icon: BarChart3 },
@@ -22,6 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen flex bg-[var(--cream-100)]">
+      <AnnouncementPopup config={announcement} />
       <aside className="w-60 hidden md:flex flex-col border-r border-[var(--lavender-100)] bg-white dark:bg-[#1A1A19] p-4 gap-1 h-screen sticky top-0 overflow-y-auto">
         <Link href="/" className="flex items-center gap-2 px-2 py-3 mb-2">
           <img src="/api4cheap-logo.svg" alt="Api4Cheap" className="h-7 w-7 rounded-md" />

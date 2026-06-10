@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 
-const ALLOWED_KEYS = ['bank_info'];
+const ALLOWED_KEYS = ['bank_info', 'dashboard_announcement'];
 
 export async function GET() {
   try {
