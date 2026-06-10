@@ -65,3 +65,8 @@ export function buildLanguageInstruction(messages: Array<{ role?: string; conten
     instruction: 'Respond in the same language as the user\'s latest message. Do not switch to Chinese unless the user explicitly requests Chinese.'
   };
 }
+
+export function sanitizeChineseOutput(text: string, allowChinese: boolean): string {
+  if (allowChinese || !text) return text;
+  return text.replace(CHINESE_SCRIPT_RE, '');
+}

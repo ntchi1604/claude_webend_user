@@ -7,20 +7,11 @@ import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyWithCookie, logUsage } from '@/lib/api-gateway';
-import { buildLanguageInstruction } from '@/lib/language';
+import { buildLanguageInstruction, sanitizeChineseOutput } from '@/lib/language';
+import { buildGatewayIdentity } from '@/lib/identity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function getProvider(model: string): string {
-  if (model.includes('claude')) return 'Anthropic';
-  if (model.includes('gpt') || model.includes('o1') || model.includes('o3') || model.includes('o4')) return 'OpenAI';
-  if (model.includes('gemini')) return 'Google';
-  if (model.includes('deepseek')) return 'DeepSeek';
-  if (model.includes('llama') || model.includes('meta')) return 'Meta';
-  if (model.includes('mistral')) return 'Mistral';
-  return 'its creator';
-}
 
 function errJson(message: string, status = 400) {
   return new Response(JSON.stringify({ error: { message, type: 'invalid_request_error' } }), {
@@ -316,7 +307,7 @@ export async function POST(req: NextRequest) {
   const convertedTools = responsesToolsToChatTools(body.tools);
   const messages = inputToMessages(input, convertedTools.nameToChat);
   const languageRule = buildLanguageInstruction(messages);
-  const identity = `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product.\n\n${languageRule.instruction}\n\n${VERBOSE_SYSTEM_PROMPT}`;
+  const identity = `${buildGatewayIdentity(modelName, languageRule.instruction)}\n\n${VERBOSE_SYSTEM_PROMPT}`;
   const instructionText = typeof instructions === 'string' && instructions.trim()
     ? `${instructions}\n\n${identity}`
     : identity;
@@ -483,14 +474,15 @@ export async function POST(req: NextRequest) {
 
         function emitTextDelta(delta: string) {
           ensureTextItem();
-          if (!delta) return;
-          fullContent += delta;
+          const sanitizedDelta = sanitizeChineseOutput(delta, languageRule.allowChinese);
+          if (!sanitizedDelta) return;
+          fullContent += sanitizedDelta;
           send('response.output_text.delta', {
             type: 'response.output_text.delta',
             item_id: msgId,
             output_index: textOutputIndex,
             content_index: 0,
-            delta
+            delta: sanitizedDelta
           });
         }
 
@@ -771,7 +763,10 @@ export async function POST(req: NextRequest) {
 
   const message = parsed?.choices?.[0]?.message || {};
   const sseText = sseJsons.map((j) => j?.choices?.[0]?.delta?.content || j?.delta?.content || j?.output_text || '').join('');
-  const content = typeof message?.content === 'string' && message.content ? message.content : sseText;
+  const content = sanitizeChineseOutput(
+    typeof message?.content === 'string' && message.content ? message.content : sseText,
+    languageRule.allowChinese
+  );
   const upstreamUsage = parsed?.usage || sseJsons.find((j) => j?.usage)?.usage;
   const completionTokens = upstreamUsage?.completion_tokens || Math.max(countTokens(content), estimateToolCallTokens((message?.tool_calls || []).map((call: any) => ({
     name: call?.function?.name || call?.name || 'tool',

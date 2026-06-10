@@ -7,7 +7,8 @@ import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyHeaderOnly, logUsage, estimateCompletion } from '@/lib/api-gateway';
-import { buildLanguageInstruction } from '@/lib/language';
+import { buildLanguageInstruction, sanitizeChineseOutput } from '@/lib/language';
+import { buildGatewayIdentity } from '@/lib/identity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,7 +49,7 @@ function errOut(stream: boolean, message: string, type: string, status: number) 
 function msgsToOpenAIFormat(messages: any[], system?: any) {
   const out: any[] = [];
   const languageRule = buildLanguageInstruction(messages);
-  const sysParts: string[] = [languageRule.instruction, VERBOSE_SYSTEM_PROMPT];
+  const sysParts: string[] = [buildGatewayIdentity('the requested model', languageRule.instruction), VERBOSE_SYSTEM_PROMPT];
   if (system) {
     const sysContent = typeof system === 'string' ? system : Array.isArray(system) ? system.map((b: any) => b.text || '').join('\n') : '';
     if (sysContent) sysParts.push(sysContent);
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
 
   const isAnthropic = resolved.model.provider === 'anthropic';
   const languageRule = buildLanguageInstruction(messages);
+  const identity = buildGatewayIdentity(modelName, languageRule.instruction);
 
   let upstreamPath: string;
   let upstreamBody: any;
@@ -107,8 +109,8 @@ export async function POST(req: NextRequest) {
       stream,
       system: injectVerboseIntoAnthropicSystem(
         body.system
-          ? `${languageRule.instruction}\n\n${typeof body.system === 'string' ? body.system : JSON.stringify(body.system)}`
-          : languageRule.instruction
+          ? `${identity}\n\n${typeof body.system === 'string' ? body.system : JSON.stringify(body.system)}`
+          : identity
       ),
       max_tokens: ensureMaxTokens(body.max_tokens)
     };
@@ -178,7 +180,16 @@ export async function POST(req: NextRequest) {
     } else {
       pt = parsed?.usage?.prompt_tokens ?? promptTokens;
       ct = parsed?.usage?.completion_tokens ?? estimateCompletion(parsed);
-      const anthropic = openAIToAnthropic(parsed, modelName);
+      const anthropic = openAIToAnthropic({
+        ...parsed,
+        choices: [{
+          ...(parsed?.choices?.[0] || {}),
+          message: {
+            ...(parsed?.choices?.[0]?.message || {}),
+            content: sanitizeChineseOutput(parsed?.choices?.[0]?.message?.content ?? '', languageRule.allowChinese)
+          }
+        }]
+      }, modelName);
       await logUsage(key.id, key.userId, resolved.model.id, modelName, pt, ct, upstream.status, !upstream.ok ? text.slice(0, 500) : null);
       return new Response(JSON.stringify(anthropic), { status: upstream.status, headers: { 'content-type': 'application/json' } });
     }
@@ -191,9 +202,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (isAnthropic) {
-    return passthroughAnthropicStream(upstream, key, resolved, modelName, promptTokens);
+    return passthroughAnthropicStream(upstream, key, resolved, modelName, promptTokens, languageRule.allowChinese);
   } else {
-    return translateOpenAIToAnthropicStream(upstream, key, resolved, modelName, promptTokens);
+    return translateOpenAIToAnthropicStream(upstream, key, resolved, modelName, promptTokens, languageRule.allowChinese);
   }
 }
 
@@ -220,7 +231,7 @@ function openAIToAnthropic(parsed: any, model: string) {
 const STREAM_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 phút — reasoning models có thể nghĩ lâu trước khi output
 const STREAM_HEARTBEAT_MS = 15 * 1000;        // cứ 15s ping client để giữ kết nối
 
-function passthroughAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number) {
+function passthroughAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number, allowChinese: boolean) {
   const reader = upstream.body!.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -327,7 +338,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                     console.error(`[passthrough] upstream error event: ${j.error?.message}`);
                     ensureMessageStart();
                     ensureContentBlockStart();
-                    completionBuf += `[Error: ${j.error?.message || 'upstream error'}]`;
+                    completionBuf += sanitizeChineseOutput(`[Error: ${j.error?.message || 'upstream error'}]`, allowChinese);
                     emit(controller, 'content_block_delta', {
                       type: 'content_block_delta', index: 0,
                       delta: { type: 'text_delta', text: completionBuf }
@@ -361,8 +372,8 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                     if (!startedBlocks.has(idx)) {
                       ensureContentBlockStart();
                     }
-                    if (j.delta?.text) completionBuf += j.delta.text;
-                    if (j.delta?.thinking) completionBuf += j.delta.thinking;
+                    if (j.delta?.text) completionBuf += sanitizeChineseOutput(j.delta.text, allowChinese);
+                    if (j.delta?.thinking) completionBuf += sanitizeChineseOutput(j.delta.thinking, allowChinese);
                   }
 
                   if (j.type === 'message_delta') {
@@ -394,7 +405,9 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
             if (payload) {
               try {
                 const j = JSON.parse(payload);
-                if (j.type === 'content_block_delta' && j.delta?.text) completionBuf += j.delta.text;
+                if (j.type === 'content_block_delta' && j.delta?.text) {
+                  completionBuf += sanitizeChineseOutput(j.delta.text, allowChinese);
+                }
                 if (j.type === 'message_delta' && j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
                 if (j.type === 'message_stop') sawMessageStop = true;
               } catch {}
@@ -429,7 +442,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
   });
 }
 
-function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number) {
+function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number, allowChinese: boolean) {
   const reader = upstream.body!.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -486,10 +499,12 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
               const j = JSON.parse(payload);
               const delta = j?.choices?.[0]?.delta?.content;
               if (typeof delta === 'string' && delta.length > 0) {
-                completionBuf += delta;
+                const sanitizedDelta = sanitizeChineseOutput(delta, allowChinese);
+                if (!sanitizedDelta) continue;
+                completionBuf += sanitizedDelta;
                 controller.enqueue(sse('content_block_delta', {
                   type: 'content_block_delta', index: 0,
-                  delta: { type: 'text_delta', text: delta }
+                  delta: { type: 'text_delta', text: sanitizedDelta }
                 }));
               }
             } catch { }
@@ -504,7 +519,10 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
               try {
                 const j = JSON.parse(payload);
                 const delta = j?.choices?.[0]?.delta?.content;
-                if (typeof delta === 'string' && delta.length > 0) completionBuf += delta;
+                if (typeof delta === 'string' && delta.length > 0) {
+                  const sanitizedDelta = sanitizeChineseOutput(delta, allowChinese);
+                  if (sanitizedDelta) completionBuf += sanitizedDelta;
+                }
               } catch {}
             }
           }
