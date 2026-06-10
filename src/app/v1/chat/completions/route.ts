@@ -8,6 +8,7 @@ import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyWithCookie, logUsage, estimateCompletion } from '@/lib/api-gateway';
 import { stringifyChatContent } from '@/lib/chat-content';
+import { normalizeAnthropicMessageContent, normalizeOpenAIMessageContent } from '@/lib/chat-attachments';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -74,6 +75,20 @@ function flattenOpenAIContent(content: unknown): string {
   return stringifyChatContent(content);
 }
 
+function normalizeMessagesForOpenAI(messages: any[]) {
+  return messages.map((message) => ({
+    ...message,
+    content: normalizeOpenAIMessageContent(message.content)
+  }));
+}
+
+function normalizeMessagesForAnthropic(messages: any[]) {
+  return messages.map((message) => ({
+    ...message,
+    content: normalizeAnthropicMessageContent(message.content)
+  }));
+}
+
 
 export async function POST(req: NextRequest) {
   const key = await authKeyWithCookie(req);
@@ -115,7 +130,13 @@ export async function POST(req: NextRequest) {
     ...filteredMessages
   ];
 
-  const upstreamBody = { ...body, model: resolved.upstreamName, messages: finalMessages, stream: true, max_tokens: ensureMaxTokens(body.max_tokens) };
+  const upstreamBody = {
+    ...body,
+    model: resolved.upstreamName,
+    messages: normalizeMessagesForOpenAI(finalMessages),
+    stream: true,
+    max_tokens: ensureMaxTokens(body.max_tokens)
+  };
 
   const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
   const apiKey = resolved.candidates[0]?.apiKey || '';
@@ -135,7 +156,7 @@ export async function POST(req: NextRequest) {
     upstreamPath = '/v1/messages';
     const sysParts: string[] = [];
     const conv: any[] = [];
-    for (const m of finalMessages) {
+    for (const m of normalizeMessagesForAnthropic(finalMessages)) {
       if (m.role === 'system') sysParts.push(typeof m.content === 'string' ? m.content : JSON.stringify(m.content));
       else conv.push({ role: m.role, content: m.content });
     }
