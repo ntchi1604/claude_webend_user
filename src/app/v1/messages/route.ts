@@ -7,6 +7,7 @@ import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyHeaderOnly, logUsage, estimateCompletion } from '@/lib/api-gateway';
+import { buildLanguageInstruction } from '@/lib/language';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,8 @@ function errOut(stream: boolean, message: string, type: string, status: number) 
 
 function msgsToOpenAIFormat(messages: any[], system?: any) {
   const out: any[] = [];
-  const sysParts: string[] = [VERBOSE_SYSTEM_PROMPT];
+  const languageRule = buildLanguageInstruction(messages);
+  const sysParts: string[] = [languageRule.instruction, VERBOSE_SYSTEM_PROMPT];
   if (system) {
     const sysContent = typeof system === 'string' ? system : Array.isArray(system) ? system.map((b: any) => b.text || '').join('\n') : '';
     if (sysContent) sysParts.push(sysContent);
@@ -89,6 +91,7 @@ export async function POST(req: NextRequest) {
   if (!resolved) return errOut(stream, 'Model chưa được cấu hình', 'not_found_error', 404);
 
   const isAnthropic = resolved.model.provider === 'anthropic';
+  const languageRule = buildLanguageInstruction(messages);
 
   let upstreamPath: string;
   let upstreamBody: any;
@@ -102,7 +105,11 @@ export async function POST(req: NextRequest) {
       ...rest,
       model: resolved.upstreamName,
       stream,
-      system: injectVerboseIntoAnthropicSystem(body.system),
+      system: injectVerboseIntoAnthropicSystem(
+        body.system
+          ? `${languageRule.instruction}\n\n${typeof body.system === 'string' ? body.system : JSON.stringify(body.system)}`
+          : languageRule.instruction
+      ),
       max_tokens: ensureMaxTokens(body.max_tokens)
     };
     upstreamHeaders['anthropic-version'] = req.headers.get('anthropic-version') || '2023-06-01';

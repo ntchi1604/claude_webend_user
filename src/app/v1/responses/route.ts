@@ -7,6 +7,7 @@ import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyWithCookie, logUsage } from '@/lib/api-gateway';
+import { buildLanguageInstruction } from '@/lib/language';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -314,7 +315,8 @@ export async function POST(req: NextRequest) {
 
   const convertedTools = responsesToolsToChatTools(body.tools);
   const messages = inputToMessages(input, convertedTools.nameToChat);
-  const identity = `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product.\n\n${VERBOSE_SYSTEM_PROMPT}`;
+  const languageRule = buildLanguageInstruction(messages);
+  const identity = `You are ${modelName}, made by ${getProvider(modelName)}. You must always identify yourself as ${modelName} when asked. Never claim to be any other AI, assistant, or product.\n\n${languageRule.instruction}\n\n${VERBOSE_SYSTEM_PROMPT}`;
   const instructionText = typeof instructions === 'string' && instructions.trim()
     ? `${instructions}\n\n${identity}`
     : identity;
