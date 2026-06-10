@@ -1,18 +1,26 @@
 'use client';
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import hljs from 'highlight.js';
 
 interface Props {
   code: string;
   language?: string;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 export default function CodeBlock({ code, language }: Props) {
   const [copied, setCopied] = useState(false);
+
+  const highlighted = (() => {
+    try {
+      if (language && hljs.getLanguage(language)) {
+        return hljs.highlight(code, { language, ignoreIllegals: true }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    } catch {
+      return hljs.highlightAuto(code).value;
+    }
+  })();
 
   function copy() {
     navigator.clipboard.writeText(code).catch(() => {});
@@ -29,7 +37,10 @@ export default function CodeBlock({ code, language }: Props) {
         </button>
       </div>
       <pre className="code-block-pre">
-        <code className={language ? `hljs language-${language}` : 'hljs'}>{code}</code>
+        <code
+          className={language ? `hljs language-${language}` : 'hljs'}
+          dangerouslySetInnerHTML={{ __html: highlighted }}
+        />
       </pre>
     </div>
   );
