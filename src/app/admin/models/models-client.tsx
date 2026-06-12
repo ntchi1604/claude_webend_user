@@ -55,7 +55,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
           <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="input" placeholder="Upstream model" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
           <input className="input" placeholder="Endpoint ghi đè (tuỳ chọn)" value={draft.endpoint ?? ''} onChange={(e) => setDraft({ ...draft, endpoint: e.target.value || null })} />
-          <textarea className="input md:col-span-3 min-h-20" placeholder='Fallback endpoints JSON: [{"baseUrl":"https://fallback.example","apiKey":"optional"}]' value={draft.fallbackEndpoints} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: e.target.value })} />
+          <textarea className="input md:col-span-3 min-h-20" placeholder='["gpt-4o", "claude-sonnet-4-0"]' value={draft.fallbackEndpoints} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: e.target.value })} />
           <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
             <option value="openai">openai</option>
             <option value="anthropic">anthropic</option>

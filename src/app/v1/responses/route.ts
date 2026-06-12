@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
-import { resolveModelEndpoint } from '@/lib/router';
+import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -338,17 +338,11 @@ export async function POST(req: NextRequest) {
     upstreamBody.tool_choice = responsesToolChoiceToChat(body.tool_choice, convertedTools.nameToChat);
   }
 
-  const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
-  const apiKey = resolved.candidates[0]?.apiKey || '';
   const isAnthropicProvider = resolved.model.provider === 'anthropic';
-  const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
-  if (apiKey) {
-    if (isAnthropicProvider) {
-      upstreamHeaders['x-api-key'] = apiKey;
-      upstreamHeaders['anthropic-version'] = '2023-06-01';
-    }
-    upstreamHeaders.authorization = `Bearer ${apiKey}`;
-  }
+  const upstreamHeaders: Record<string, string> = {
+    'content-type': 'application/json',
+    ...(isAnthropicProvider ? { 'anthropic-version': '2023-06-01' } : {}),
+  };
 
   let upstreamPath = '/v1/chat/completions';
   let upstreamBodyFinal: any = upstreamBody;
@@ -377,16 +371,19 @@ export async function POST(req: NextRequest) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(baseUrl + upstreamPath, {
-      method: 'POST',
+    const result = await tryCandidates(resolved.candidates, upstreamPath, {
       headers: upstreamHeaders,
-      body: JSON.stringify(upstreamBody)
+      body: JSON.stringify(upstreamBody),
+      isAnthropic: isAnthropicProvider,
     });
-    console.log(`[responses] upstream status=${upstream.status} base=${baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
+    upstream = result.response;
+    const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');
+    console.log(`[responses] upstream status=${upstream.status} base=${usedBase} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
-    console.error('[responses] upstream fetch error:', e?.message);
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, e?.message).catch(() => {});
-    return errJson(`Lỗi upstream: ${sanitizeUpstreamError(e?.message || '', resolved.upstreamName, modelName)}`, 502);
+    const errMsg = e instanceof UpstreamError ? e.body : e?.message || 'Upstream không khả dụng';
+    console.error('[responses] upstream fetch error:', errMsg.slice(0, 200));
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, e instanceof UpstreamError ? e.status : 502, errMsg.slice(0, 500)).catch(() => {});
+    return errJson(`Lỗi upstream: ${sanitizeUpstreamError(errMsg, resolved.upstreamName, modelName)}`, e instanceof UpstreamError ? e.status : 502);
   }
 
   if (!upstream.ok) {

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
-import { resolveModelEndpoint } from '@/lib/router';
+import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -131,17 +131,11 @@ export async function POST(req: NextRequest) {
     max_tokens: ensureMaxTokens(body.max_tokens)
   };
 
-  const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
-  const apiKey = resolved.candidates[0]?.apiKey || '';
   const isAnthropicProvider = resolved.model.provider === 'anthropic';
-  const upstreamHeaders: Record<string, string> = { 'content-type': 'application/json' };
-  if (apiKey) {
-    if (isAnthropicProvider) {
-      upstreamHeaders['x-api-key'] = apiKey;
-      upstreamHeaders['anthropic-version'] = '2023-06-01';
-    }
-    upstreamHeaders.authorization = `Bearer ${apiKey}`;
-  }
+  const upstreamHeaders: Record<string, string> = {
+    'content-type': 'application/json',
+    ...(isAnthropicProvider ? { 'anthropic-version': '2023-06-01' } : {}),
+  };
 
   let upstreamPath = '/v1/chat/completions';
   let upstreamBodyFinal: any = upstreamBody;
@@ -164,25 +158,23 @@ export async function POST(req: NextRequest) {
     if (body.top_p != null) upstreamBodyFinal.top_p = body.top_p;
   }
 
-  const upstreamController = new AbortController();
-  const upstreamTimeout = setTimeout(() => upstreamController.abort(), 60_000);
-
   let upstream: Response;
   try {
-    upstream = await fetch(baseUrl + upstreamPath, {
-      method: 'POST',
+    const result = await tryCandidates(resolved.candidates, upstreamPath, {
       headers: upstreamHeaders,
       body: JSON.stringify(upstreamBodyFinal),
-      signal: upstreamController.signal
+      isAnthropic: isAnthropicProvider,
     });
-    clearTimeout(upstreamTimeout);
-    console.log(`[gateway] upstream status=${upstream.status} base=${baseUrl}${upstreamPath} model=${modelName} -> ${resolved.upstreamName}`);
+    upstream = result.response;
+    const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');
+    console.log(`[gateway] upstream status=${upstream.status} base=${usedBase}${upstreamPath} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
-    clearTimeout(upstreamTimeout);
     const isAbort = e?.name === 'AbortError';
-    console.error('[gateway] upstream error:', e?.message);
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, isAbort ? 504 : 502, isAbort ? 'upstream_timeout' : e?.message).catch(() => {});
-    return errOut(stream, isAbort ? 'Upstream timeout (60s)' : 'Upstream không khả dụng', isAbort ? 'api_error' : 'upstream_error', isAbort ? 504 : 502);
+    const code = isAbort ? 504 : e instanceof UpstreamError ? e.status : 502;
+    const errMsg = e instanceof UpstreamError ? e.body : (isAbort ? 'Upstream timeout (60s)' : e?.message || 'Upstream không khả dụng');
+    console.error('[gateway] upstream error:', errMsg.slice(0, 200));
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, code, errMsg.slice(0, 500)).catch(() => {});
+    return errOut(stream, isAbort ? 'Upstream timeout (60s)' : 'Upstream không khả dụng', isAbort ? 'api_error' : 'upstream_error', code);
   }
 
   prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => {});

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
-import { resolveModelEndpoint } from '@/lib/router';
+import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -127,31 +127,22 @@ export async function POST(req: NextRequest) {
     };
   }
 
-  const baseUrl = resolved.candidates[0]?.baseUrl?.replace(/\/$/, '') || '';
-  const apiKey = resolved.candidates[0]?.apiKey || '';
-  if (apiKey) {
-    if (isAnthropic) upstreamHeaders['x-api-key'] = apiKey;
-    upstreamHeaders.authorization = `Bearer ${apiKey}`;
-  }
-
-  const upstreamController = new AbortController();
-  const upstreamTimeout = setTimeout(() => upstreamController.abort(), 60_000);
-
   let upstream: Response;
   try {
-    upstream = await fetch(baseUrl + upstreamPath, {
-      method: 'POST',
+    const result = await tryCandidates(resolved.candidates, upstreamPath, {
       headers: upstreamHeaders,
       body: JSON.stringify(upstreamBody),
-      signal: upstreamController.signal,
+      isAnthropic,
     });
-    clearTimeout(upstreamTimeout);
-    console.log(`[messages] upstream status=${upstream.status} base=${baseUrl} model=${modelName} -> ${resolved.upstreamName}`);
+    upstream = result.response;
+    const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');
+    console.log(`[messages] upstream status=${upstream.status} base=${usedBase} model=${modelName} -> ${resolved.upstreamName}`);
   } catch (e: any) {
-    clearTimeout(upstreamTimeout);
     const isAbort = e?.name === 'AbortError';
-    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, isAbort ? 504 : 502, isAbort ? 'upstream_timeout' : e?.message).catch(() => {});
-    return errOut(stream, isAbort ? 'Upstream timeout (60s)' : 'Upstream không khả dụng', 'api_error', isAbort ? 504 : 502);
+    const code = isAbort ? 504 : e instanceof UpstreamError ? e.status : 502;
+    const errMsg = e instanceof UpstreamError ? e.body : (isAbort ? 'Upstream timeout (60s)' : e?.message || 'Upstream không khả dụng');
+    await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, code, errMsg.slice(0, 500)).catch(() => {});
+    return errOut(stream, sanitizeUpstreamError(errMsg, resolved.upstreamName, modelName) || 'Upstream không khả dụng', 'api_error', code);
   }
 
   prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => { });
