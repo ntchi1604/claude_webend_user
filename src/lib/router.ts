@@ -56,6 +56,10 @@ async function parseFallbacks(raw: string): Promise<EndpointCandidate[]> {
     if (refs.length === 0) return [];
 
     const models = await prisma.model.findMany({ where: { name: { in: refs } } });
+    const found = new Set(models.map((m) => m.name));
+    const missing = refs.filter((r) => !found.has(r));
+    if (missing.length > 0) console.warn(`[parseFallbacks] Model(s) not found in DB: ${missing.join(', ')}`);
+
     return models.map((m) => ({
       baseUrl: (m.endpoint && m.endpoint.trim()) || pickBase(m.provider || 'openai'),
       apiKey: pickKey(m.provider || 'openai')
@@ -76,8 +80,9 @@ export class UpstreamError extends Error {
 }
 
 /**
- * Try each candidate in order — first 2xx or <500 wins.
- * 5xx and network errors advance to the next candidate.
+ * Try each candidate in order.
+ * Detects errors via: HTTP status (non-2xx) OR embedded error in JSON body (HTTP 200 + {"error":...}).
+ * OneAPI/OneHub proxy often returns HTTP 200 with error inside body — we must check for that.
  * Auth headers (authorization, x-api-key) are set per-candidate.
  */
 export async function tryCandidates(
@@ -107,14 +112,34 @@ export async function tryCandidates(
       });
       clearTimeout(tid);
 
-      if (response.ok) {
-        return { response, candidate: c };
+      // Non-2xx → advance
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        last = new UpstreamError(text.slice(0, 500), response.status, text);
+        console.log(`[tryCandidates] ${baseUrl} → ${response.status}, next`);
+        continue;
       }
 
-      // Non-2xx — try next candidate
-      const text = await response.text().catch(() => '');
-      last = new UpstreamError(text.slice(0, 500), response.status, text);
-      console.log(`[tryCandidates] ${baseUrl} → ${response.status}, next`);
+      // HTTP 200 — peek JSON body for embedded error (OneAPI/OneHub pattern)
+      const ct = response.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const cloned = response.clone();
+        const peek = await cloned.text().catch(() => '');
+        try {
+          const json = JSON.parse(peek);
+          if (json?.error) {
+            const errMsg = typeof json.error === 'string'
+              ? json.error
+              : json.error?.message || JSON.stringify(json.error).slice(0, 200);
+            // Use 502 so route handlers return proper error status, not 200
+            last = new UpstreamError(errMsg.slice(0, 500), 502, peek);
+            console.log(`[tryCandidates] ${baseUrl} → 200+error: "${errMsg.slice(0, 100)}", next`);
+            continue;
+          }
+        } catch { /* not JSON — pass through */ }
+      }
+
+      return { response, candidate: c };
     } catch (e: any) {
       last = e;
       console.log(`[tryCandidates] ${baseUrl} error: ${e?.message}, next`);
