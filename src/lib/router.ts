@@ -107,11 +107,11 @@ export async function tryCandidates(
       });
       clearTimeout(tid);
 
-      if (response.ok || response.status < 500) {
+      if (response.ok) {
         return { response, candidate: c };
       }
 
-      // 5xx — try next candidate
+      // Non-2xx — try next candidate
       const text = await response.text().catch(() => '');
       last = new UpstreamError(text.slice(0, 500), response.status, text);
       console.log(`[tryCandidates] ${baseUrl} → ${response.status}, next`);
