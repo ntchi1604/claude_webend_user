@@ -28,7 +28,7 @@ export async function getRouterConfig(provider: string = 'openai') {
   return { base: pickBase(provider), key: pickKey(provider) };
 }
 
-export type EndpointCandidate = { baseUrl: string; apiKey: string };
+export type EndpointCandidate = { baseUrl: string; apiKey: string; upstreamName?: string };
 
 export type ResolvedModel = {
   model: { id: string; name: string; provider: string; enabled: boolean };
@@ -62,7 +62,8 @@ async function parseFallbacks(raw: string): Promise<EndpointCandidate[]> {
 
     return models.map((m) => ({
       baseUrl: (m.endpoint && m.endpoint.trim()) || pickBase(m.provider || 'openai'),
-      apiKey: pickKey(m.provider || 'openai')
+      apiKey: pickKey(m.provider || 'openai'),
+      upstreamName: m.upstreamName
     })).filter((c) => c.baseUrl);
   } catch {
     return [];
@@ -84,11 +85,12 @@ export class UpstreamError extends Error {
  * Detects errors via: HTTP status (non-2xx) OR embedded error in JSON body (HTTP 200 + {"error":...}).
  * OneAPI/OneHub proxy often returns HTTP 200 with error inside body — we must check for that.
  * Auth headers (authorization, x-api-key) are set per-candidate.
+ * If bodyBuilder provided, it's called per-candidate to allow per-candidate request body (e.g. different upstreamName).
  */
 export async function tryCandidates(
   candidates: EndpointCandidate[],
   path: string,
-  opts: { headers?: Record<string, string>; body?: string; timeout?: number; isAnthropic?: boolean }
+  opts: { headers?: Record<string, string>; body?: string; bodyBuilder?: (candidate: EndpointCandidate) => string; timeout?: number; isAnthropic?: boolean }
 ): Promise<{ response: Response; candidate: EndpointCandidate }> {
   let last: Error | null = null;
   for (const c of candidates) {
@@ -101,13 +103,15 @@ export async function tryCandidates(
       if (opts.isAnthropic) headers['x-api-key'] = c.apiKey;
     }
 
+    const body = opts.bodyBuilder ? opts.bodyBuilder(c) : opts.body;
+
     try {
       const controller = new AbortController();
       const tid = setTimeout(() => controller.abort(), opts.timeout ?? 60_000);
       const response = await fetch(baseUrl + path, {
         method: 'POST',
         headers,
-        body: opts.body,
+        body,
         signal: controller.signal,
       });
       clearTimeout(tid);
@@ -131,9 +135,15 @@ export async function tryCandidates(
             const errMsg = typeof json.error === 'string'
               ? json.error
               : json.error?.message || JSON.stringify(json.error).slice(0, 200);
-            // Use 502 so route handlers return proper error status, not 200
             last = new UpstreamError(errMsg.slice(0, 500), 502, peek);
             console.log(`[tryCandidates] ${baseUrl} → 200+error: "${errMsg.slice(0, 100)}", next`);
+            continue;
+          }
+          // Some proxies return {"code": 4xx/5xx, "message": "..."} without "error" key
+          if (json?.code && typeof json.code === 'number' && json.code >= 400) {
+            const errMsg = json.message || JSON.stringify(json).slice(0, 200);
+            last = new UpstreamError(errMsg.slice(0, 500), 502, peek);
+            console.log(`[tryCandidates] ${baseUrl} → 200+code=${json.code}: "${errMsg.slice(0, 100)}", next`);
             continue;
           }
         } catch { /* not JSON — pass through */ }
@@ -157,7 +167,8 @@ export async function resolveModelEndpoint(modelName: string): Promise<ResolvedM
   const envKey = pickKey(provider);
   const primary = {
     baseUrl: (model.endpoint && model.endpoint.trim()) || envBase,
-    apiKey: envKey
+    apiKey: envKey,
+    upstreamName: model.upstreamName
   };
   const fallbacks = await parseFallbacks(model.fallbackEndpoints ?? '[]');
 

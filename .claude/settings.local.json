@@ -17,7 +17,9 @@
       "Bash(npx ts-node -e ' *)",
       "Bash(sqlite3 \"c:\\\\Work\\\\claude_webend_user\\\\prisma\\\\prod.db\" \"SELECT name, endpoint, provider, fallbackEndpoints FROM Model;\")",
       "Bash(npx ts-node --skip-project -e ' *)",
-      "WebFetch(domain:tcauto.id.vn)"
+      "WebFetch(domain:tcauto.id.vn)",
+      "Bash(npx tsx -e ' *)",
+      "Bash(sqlite3 prisma/prod.db \"SELECT name, upstreamName, provider, endpoint, fallbackEndpoints FROM Model;\")"
     ]
   }
 }

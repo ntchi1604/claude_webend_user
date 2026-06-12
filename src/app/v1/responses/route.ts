@@ -369,16 +369,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Build request body per-candidate to inject correct upstreamName for fallback
+  const bodyBuilder = (candidate: { upstreamName?: string }) => {
+    const modelToUse = candidate.upstreamName || resolved.upstreamName;
+    const baseBody = isAnthropicProvider ? upstreamBodyFinal : upstreamBody;
+    const body = {
+      ...baseBody,
+      model: modelToUse
+    };
+    return JSON.stringify(body);
+  };
+
   let upstream: Response;
   try {
     const result = await tryCandidates(resolved.candidates, upstreamPath, {
       headers: upstreamHeaders,
-      body: JSON.stringify(upstreamBody),
+      bodyBuilder,
       isAnthropic: isAnthropicProvider,
     });
     upstream = result.response;
     const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');
-    console.log(`[responses] upstream status=${upstream.status} base=${usedBase} model=${modelName} -> ${resolved.upstreamName}`);
+    const usedUpstream = result.candidate.upstreamName || resolved.upstreamName;
+    console.log(`[responses] upstream status=${upstream.status} base=${usedBase} model=${modelName} -> ${usedUpstream}`);
   } catch (e: any) {
     const errMsg = e instanceof UpstreamError ? e.body : e?.message || 'Upstream không khả dụng';
     console.error('[responses] upstream fetch error:', errMsg.slice(0, 200));

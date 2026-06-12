@@ -158,16 +158,28 @@ export async function POST(req: NextRequest) {
     if (body.top_p != null) upstreamBodyFinal.top_p = body.top_p;
   }
 
+  // Build request body per-candidate to inject correct upstreamName for fallback
+  const bodyBuilder = (candidate: { upstreamName?: string }) => {
+    const modelToUse = candidate.upstreamName || resolved.upstreamName;
+    const baseBody = isAnthropicProvider ? upstreamBodyFinal : upstreamBody;
+    const body = {
+      ...baseBody,
+      model: modelToUse
+    };
+    return JSON.stringify(body);
+  };
+
   let upstream: Response;
   try {
     const result = await tryCandidates(resolved.candidates, upstreamPath, {
       headers: upstreamHeaders,
-      body: JSON.stringify(upstreamBodyFinal),
+      bodyBuilder,
       isAnthropic: isAnthropicProvider,
     });
     upstream = result.response;
     const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');
-    console.log(`[gateway] upstream status=${upstream.status} base=${usedBase}${upstreamPath} model=${modelName} -> ${resolved.upstreamName}`);
+    const usedUpstream = result.candidate.upstreamName || resolved.upstreamName;
+    console.log(`[gateway] upstream status=${upstream.status} base=${usedBase}${upstreamPath} model=${modelName} -> ${usedUpstream}`);
   } catch (e: any) {
     const isAbort = e?.name === 'AbortError';
     const code = isAbort ? 504 : e instanceof UpstreamError ? e.status : 502;
