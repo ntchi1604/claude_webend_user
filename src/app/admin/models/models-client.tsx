@@ -11,6 +11,17 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
   const [list, setList] = useState<M[]>(initial);
   const [draft, setDraft] = useState(empty);
 
+  /** Parse JSON fallbackEndpoints → hiển thị comma-separated */
+  function fbDisplay(raw: string): string {
+    try { const a = JSON.parse(raw); return Array.isArray(a) ? a.join(', ') : raw; }
+    catch { return raw; }
+  }
+  /** Comma-separated → JSON array */
+  function fbValue(text: string): string {
+    const names = text.split(',').map(s => s.trim()).filter(Boolean);
+    return names.length ? JSON.stringify(names) : '[]';
+  }
+
   async function add() {
     if (!draft.name || !draft.upstreamName) return toast.error('Thiếu name/upstreamName');
     const r = await fetch('/api/admin/models', {
@@ -54,8 +65,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
         <div className="grid md:grid-cols-3 gap-3">
           <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="input" placeholder="Upstream model" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
-          <input className="input" placeholder="Endpoint ghi đè (tuỳ chọn)" value={draft.endpoint ?? ''} onChange={(e) => setDraft({ ...draft, endpoint: e.target.value || null })} />
-          <textarea className="input md:col-span-3 min-h-20" placeholder='["gpt-4o", "claude-sonnet-4-0"]' value={draft.fallbackEndpoints} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: e.target.value })} />
+          <input className="input md:col-span-2" placeholder="Model fallback: gpt-4o, claude-sonnet-4-0" value={fbDisplay(draft.fallbackEndpoints)} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: fbValue(e.target.value) })} />
           <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
             <option value="openai">openai</option>
             <option value="anthropic">anthropic</option>
@@ -71,8 +81,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
             <tr>
               <th className="p-3">Tên</th>
               <th className="p-3">Upstream</th>
-              <th className="p-3">Endpoint</th>
-              <th className="p-3">Fallback endpoints</th>
+              <th className="p-3">Model fallback</th>
               <th className="p-3">Nhà cung cấp</th>
 
               <th className="p-3">Bật</th>
@@ -84,8 +93,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
               <tr key={m.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                 <td className="p-2"><input className="input" value={m.name} onChange={(e) => patch(i, { name: e.target.value })} /></td>
                 <td className="p-2"><input className="input" value={m.upstreamName} onChange={(e) => patch(i, { upstreamName: e.target.value })} /></td>
-                <td className="p-2"><input className="input" placeholder="(mặc định)" value={m.endpoint ?? ''} onChange={(e) => patch(i, { endpoint: e.target.value || null })} /></td>
-                <td className="p-2"><textarea className="input min-h-16 min-w-64" value={m.fallbackEndpoints} onChange={(e) => patch(i, { fallbackEndpoints: e.target.value })} /></td>
+                <td className="p-2"><input className="input" value={fbDisplay(m.fallbackEndpoints)} onChange={(e) => patch(i, { fallbackEndpoints: fbValue(e.target.value) })} placeholder="gpt-4o, claude-sonnet-4-0" /></td>
                 <td className="p-2">
                   <select className="input" value={m.provider} onChange={(e) => patch(i, { provider: e.target.value })}>
                     <option value="openai">openai</option>
