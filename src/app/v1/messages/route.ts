@@ -253,6 +253,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
       let timedOut = false;
       let sawMessageStart = false;
       let sawMessageStop = false;
+      let sawTerminalDelta = false;
       let sawError = false;
       // Track content blocks per index — prevents duplicate content_block_start
       // from corrupting the SDK's internal block map (causes "Content block not found")
@@ -306,11 +307,14 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           }
         }
         const ct = outputTokens || countTokens(completionBuf);
-        emit(controller, 'message_delta', {
-          type: 'message_delta',
-          delta: { stop_reason: stopReason, stop_sequence: null },
-          usage: { output_tokens: ct }
-        });
+        if (!sawTerminalDelta) {
+          emit(controller, 'message_delta', {
+            type: 'message_delta',
+            delta: { stop_reason: stopReason, stop_sequence: null },
+            usage: { output_tokens: ct }
+          });
+          sawTerminalDelta = true;
+        }
         emit(controller, 'message_stop', { type: 'message_stop' });
         sawMessageStop = true;
       }
@@ -323,11 +327,12 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           if (done || timedOut) break;
           resetIdle();
           buf += decoder.decode(value, { stream: true });
-          const parts = buf.split('\n\n');
+          const parts = buf.split(/\r?\n\r?\n/);
           buf = parts.pop() || '';
           for (const evt of parts) {
-            const eventLine = evt.split('\n').find((l) => l.startsWith('event:'));
-            const dataLine = evt.split('\n').find((l) => l.startsWith('data:'));
+            const eventLines = evt.split(/\r?\n/);
+            const eventLine = eventLines.find((l) => l.startsWith('event:'));
+            const dataLine = eventLines.find((l) => l.startsWith('data:'));
             if (dataLine) {
               const payload = dataLine.slice(5).trim();
               if (payload) {
@@ -379,7 +384,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                   }
 
                   if (j.type === 'message_delta') {
-                    if (j.delta?.stop_reason) sawMessageStop = true;
+                    if (j.delta?.stop_reason) sawTerminalDelta = true;
                     if (j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
                   }
                   if (j.type === 'message_stop') sawMessageStop = true;
@@ -401,7 +406,9 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
         }
         // Drain remaining buffer — last SSE event may still be in buf
         if (buf.trim() && !sawError && !sawMessageStop) {
-          const dataLine = buf.split('\n').find((l) => l.startsWith('data:'));
+          const remainingLines = buf.split(/\r?\n/);
+          const eventLine = remainingLines.find((l) => l.startsWith('event:'));
+          const dataLine = remainingLines.find((l) => l.startsWith('data:'));
           if (dataLine) {
             const payload = dataLine.slice(5).trim();
             if (payload) {
@@ -410,8 +417,13 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
                 if (j.type === 'content_block_delta' && j.delta?.text) {
                   completionBuf += sanitizeChineseOutput(j.delta.text, allowChinese);
                 }
-                if (j.type === 'message_delta' && j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
+                if (j.type === 'message_delta') {
+                  if (j.delta?.stop_reason) sawTerminalDelta = true;
+                  if (j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
+                }
                 if (j.type === 'message_stop') sawMessageStop = true;
+                const eventName = eventLine ? eventLine.slice(6).trim() : j.type;
+                controller.enqueue(encoder.encode(`event: ${eventName}\ndata: ${JSON.stringify(j)}\n\n`));
               } catch {}
             }
           }
@@ -490,10 +502,10 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
           if (done || timedOut) break;
           resetIdle();
           buf += decoder.decode(value, { stream: true });
-          const parts = buf.split('\n\n');
+          const parts = buf.split(/\r?\n\r?\n/);
           buf = parts.pop() || '';
           for (const evt of parts) {
-            const dataLine = evt.split('\n').find((l) => l.startsWith('data:'));
+            const dataLine = evt.split(/\r?\n/).find((l) => l.startsWith('data:'));
             if (!dataLine) continue;
             const payload = dataLine.slice(5).trim();
             if (!payload || payload === '[DONE]') continue;
@@ -514,7 +526,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         }
         // Drain remaining buffer
         if (buf.trim()) {
-          const dataLine = buf.split('\n').find((l) => l.startsWith('data:'));
+          const dataLine = buf.split(/\r?\n/).find((l) => l.startsWith('data:'));
           if (dataLine) {
             const payload = dataLine.slice(5).trim();
             if (payload && payload !== '[DONE]') {

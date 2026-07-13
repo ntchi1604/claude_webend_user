@@ -80,6 +80,19 @@ export class UpstreamError extends Error {
   }
 }
 
+export function buildUpstreamUrl(baseUrl: string, path: string) {
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const normalizedPath = `/${path.replace(/^\/+/, '')}`;
+
+  // Endpoint settings commonly include /v1 already, while gateway routes do too.
+  // Avoid forwarding requests to /v1/v1/messages or /v1/v1/chat/completions.
+  if (/\/v1$/i.test(normalizedBase) && /^\/v1(?:\/|$)/i.test(normalizedPath)) {
+    return normalizedBase + normalizedPath.slice(3);
+  }
+
+  return normalizedBase + normalizedPath;
+}
+
 /**
  * Try each candidate in order.
  * Detects errors via: HTTP status (non-2xx) OR embedded error in JSON body (HTTP 200 + {"error":...}).
@@ -108,7 +121,7 @@ export async function tryCandidates(
     try {
       const controller = new AbortController();
       const tid = setTimeout(() => controller.abort(), opts.timeout ?? 60_000);
-      const response = await fetch(baseUrl + path, {
+      const response = await fetch(buildUpstreamUrl(baseUrl, path), {
         method: 'POST',
         headers,
         body,
