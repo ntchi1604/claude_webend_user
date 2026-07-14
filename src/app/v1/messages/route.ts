@@ -46,21 +46,85 @@ function errOut(stream: boolean, message: string, type: string, status: number) 
 }
 
 
-function anthropicContentToText(content: any): string {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return content == null ? '' : JSON.stringify(content);
-  return content
-    .map((part: any) => {
-      if (typeof part === 'string') return part;
-      if (part?.type === 'text') return part.text || '';
-      if (part?.type === 'image') return '[Image omitted by upstream compatibility layer]';
-      return '';
-    })
-    .filter(Boolean)
+function anthropicImageToOpenAI(part: any) {
+  if (part?.type === 'image_url' && typeof part?.image_url?.url === 'string') {
+    return { type: 'image_url', image_url: { url: part.image_url.url } };
+  }
+  if (part?.type !== 'image' || !part.source) return null;
+
+  const source = part.source;
+  if (
+    source.type === 'base64' &&
+    typeof source.media_type === 'string' &&
+    source.media_type.startsWith('image/') &&
+    typeof source.data === 'string' &&
+    source.data.length > 0
+  ) {
+    return {
+      type: 'image_url',
+      image_url: { url: `data:${source.media_type};base64,${source.data}` }
+    };
+  }
+  if ((source.type === 'url' || typeof source.url === 'string') && typeof source.url === 'string') {
+    return { type: 'image_url', image_url: { url: source.url } };
+  }
+  return null;
+}
+
+function anthropicToolResultToOpenAI(content: any) {
+  const blocks = Array.isArray(content) ? content : [content];
+  const text: string[] = [];
+  const images: any[] = [];
+  for (const block of blocks) {
+    if (typeof block === 'string') {
+      if (block) text.push(block);
+      continue;
+    }
+    if (block?.type === 'text' && typeof block.text === 'string') {
+      if (block.text) text.push(block.text);
+      continue;
+    }
+    const image = anthropicImageToOpenAI(block);
+    if (image) images.push(image);
+  }
+  return { text: text.join('\n'), images };
+}
+
+function openAIMessageContent(parts: any[]) {
+  if (parts.some((part) => part?.type === 'image_url')) return parts;
+  return parts
+    .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+    .map((part) => part.text)
     .join('\n');
 }
 
-function msgsToOpenAIFormat(messages: any[], system?: any) {
+function buildToolAvailabilityInstruction(tools: any[] | undefined) {
+  if (!Array.isArray(tools)) return '';
+  const names = Array.from(new Set(
+    tools
+      .map((tool) => typeof tool?.name === 'string' ? tool.name.trim() : '')
+      .filter(Boolean)
+  ));
+  if (names.length === 0) {
+    return 'No callable tools are available in this request. Do not emit tool or function calls.';
+  }
+
+  const available = new Set(names);
+  const rules = [
+    `The callable tools for this request are exactly: ${names.join(', ')}.`,
+    'Only emit tool or function calls whose name appears in that list, even if earlier instructions mention other tools.',
+    'Apply this same restriction when acting as or delegating to an agent or sub-agent.'
+  ];
+  if (available.has('Bash') && !available.has('Glob')) {
+    rules.push('Glob is unavailable. Find files through Bash using find, rg --files, or an equivalent shell command.');
+  }
+  if (available.has('Bash') && !available.has('Grep')) {
+    rules.push('Grep is unavailable. Search file contents through Bash using rg or grep.');
+  }
+  return rules.join('\n');
+}
+
+function msgsToOpenAIFormat(messages: any[], system?: any, tools?: any[]) {
   const out: any[] = [];
   const languageRule = buildLanguageInstruction(messages);
   const sysParts: string[] = [buildGatewayIdentity('the requested model', languageRule.instruction), VERBOSE_SYSTEM_PROMPT];
@@ -68,22 +132,31 @@ function msgsToOpenAIFormat(messages: any[], system?: any) {
     const sysContent = typeof system === 'string' ? system : Array.isArray(system) ? system.map((b: any) => b.text || '').join('\n') : '';
     if (sysContent) sysParts.push(sysContent);
   }
+  const toolInstruction = buildToolAvailabilityInstruction(tools);
+  if (toolInstruction) sysParts.push(toolInstruction);
   out.push({ role: 'system', content: sysParts.join('\n\n') });
   for (const m of messages) {
     if (!Array.isArray(m.content)) {
-      out.push({ role: m.role, content: anthropicContentToText(m.content) });
+      const content = typeof m.content === 'string'
+        ? m.content
+        : m.content == null ? '' : JSON.stringify(m.content);
+      out.push({ role: m.role, content });
       continue;
     }
 
-    const textParts: string[] = [];
+    const contentParts: any[] = [];
     const toolCalls: any[] = [];
     const toolResults: any[] = [];
+    const toolResultContentParts: any[] = [];
 
     for (const part of m.content) {
-      if (part?.type === 'text') {
-        if (part.text) textParts.push(part.text);
-      } else if (part?.type === 'image') {
-        textParts.push('[Image omitted by upstream compatibility layer]');
+      if (typeof part === 'string') {
+        if (part) contentParts.push({ type: 'text', text: part });
+      } else if (part?.type === 'text') {
+        if (part.text) contentParts.push({ type: 'text', text: part.text });
+      } else if (part?.type === 'image' || part?.type === 'image_url') {
+        const image = anthropicImageToOpenAI(part);
+        contentParts.push(image || { type: 'text', text: '[Invalid or unsupported image]' });
       } else if (part?.type === 'tool_use') {
         toolCalls.push({
           id: part.id || `call_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`,
@@ -94,27 +167,35 @@ function msgsToOpenAIFormat(messages: any[], system?: any) {
           }
         });
       } else if (part?.type === 'tool_result') {
-        const resultText = anthropicContentToText(part.content);
+        const result = anthropicToolResultToOpenAI(part.content);
+        const resultText = result.text || (result.images.length > 0 ? '[Image returned by tool]' : '');
         toolResults.push({
           role: 'tool',
           tool_call_id: part.tool_use_id,
           content: part.is_error ? `[Tool error]\n${resultText}` : resultText
         });
+        if (result.images.length > 0) {
+          toolResultContentParts.push(
+            { type: 'text', text: `Image returned by tool call ${part.tool_use_id || 'unknown'}:` },
+            ...result.images
+          );
+        }
       }
     }
 
     if (m.role === 'assistant') {
       out.push({
         role: 'assistant',
-        content: textParts.join('\n') || null,
+        content: openAIMessageContent(contentParts) || null,
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {})
       });
       continue;
     }
 
+    contentParts.push(...toolResultContentParts);
     out.push(...toolResults);
-    if (textParts.length > 0 || toolResults.length === 0) {
-      out.push({ role: m.role, content: textParts.join('\n') });
+    if (contentParts.length > 0 || toolResults.length === 0) {
+      out.push({ role: m.role, content: openAIMessageContent(contentParts) });
     }
   }
   return out;
@@ -215,7 +296,7 @@ export async function POST(req: NextRequest) {
     const tools = anthropicToolsToOpenAI(body.tools);
     upstreamBody = {
       model: resolved.upstreamName,
-      messages: msgsToOpenAIFormat(messages, body.system),
+      messages: msgsToOpenAIFormat(messages, body.system, body.tools),
       max_tokens: ensureMaxTokens(body.max_tokens),
       temperature: body.temperature,
       top_p: body.top_p,

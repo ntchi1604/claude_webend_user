@@ -22,7 +22,7 @@ export function countMessagesTokens(messages: Array<{ role: string; content: any
     else if (Array.isArray(m.content)) {
       for (const part of m.content) {
         if (typeof part?.text === 'string') total += countTokens(part.text);
-        else if (part?.type === 'image_url') total += 256;
+        else if (part?.type === 'image_url' || part?.type === 'image') total += 256;
       }
     }
     total += 4; // role + separators overhead
