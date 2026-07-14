@@ -112,6 +112,12 @@ function copiedLabel(copied: boolean) {
   return copied ? 'Đã sao chép' : 'Sao chép';
 }
 
+function getBrowserPublicOrigin() {
+  const { hostname, host } = window.location;
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  return `${isLocal ? 'http' : 'https'}://${host}`;
+}
+
 export default function DocsPage() {
   const [tool, setTool] = useState<ActiveTool>('claude-code');
   const [os, setOs] = useState<Os>('windows');
@@ -129,7 +135,7 @@ export default function DocsPage() {
   const [baseUrl, setBaseUrl] = useState('');
 
   useEffect(() => {
-    setBaseUrl(window.location.origin);
+    setBaseUrl(getBrowserPublicOrigin());
   }, []);
 
   useEffect(() => {

@@ -15,13 +15,11 @@ export function getPublicOrigin() {
     cleanHost(headerStore.get('x-forwarded-host')) ||
     cleanHost(headerStore.get('host'));
 
-  const forwardedProto = cleanHeader(headerStore.get('x-forwarded-proto')).toLowerCase();
-  const protocol = forwardedProto === 'http' || forwardedProto === 'https'
-    ? forwardedProto
-    : host.startsWith('localhost') || host.startsWith('127.0.0.1')
-      ? 'http'
-      : 'https';
+  const hostname = host.startsWith('[')
+    ? host.slice(1, host.indexOf(']')).toLowerCase()
+    : host.split(':')[0].toLowerCase();
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  const protocol = isLocal ? 'http' : 'https';
 
   return host ? `${protocol}://${host}` : '';
 }
-

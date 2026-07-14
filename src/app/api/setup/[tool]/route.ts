@@ -79,10 +79,11 @@ function cleanHost(value: string | null) {
 
 function getRequestOrigin(req: NextRequest, url: URL) {
   const host = cleanHost(req.headers.get('x-forwarded-host')) || cleanHost(req.headers.get('host')) || cleanHost(url.host) || url.host;
-  const forwardedProto = cleanHeader(req.headers.get('x-forwarded-proto')).toLowerCase();
-  const protocol = forwardedProto === 'http' || forwardedProto === 'https'
-    ? forwardedProto
-    : url.protocol === 'http:' ? 'http' : 'https';
+  const hostname = host.startsWith('[')
+    ? host.slice(1, host.indexOf(']')).toLowerCase()
+    : host.split(':')[0].toLowerCase();
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  const protocol = isLocal ? 'http' : 'https';
   return `${protocol}://${host}`;
 }
 
