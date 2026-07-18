@@ -4,7 +4,7 @@ import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
-import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
+import { MIN_MAX_TOKENS, VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyHeaderOnly, logUsage, estimateCompletion } from '@/lib/api-gateway';
 import { buildLanguageInstruction, sanitizeChineseOutput } from '@/lib/language';
@@ -134,6 +134,10 @@ function msgsToOpenAIFormat(messages: any[], system?: any, tools?: any[]) {
   }
   const toolInstruction = buildToolAvailabilityInstruction(tools);
   if (toolInstruction) sysParts.push(toolInstruction);
+  sysParts.push(
+    'Always finish with non-empty user-visible assistant content unless you are making a tool call. ' +
+    'Never end a response with reasoning or analysis only.'
+  );
   out.push({ role: 'system', content: sysParts.join('\n\n') });
   for (const m of messages) {
     if (!Array.isArray(m.content)) {
@@ -237,6 +241,30 @@ function openAIStopReasonToAnthropic(finishReason: string | null | undefined, ha
   return 'end_turn';
 }
 
+function extractOpenAIText(value: any): string {
+  if (typeof value === 'string') return value;
+  if (!Array.isArray(value)) {
+    if (value && typeof value === 'object') {
+      if (typeof value.text === 'string') return value.text;
+      if (typeof value.output_text === 'string') return value.output_text;
+      if (value.content != null) return extractOpenAIText(value.content);
+    }
+    return '';
+  }
+  return value
+    .map((part) => extractOpenAIText(part))
+    .filter(Boolean)
+    .join('');
+}
+
+function firstOpenAIText(...values: any[]): string {
+  for (const value of values) {
+    const text = extractOpenAIText(value);
+    if (text) return text;
+  }
+  return '';
+}
+
 export async function POST(req: NextRequest) {
   const key = await authKeyHeaderOnly(req);
   if (!key) return errJson('API key không hợp lệ', 'authentication_error', 401);
@@ -297,7 +325,9 @@ export async function POST(req: NextRequest) {
     upstreamBody = {
       model: resolved.upstreamName,
       messages: msgsToOpenAIFormat(messages, body.system, body.tools),
-      max_tokens: ensureMaxTokens(body.max_tokens),
+      // Reasoning tokens count against this budget. A low caller value can otherwise
+      // be exhausted before the provider emits any user-visible content.
+      max_tokens: Math.max(ensureMaxTokens(body.max_tokens), MIN_MAX_TOKENS),
       temperature: body.temperature,
       top_p: body.top_p,
       stream,
@@ -370,13 +400,21 @@ export async function POST(req: NextRequest) {
     } else {
       pt = parsed?.usage?.prompt_tokens ?? promptTokens;
       ct = parsed?.usage?.completion_tokens ?? estimateCompletion(parsed);
+      const choice = parsed?.choices?.[0];
+      const message = choice?.message || {};
+      const visibleText = firstOpenAIText(message.content, choice?.text, parsed?.output_text);
+      const reasoningFallback = firstOpenAIText(
+        message.reasoning_content,
+        message.reasoning,
+        message.analysis
+      );
       const anthropic = openAIToAnthropic({
         ...parsed,
         choices: [{
-          ...(parsed?.choices?.[0] || {}),
+          ...(choice || {}),
           message: {
-            ...(parsed?.choices?.[0]?.message || {}),
-            content: sanitizeChineseOutput(parsed?.choices?.[0]?.message?.content ?? '', languageRule.allowChinese)
+            ...message,
+            content: sanitizeChineseOutput(visibleText || reasoningFallback, languageRule.allowChinese)
           }
         }]
       }, modelName);
@@ -401,8 +439,16 @@ export async function POST(req: NextRequest) {
 
 function openAIToAnthropic(parsed: any, model: string) {
   const choice = parsed?.choices?.[0];
-  const text = choice?.message?.content ?? '';
-  const toolCalls = Array.isArray(choice?.message?.tool_calls) ? choice.message.tool_calls : [];
+  const message = choice?.message || {};
+  const text = firstOpenAIText(
+    message.content,
+    choice?.text,
+    parsed?.output_text,
+    message.reasoning_content,
+    message.reasoning,
+    message.analysis
+  );
+  const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
   const content: any[] = [];
   if (text) content.push({ type: 'text', text });
   for (const call of toolCalls) {
@@ -443,6 +489,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let completionBuf = '';
+  let thinkingBuf = '';
   let inputTokens = promptTokens;
   let outputTokens = 0;
   let streamFailed = false;
@@ -522,9 +569,9 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
         if (sawMessageStop) return;
         ensureMessageStart();
         emitFallbackText(
-          stopReason === 'timeout'
+          timedOut
             ? 'Upstream response timed out. Please retry.'
-            : 'Upstream completed without a visible response. Please retry.'
+            : thinkingBuf.trim() || 'Upstream returned no final answer. Please retry.'
         );
         // Close any open content blocks
         for (const idx of startedBlocks) {
@@ -595,6 +642,10 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
             deltaType === 'thinking_delta' ||
             deltaType === 'signature_delta'
           ) {
+            if (deltaType === 'thinking_delta') {
+              const thinking = firstOpenAIText(j.delta?.thinking, j.delta?.text);
+              if (thinking) thinkingBuf += sanitizeChineseOutput(thinking, allowChinese);
+            }
             suppressedBlocks.add(upstreamIndex);
             return;
           }
@@ -626,12 +677,23 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
 
         if (j.type === 'message_delta') {
           if (j.delta?.stop_reason) {
-            emitFallbackText('Upstream completed without a visible response. Please retry.');
+            emitFallbackText(thinkingBuf.trim() || 'Upstream returned no final answer. Please retry.');
             sawTerminalDelta = true;
           }
           if (j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
         }
-        if (j.type === 'message_stop') sawMessageStop = true;
+        if (j.type === 'message_stop') {
+          emitFallbackText(thinkingBuf.trim() || 'Upstream returned no final answer. Please retry.');
+          if (!sawTerminalDelta) {
+            emit(controller, 'message_delta', {
+              type: 'message_delta',
+              delta: { stop_reason: 'end_turn', stop_sequence: null },
+              usage: { output_tokens: outputTokens || countTokens(completionBuf) }
+            });
+            sawTerminalDelta = true;
+          }
+          sawMessageStop = true;
+        }
 
         controller.enqueue(encoder.encode(`event: ${eventName}\ndata: ${JSON.stringify(j)}\n\n`));
       }
@@ -713,6 +775,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let completionBuf = '';
+  let reasoningBuf = '';
   const msgId = 'msg_' + Math.random().toString(36).slice(2, 12);
   let streamFailed = false;
 
@@ -807,8 +870,15 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
           if (choice.finish_reason) finishReason = choice.finish_reason;
 
           const delta = choice.delta || {};
-          if (typeof delta.content === 'string' && delta.content.length > 0) {
-            const sanitizedDelta = sanitizeChineseOutput(delta.content, allowChinese);
+          const visibleDelta = firstOpenAIText(
+            delta.content,
+            delta.text,
+            choice.text,
+            choice.message?.content,
+            chunk.output_text
+          );
+          if (visibleDelta) {
+            const sanitizedDelta = sanitizeChineseOutput(visibleDelta, allowChinese);
             if (sanitizedDelta) {
               const index = ensureTextBlock();
               completionBuf += sanitizedDelta;
@@ -818,6 +888,18 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
                 delta: { type: 'text_delta', text: sanitizedDelta }
               }));
             }
+          }
+
+          const reasoningDelta = firstOpenAIText(
+            delta.reasoning_content,
+            delta.reasoning,
+            delta.analysis,
+            choice.message?.reasoning_content,
+            choice.message?.reasoning,
+            choice.message?.analysis
+          );
+          if (reasoningDelta) {
+            reasoningBuf += sanitizeChineseOutput(reasoningDelta, allowChinese);
           }
 
           for (const toolCall of Array.isArray(delta.tool_calls) ? delta.tool_calls : []) {
@@ -891,7 +973,7 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         if (textBlockIndex == null && toolCalls.size === 0) {
           const fallback = timedOut
             ? 'Upstream response timed out. Please retry.'
-            : 'Upstream completed without a visible response. Please retry.';
+            : reasoningBuf.trim() || 'Upstream returned no final answer. Please retry.';
           const index = ensureTextBlock();
           completionBuf += fallback;
           controller.enqueue(sse('content_block_delta', {
