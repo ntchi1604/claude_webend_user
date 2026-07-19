@@ -243,10 +243,16 @@ function openAIStopReasonToAnthropic(finishReason: string | null | undefined, ha
 
 function extractOpenAIText(value: any): string {
   if (typeof value === 'string') return value;
+  if (value == null) return '';
   if (!Array.isArray(value)) {
     if (value && typeof value === 'object') {
-      if (typeof value.text === 'string') return value.text;
-      if (typeof value.output_text === 'string') return value.output_text;
+      // OpenAI content parts may use type/text, output_text, or nested content.
+      if (typeof value.text === 'string' && value.text) return value.text;
+      if (typeof value.output_text === 'string' && value.output_text) return value.output_text;
+      if (typeof value.thinking === 'string' && value.thinking) return value.thinking;
+      if (typeof value.reasoning === 'string' && value.reasoning) return value.reasoning;
+      if (typeof value.reasoning_content === 'string' && value.reasoning_content) return value.reasoning_content;
+      if (typeof value.analysis === 'string' && value.analysis) return value.analysis;
       if (value.content != null) return extractOpenAIText(value.content);
     }
     return '';
@@ -263,6 +269,40 @@ function firstOpenAIText(...values: any[]): string {
     if (text) return text;
   }
   return '';
+}
+
+function getOpenAIResponseParts(parsed: any) {
+  const choice = parsed?.choices?.[0] || {};
+  const message = choice.message || {};
+  return {
+    choice,
+    message,
+    visibleText: firstOpenAIText(
+      message.content,
+      choice.text,
+      choice.message?.content,
+      parsed?.output_text,
+      message.output_text,
+      choice.delta?.content
+    ),
+    reasoningText: firstOpenAIText(
+      message.reasoning_content,
+      message.reasoning,
+      message.analysis,
+      choice.delta?.reasoning_content,
+      choice.delta?.reasoning
+    ),
+    toolCalls: Array.isArray(message.tool_calls)
+      ? message.tool_calls
+      : Array.isArray(choice.delta?.tool_calls)
+        ? choice.delta.tool_calls
+        : []
+  };
+}
+
+function hasOpenAIVisibleOutput(parsed: any) {
+  const result = getOpenAIResponseParts(parsed);
+  return !!result.visibleText.trim() || !!result.reasoningText.trim() || result.toolCalls.length > 0;
 }
 
 export async function POST(req: NextRequest) {
@@ -345,12 +385,56 @@ export async function POST(req: NextRequest) {
     return JSON.stringify(body);
   };
 
+  const recoverEmptyOpenAIResponse = async () => {
+    if (isAnthropic) return null;
+    const recoveryInstruction =
+      'A previous attempt ended without a final answer. Keep internal reasoning brief and return non-empty ' +
+      'user-visible assistant content now, or make a valid tool call if a tool is required.';
+    const recoveryMessages = Array.isArray(upstreamBody.messages)
+      ? upstreamBody.messages.map((message: any, index: number) => {
+          if (index !== 0 || message?.role !== 'system') return message;
+          const content = typeof message.content === 'string' ? message.content : extractOpenAIText(message.content);
+          return { ...message, content: `${content}\n\n${recoveryInstruction}` };
+        })
+      : upstreamBody.messages;
+
+    for (const candidate of resolved.candidates) {
+      try {
+        const result = await tryCandidates([candidate], upstreamPath, {
+          headers: upstreamHeaders,
+          isAnthropic: false,
+          bodyBuilder: (retryCandidate) => JSON.stringify({
+            ...upstreamBody,
+            model: retryCandidate.upstreamName || resolved.upstreamName,
+            messages: recoveryMessages,
+            stream: false,
+            max_tokens: Math.max(upstreamBody.max_tokens || 0, MIN_MAX_TOKENS)
+          })
+        });
+        const raw = await result.response.text();
+        if (!raw.trim()) continue;
+        let parsed: any = null;
+        try { parsed = JSON.parse(raw); } catch { }
+        if (parsed && hasOpenAIVisibleOutput(parsed)) {
+          console.log(`[messages] recovered empty response with ${candidate.upstreamName || resolved.upstreamName}`);
+          return parsed;
+        }
+        console.warn(`[messages] recovery candidate returned no visible output: ${candidate.upstreamName || 'unknown'}`);
+      } catch (error: any) {
+        console.warn(`[messages] recovery candidate failed: ${candidate.upstreamName || 'unknown'} (${error?.message || 'error'})`);
+      }
+    }
+    return null;
+  };
+
   let upstream: Response;
   try {
     const result = await tryCandidates(resolved.candidates, upstreamPath, {
       headers: upstreamHeaders,
       bodyBuilder,
       isAnthropic,
+      // Reasoning models can sit silent before first byte; keep connect budget high.
+      timeout: 180_000,
     });
     upstream = result.response;
     const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');
@@ -380,6 +464,16 @@ export async function POST(req: NextRequest) {
       await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, text.slice(0, 500)).catch(() => {});
       return errJson(message, 'api_error', 502);
     }
+    if (!isAnthropic && !hasOpenAIVisibleOutput(parsed)) {
+      const recovered = await recoverEmptyOpenAIResponse();
+      if (recovered) {
+        parsed = recovered;
+      } else {
+        const message = 'All upstream models returned no final answer after recovery';
+        await logUsage(key.id, key.userId, resolved.model.id, modelName, promptTokens, 0, 502, message).catch(() => {});
+        return errJson(message, 'api_error', 502);
+      }
+    }
     let pt = promptTokens, ct = 0;
     if (isAnthropic) {
       pt = parsed?.usage?.input_tokens ?? promptTokens;
@@ -400,21 +494,14 @@ export async function POST(req: NextRequest) {
     } else {
       pt = parsed?.usage?.prompt_tokens ?? promptTokens;
       ct = parsed?.usage?.completion_tokens ?? estimateCompletion(parsed);
-      const choice = parsed?.choices?.[0];
-      const message = choice?.message || {};
-      const visibleText = firstOpenAIText(message.content, choice?.text, parsed?.output_text);
-      const reasoningFallback = firstOpenAIText(
-        message.reasoning_content,
-        message.reasoning,
-        message.analysis
-      );
+      const { choice, message, visibleText, reasoningText } = getOpenAIResponseParts(parsed);
       const anthropic = openAIToAnthropic({
         ...parsed,
         choices: [{
           ...(choice || {}),
           message: {
             ...message,
-            content: sanitizeChineseOutput(visibleText || reasoningFallback, languageRule.allowChinese)
+            content: sanitizeChineseOutput(visibleText || reasoningText, languageRule.allowChinese)
           }
         }]
       }, modelName);
@@ -432,7 +519,15 @@ export async function POST(req: NextRequest) {
   if (isAnthropic) {
     return passthroughAnthropicStream(upstream, key, resolved, modelName, promptTokens, languageRule.allowChinese);
   } else {
-    return translateOpenAIToAnthropicStream(upstream, key, resolved, modelName, promptTokens, languageRule.allowChinese);
+    return translateOpenAIToAnthropicStream(
+      upstream,
+      key,
+      resolved,
+      modelName,
+      promptTokens,
+      languageRule.allowChinese,
+      recoverEmptyOpenAIResponse
+    );
   }
 }
 
@@ -490,6 +585,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
   const encoder = new TextEncoder();
   let completionBuf = '';
   let thinkingBuf = '';
+  let hasVisibleText = false;
   let inputTokens = promptTokens;
   let outputTokens = 0;
   let streamFailed = false;
@@ -554,9 +650,25 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
       }
 
       function emitFallbackText(text: string) {
-        if (startedBlocks.size > 0) return;
+        // If any text already reached client, never inject fake retry noise.
+        if (hasVisibleText || completionBuf.trim()) return;
+        if (startedBlocks.size > 0) {
+          // Text block started but empty (e.g. all deltas stripped) ? fill first open text block.
+          for (const idx of startedBlocks) {
+            if (stoppedBlocks.has(idx)) continue;
+            completionBuf += text;
+            hasVisibleText = true;
+            emit(controller, 'content_block_delta', {
+              type: 'content_block_delta', index: idx,
+              delta: { type: 'text_delta', text }
+            });
+            return;
+          }
+          return;
+        }
         const index = startTextBlock();
         completionBuf += text;
+        hasVisibleText = true;
         emit(controller, 'content_block_delta', {
           type: 'content_block_delta', index,
           delta: { type: 'text_delta', text }
@@ -565,14 +677,17 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
         stoppedBlocks.add(index);
       }
 
+      function fallbackMessage() {
+        if (timedOut) return 'Upstream response timed out. Please retry.';
+        const thinking = thinkingBuf.trim();
+        if (thinking) return thinking;
+        return 'Upstream completed without a visible response. Please retry.';
+      }
+
       function finalizeStream(stopReason: string) {
         if (sawMessageStop) return;
         ensureMessageStart();
-        emitFallbackText(
-          timedOut
-            ? 'Upstream response timed out. Please retry.'
-            : thinkingBuf.trim() || 'Upstream returned no final answer. Please retry.'
-        );
+        emitFallbackText(fallbackMessage());
         // Close any open content blocks
         for (const idx of startedBlocks) {
           if (!stoppedBlocks.has(idx)) {
@@ -623,6 +738,8 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           const upstreamIndex = j.index ?? 0;
           const blockType = j.content_block?.type;
           if (blockType === 'thinking' || blockType === 'redacted_thinking') {
+            const seed = firstOpenAIText(j.content_block?.thinking, j.content_block?.text);
+            if (seed) thinkingBuf += sanitizeChineseOutput(seed, allowChinese);
             suppressedBlocks.add(upstreamIndex);
             return;
           }
@@ -663,6 +780,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
             if (!text) return;
             j.delta.text = text;
             completionBuf += text;
+            hasVisibleText = true;
           }
         }
 
@@ -677,13 +795,13 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
 
         if (j.type === 'message_delta') {
           if (j.delta?.stop_reason) {
-            emitFallbackText(thinkingBuf.trim() || 'Upstream returned no final answer. Please retry.');
+            emitFallbackText(fallbackMessage());
             sawTerminalDelta = true;
           }
           if (j.usage?.output_tokens) outputTokens = j.usage.output_tokens;
         }
         if (j.type === 'message_stop') {
-          emitFallbackText(thinkingBuf.trim() || 'Upstream returned no final answer. Please retry.');
+          emitFallbackText(fallbackMessage());
           if (!sawTerminalDelta) {
             emit(controller, 'message_delta', {
               type: 'message_delta',
@@ -770,7 +888,15 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
   });
 }
 
-function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved: any, modelName: string, promptTokens: number, allowChinese: boolean) {
+function translateOpenAIToAnthropicStream(
+  upstream: Response,
+  key: any,
+  resolved: any,
+  modelName: string,
+  promptTokens: number,
+  allowChinese: boolean,
+  recoverEmptyResponse?: () => Promise<any | null>
+) {
   const reader = upstream.body!.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -968,12 +1094,34 @@ function translateOpenAIToAnthropicStream(upstream: Response, key: any, resolved
         }
 
         if (idleTimer) clearTimeout(idleTimer);
+
+        if (textBlockIndex == null && toolCalls.size === 0 && !timedOut && recoverEmptyResponse) {
+          const recovered = await recoverEmptyResponse();
+          if (recovered) {
+            const result = getOpenAIResponseParts(recovered);
+            processChunk({
+              usage: recovered.usage,
+              choices: [{
+                finish_reason: result.choice?.finish_reason,
+                delta: {
+                  content: result.visibleText || result.reasoningText,
+                  tool_calls: result.toolCalls
+                }
+              }]
+            });
+          }
+        }
+
         if (heartbeatTimer) clearInterval(heartbeatTimer);
 
         if (textBlockIndex == null && toolCalls.size === 0) {
           const fallback = timedOut
             ? 'Upstream response timed out. Please retry.'
-            : reasoningBuf.trim() || 'Upstream returned no final answer. Please retry.';
+            : (reasoningBuf.trim() || 'Upstream completed without a visible response. Please retry.');
+          // Prefer soft fallback over hard error so Claude Code can retry cleanly.
+          if (!timedOut && !reasoningBuf.trim()) {
+            console.warn('[messages] empty OpenAI stream after recovery; emitting soft fallback');
+          }
           const index = ensureTextBlock();
           completionBuf += fallback;
           controller.enqueue(sse('content_block_delta', {

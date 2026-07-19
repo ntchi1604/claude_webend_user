@@ -68,5 +68,9 @@ export function buildLanguageInstruction(messages: Array<{ role?: string; conten
 
 export function sanitizeChineseOutput(text: string, allowChinese: boolean): string {
   if (allowChinese || !text) return text;
-  return text.replace(CHINESE_SCRIPT_RE, '');
+  // Fresh /g each call ? shared /g breaks .test() via lastIndex.
+  const cleaned = text.replace(/[㐀-䶿一-鿿豈-﫿]/g, '');
+  // Empty reply worse than Chinese. Keep original when strip wipes all content.
+  if (!cleaned.trim() && text.trim()) return text;
+  return cleaned;
 }
