@@ -32,7 +32,7 @@ model Plan {
   durationDays  Int            @default(30)
   durationHours Int?
   requestsPerMinute Int        @default(60)
-  priceVND      Int
+  priceVND      BigInt
   modelIds      String         @default("[]") // JSON array of model IDs
   enabled       Boolean        @default(true)
   createdAt     DateTime       @default(now())
@@ -108,7 +108,7 @@ model Payment {
   id          String        @id @default(cuid())
   userId      String
   planId      String
-  amountVND   Int
+  amountVND   BigInt
   status      String        @default("PENDING") // PENDING | APPROVED | REJECTED
   reference   String?
   note        String?

@@ -13,7 +13,7 @@ export default async function AdminPaymentsPage() {
         id: p.id,
         userEmail: p.user.email,
         planName: p.plan.name,
-        amountVND: p.amountVND,
+        amountVND: Number(p.amountVND),
         status: p.status as 'PENDING' | 'APPROVED' | 'REJECTED',
         reference: p.reference,
         note: p.note,

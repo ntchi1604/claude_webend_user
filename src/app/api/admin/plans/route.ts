@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
         enabled: b.enabled ?? true
       }
     });
-    return NextResponse.json({ ok: true, plan: { ...plan, tokenLimit: Number(plan.tokenLimit) } });
+    return NextResponse.json({
+      ok: true,
+      plan: { ...plan, tokenLimit: Number(plan.tokenLimit), priceVND: Number(plan.priceVND) }
+    });
   } catch (e: any) {
     if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatVND(n: number) {
+export function formatVND(n: number | bigint) {
   return new Intl.NumberFormat('vi-VN').format(n) + 'đ';
 }
 

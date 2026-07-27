@@ -23,7 +23,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (b.enabled !== undefined) data.enabled = b.enabled;
 
     const plan = await prisma.plan.update({ where: { id }, data });
-    return NextResponse.json({ ok: true, plan: { ...plan, tokenLimit: Number(plan.tokenLimit) } });
+    return NextResponse.json({
+      ok: true,
+      plan: { ...plan, tokenLimit: Number(plan.tokenLimit), priceVND: Number(plan.priceVND) }
+    });
   } catch (e: any) {
     if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
