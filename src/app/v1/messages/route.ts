@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
-import { resolveModelWithImageFallback } from '@/lib/image-fallback';
+import { prepareModelMessages } from '@/lib/image-fallback';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { MIN_MAX_TOKENS, VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -333,11 +333,18 @@ export async function POST(req: NextRequest) {
     return errOut(stream, msg, 'rate_limit_error', status);
   }
 
-  const resolved = await resolveModelWithImageFallback(modelName, messages);
+  let prepared;
+  try {
+    prepared = await prepareModelMessages(modelName, messages);
+  } catch (e: any) {
+    console.error('[image-fallback] preprocessing failed:', e?.cause?.message || e?.message);
+    return errOut(stream, e?.message || 'Không thể phân tích ảnh', 'api_error', 502);
+  }
+  const { resolved, messages: routedMessages } = prepared;
   if (!resolved) return errOut(stream, 'Model chưa được cấu hình', 'not_found_error', 404);
 
   const isAnthropic = usesAnthropicUpstream(resolved.model.provider, resolved.upstreamName);
-  const languageRule = buildLanguageInstruction(messages);
+  const languageRule = buildLanguageInstruction(routedMessages);
   const identity = buildGatewayIdentity(modelName, languageRule.instruction);
 
   let upstreamPath: string;
@@ -351,6 +358,7 @@ export async function POST(req: NextRequest) {
     upstreamBody = {
       ...rest,
       model: resolved.upstreamName,
+      messages: routedMessages,
       stream,
       system: injectVerboseIntoAnthropicSystem(
         body.system
@@ -365,7 +373,7 @@ export async function POST(req: NextRequest) {
     const tools = anthropicToolsToOpenAI(body.tools);
     upstreamBody = {
       model: resolved.upstreamName,
-      messages: msgsToOpenAIFormat(messages, body.system, body.tools),
+      messages: msgsToOpenAIFormat(routedMessages, body.system, body.tools),
       // Reasoning tokens count against this budget. A low caller value can otherwise
       // be exhausted before the provider emits any user-visible content.
       max_tokens: Math.max(ensureMaxTokens(body.max_tokens), MIN_MAX_TOKENS),

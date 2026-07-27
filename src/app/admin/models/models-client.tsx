@@ -18,8 +18,8 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
   }
   /** Comma-separated → JSON array */
   function fbValue(text: string): string {
-    const names = text.split(',').map(s => s.trim()).filter(Boolean);
-    return names.length ? JSON.stringify(names) : '[]';
+    const upstreamNames = text.split(',').map(s => s.trim()).filter(Boolean);
+    return upstreamNames.length ? JSON.stringify(upstreamNames) : '[]';
   }
 
   async function add() {
@@ -40,8 +40,9 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
       method: 'PATCH', headers: { 'content-type': 'application/json' },
       body: JSON.stringify(m)
     });
+    const d = await r.json().catch(() => null);
     if (r.ok) toast.success('Đã lưu');
-    else toast.error('Lỗi');
+    else toast.error(d?.error || 'Lỗi');
   }
 
   async function remove(id: string) {
@@ -56,17 +57,22 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
     setList(next);
   }
 
+  const upstreamOptions = Array.from(new Set(list.map((model) => model.upstreamName).filter(Boolean)));
+
   return (
     <div className="app-page animate-fade-in">
       <h1 className="text-3xl font-bold">Model</h1>
+      <datalist id="model-upstream-options">
+        {upstreamOptions.map((upstreamName) => <option key={upstreamName} value={upstreamName} />)}
+      </datalist>
 
       <div className="card p-5">
         <h2 className="font-semibold mb-3">Thêm model mới</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="input" placeholder="Upstream model" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
-          <input className="input" placeholder="Ảnh fallback: claude-sonnet-4-5" value={draft.imageFallbackModel || ''} onChange={(e) => setDraft({ ...draft, imageFallbackModel: e.target.value || null })} />
-          <input className="input md:col-span-2" placeholder="Model fallback: gpt-4o, claude-sonnet-4-0" value={fbDisplay(draft.fallbackEndpoints)} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: fbValue(e.target.value) })} />
+          <input className="input" list="model-upstream-options" placeholder="Fallback ảnh upstream: provider/vision-model" value={draft.imageFallbackModel || ''} onChange={(e) => setDraft({ ...draft, imageFallbackModel: e.target.value || null })} />
+          <input className="input md:col-span-2" placeholder="Fallback upstream: provider/model-a, provider/model-b" value={fbDisplay(draft.fallbackEndpoints)} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: fbValue(e.target.value) })} />
           <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
             <option value="openai">openai</option>
             <option value="anthropic">anthropic</option>
@@ -82,8 +88,8 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
             <tr>
               <th className="p-3">Tên</th>
               <th className="p-3">Upstream</th>
-              <th className="p-3">Fallback ảnh</th>
-              <th className="p-3">Fallback upstream</th>
+              <th className="p-3">Fallback ảnh (upstreamName)</th>
+              <th className="p-3">Fallback upstream (upstreamName)</th>
               <th className="p-3">Nhà cung cấp</th>
 
               <th className="p-3">Bật</th>
@@ -95,8 +101,8 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
               <tr key={m.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                 <td className="p-2"><input className="input" value={m.name} onChange={(e) => patch(i, { name: e.target.value })} /></td>
                 <td className="p-2"><input className="input" value={m.upstreamName} onChange={(e) => patch(i, { upstreamName: e.target.value })} /></td>
-                <td className="p-2"><input className="input" value={m.imageFallbackModel || ''} onChange={(e) => patch(i, { imageFallbackModel: e.target.value || null })} placeholder="claude-sonnet-4-5" /></td>
-                <td className="p-2"><input className="input" value={fbDisplay(m.fallbackEndpoints)} onChange={(e) => patch(i, { fallbackEndpoints: fbValue(e.target.value) })} placeholder="gpt-4o, claude-sonnet-4-0" /></td>
+                <td className="p-2"><input className="input" list="model-upstream-options" value={m.imageFallbackModel || ''} onChange={(e) => patch(i, { imageFallbackModel: e.target.value || null })} placeholder="provider/vision-model" /></td>
+                <td className="p-2"><input className="input" value={fbDisplay(m.fallbackEndpoints)} onChange={(e) => patch(i, { fallbackEndpoints: fbValue(e.target.value) })} placeholder="provider/model-a, provider/model-b" /></td>
                 <td className="p-2">
                   <select className="input" value={m.provider} onChange={(e) => patch(i, { provider: e.target.value })}>
                     <option value="openai">openai</option>

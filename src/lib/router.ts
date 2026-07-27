@@ -38,10 +38,7 @@ export type ResolvedModel = {
   apiKey: string;
 };
 
-/**
- * Parse fallbackEndpoints: array of model names để fallback upstream.
- * Accept: ["model-slug"] hoặc [{"modelName":"model-slug"}]
- */
+/** Parse fallbackEndpoints as an ordered array of Model.upstreamName values. */
 async function parseFallbacks(raw: string): Promise<EndpointCandidate[]> {
   try {
     const value = JSON.parse(raw);
@@ -51,20 +48,32 @@ async function parseFallbacks(raw: string): Promise<EndpointCandidate[]> {
     for (const item of value) {
       if (!item) continue;
       if (typeof item === 'string') { refs.push(item.trim()); continue; }
-      if (typeof item.modelName === 'string' && item.modelName.trim()) refs.push(item.modelName.trim());
+      if (typeof item.upstreamName === 'string' && item.upstreamName.trim()) refs.push(item.upstreamName.trim());
     }
     if (refs.length === 0) return [];
 
-    const models = await prisma.model.findMany({ where: { name: { in: refs } } });
-    const found = new Set(models.map((m) => m.name));
-    const missing = refs.filter((r) => !found.has(r));
-    if (missing.length > 0) console.warn(`[parseFallbacks] Model(s) not found in DB: ${missing.join(', ')}`);
+    const models = await prisma.model.findMany({
+      where: { upstreamName: { in: refs } },
+      orderBy: { createdAt: 'asc' }
+    });
+    const modelsByUpstream = new Map<string, (typeof models)[number]>();
+    for (const model of models) {
+      if (!modelsByUpstream.has(model.upstreamName)) modelsByUpstream.set(model.upstreamName, model);
+    }
 
-    return models.map((m) => ({
-      baseUrl: (m.endpoint && m.endpoint.trim()) || pickBase(m.provider || 'openai'),
-      apiKey: pickKey(m.provider || 'openai'),
-      upstreamName: m.upstreamName
-    })).filter((c) => c.baseUrl);
+    const found = new Set(modelsByUpstream.keys());
+    const missing = refs.filter((r) => !found.has(r));
+    if (missing.length > 0) console.warn(`[parseFallbacks] Upstream model(s) not found in DB: ${missing.join(', ')}`);
+
+    return refs
+      .map((ref) => modelsByUpstream.get(ref))
+      .filter((model): model is (typeof models)[number] => !!model)
+      .map((model) => ({
+        baseUrl: (model.endpoint && model.endpoint.trim()) || pickBase(model.provider || 'openai'),
+        apiKey: pickKey(model.provider || 'openai'),
+        upstreamName: model.upstreamName
+      }))
+      .filter((candidate) => candidate.baseUrl);
   } catch {
     return [];
   }
@@ -171,8 +180,9 @@ export async function tryCandidates(
   throw last || new Error('No candidates available');
 }
 
-export async function resolveModelEndpoint(modelName: string): Promise<ResolvedModel | null> {
-  const model = await prisma.model.findUnique({ where: { name: modelName } });
+type ModelRecord = NonNullable<Awaited<ReturnType<typeof prisma.model.findFirst>>>;
+
+async function resolveModelRecord(model: ModelRecord | null): Promise<ResolvedModel | null> {
   if (!model) return null;
 
   const provider = model.provider || 'openai';
@@ -192,4 +202,17 @@ export async function resolveModelEndpoint(modelName: string): Promise<ResolvedM
     baseUrl: primary.baseUrl,
     apiKey: primary.apiKey
   };
+}
+
+export async function resolveModelEndpoint(modelName: string): Promise<ResolvedModel | null> {
+  const model = await prisma.model.findUnique({ where: { name: modelName } });
+  return resolveModelRecord(model);
+}
+
+export async function resolveModelEndpointByUpstreamName(upstreamName: string): Promise<ResolvedModel | null> {
+  const model = await prisma.model.findFirst({
+    where: { upstreamName },
+    orderBy: { createdAt: 'asc' }
+  });
+  return resolveModelRecord(model);
 }

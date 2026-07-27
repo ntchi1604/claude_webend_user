@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
-import { resolveModelWithImageFallback } from '@/lib/image-fallback';
+import { prepareModelMessages } from '@/lib/image-fallback';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -111,10 +111,17 @@ export async function POST(req: NextRequest) {
 
   console.log(`[quota] OK user=${key.userId} model=${modelName} prompt=${promptTokens} used=${quota.used}/${quota.limit} remaining=${quota.remaining}`);
 
-  const resolved = await resolveModelWithImageFallback(modelName, messages);
+  let prepared;
+  try {
+    prepared = await prepareModelMessages(modelName, messages);
+  } catch (e: any) {
+    console.error('[image-fallback] preprocessing failed:', e?.cause?.message || e?.message);
+    return errOut(stream, e?.message || 'Không thể phân tích ảnh', 'upstream_error', 502);
+  }
+  const { resolved, messages: routedMessages } = prepared;
   if (!resolved) return errOut(stream, 'Model chưa được cấu hình', 'model_not_found', 404);
 
-  const filteredMessages = messages.filter((m: any) => m.role !== 'system');
+  const filteredMessages = routedMessages.filter((m: any) => m.role !== 'system');
   const languageRule = buildLanguageInstruction(filteredMessages);
   const identity = `${buildGatewayIdentity(modelName, languageRule.instruction)}\n\n${VERBOSE_SYSTEM_PROMPT}`;
   const finalMessages: any[] = [

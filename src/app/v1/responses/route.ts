@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
-import { resolveModelWithImageFallback } from '@/lib/image-fallback';
+import { prepareModelMessages } from '@/lib/image-fallback';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -316,17 +316,25 @@ export async function POST(req: NextRequest) {
     role: 'system',
     content: instructionText
   };
-  const finalMessages = [systemMsg, ...messages.filter((m: any) => m.role !== 'system')];
+  const quotaMessages = [systemMsg, ...messages.filter((m: any) => m.role !== 'system')];
 
-  const promptTokens = countResponsePromptTokens(finalMessages);
+  const promptTokens = countResponsePromptTokens(quotaMessages);
   const rl = checkRateLimit(key.userId, await getUserRequestsPerMinute(key.userId));
   if (!rl.ok) return errJson(`Vượt giới hạn tần suất (${rl.reason})`, 429);
 
   const quota = await checkQuota(key.userId, modelName, promptTokens);
   if (!quota.allowed) return errJson(quotaMessage(quota), 403);
 
-  const resolved = await resolveModelWithImageFallback(modelName, messages);
+  let prepared;
+  try {
+    prepared = await prepareModelMessages(modelName, messages);
+  } catch (e: any) {
+    console.error('[image-fallback] preprocessing failed:', e?.cause?.message || e?.message);
+    return errJson(e?.message || 'Không thể phân tích ảnh', 502);
+  }
+  const { resolved, messages: routedMessages } = prepared;
   if (!resolved) return errJson('Model chưa được cấu hình', 404);
+  const finalMessages = [systemMsg, ...routedMessages.filter((m: any) => m.role !== 'system')];
 
   const upstreamBody: any = { model: resolved.upstreamName, messages: finalMessages, stream };
   if (body.temperature != null) upstreamBody.temperature = body.temperature;

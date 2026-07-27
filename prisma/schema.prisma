@@ -75,12 +75,12 @@ model Model {
   name             String     @unique
   upstreamName     String
   endpoint         String?
-  fallbackEndpoints String    @default("[]") // JSON array of { baseUrl, apiKey? }
+  fallbackEndpoints String    @default("[]") // JSON array of Model.upstreamName values
   provider         String     @default("openai")
   inputPriceVND    Int        @default(0)
   outputPriceVND   Int        @default(0)
   enabled              Boolean    @default(true)
-  imageFallbackModel   String?   // model name để fallback khi detect ảnh trong messages
+  imageFallbackModel   String?   // Model.upstreamName used only to analyze images
   createdAt            DateTime   @default(now())
   usage                UsageLog[]
 }
