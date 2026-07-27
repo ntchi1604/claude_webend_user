@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
         upstreamName: b.upstreamName || b.name,
         endpoint: b.endpoint || null,
         fallbackEndpoints: normalizeFallbackEndpoints(b.fallbackEndpoints),
+        imageFallbackModel: b.imageFallbackModel || null,
         provider: b.provider || 'openai',
         inputPriceVND: +b.inputPriceVND || 0,
         outputPriceVND: +b.outputPriceVND || 0,

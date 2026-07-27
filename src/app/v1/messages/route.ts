@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
+import { resolveModelWithImageFallback } from '@/lib/image-fallback';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { MIN_MAX_TOKENS, VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -332,7 +333,7 @@ export async function POST(req: NextRequest) {
     return errOut(stream, msg, 'rate_limit_error', status);
   }
 
-  const resolved = await resolveModelEndpoint(modelName);
+  const resolved = await resolveModelWithImageFallback(modelName, messages);
   if (!resolved) return errOut(stream, 'Model chưa được cấu hình', 'not_found_error', 404);
 
   const isAnthropic = usesAnthropicUpstream(resolved.model.provider, resolved.upstreamName);

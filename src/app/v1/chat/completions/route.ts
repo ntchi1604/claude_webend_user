@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { checkQuota, quotaMessage } from '@/lib/quota';
 import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
+import { resolveModelWithImageFallback } from '@/lib/image-fallback';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
 import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
 
   console.log(`[quota] OK user=${key.userId} model=${modelName} prompt=${promptTokens} used=${quota.used}/${quota.limit} remaining=${quota.remaining}`);
 
-  const resolved = await resolveModelEndpoint(modelName);
+  const resolved = await resolveModelWithImageFallback(modelName, messages);
   if (!resolved) return errOut(stream, 'Model chưa được cấu hình', 'model_not_found', 404);
 
   const filteredMessages = messages.filter((m: any) => m.role !== 'system');

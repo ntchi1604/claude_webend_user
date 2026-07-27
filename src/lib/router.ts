@@ -31,7 +31,7 @@ export async function getRouterConfig(provider: string = 'openai') {
 export type EndpointCandidate = { baseUrl: string; apiKey: string; upstreamName?: string };
 
 export type ResolvedModel = {
-  model: { id: string; name: string; provider: string; enabled: boolean };
+  model: { id: string; name: string; provider: string; enabled: boolean; imageFallbackModel: string | null };
   upstreamName: string;
   candidates: EndpointCandidate[];
   baseUrl: string;

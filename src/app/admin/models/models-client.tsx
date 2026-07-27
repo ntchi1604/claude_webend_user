@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Plus, Save, Trash2, Power } from 'lucide-react';
 
-type M = { id: string; name: string; upstreamName: string; endpoint: string | null; fallbackEndpoints: string; provider: string; inputPriceVND: number; outputPriceVND: number; enabled: boolean };
+type M = { id: string; name: string; upstreamName: string; endpoint: string | null; fallbackEndpoints: string; imageFallbackModel: string | null; provider: string; inputPriceVND: number; outputPriceVND: number; enabled: boolean };
 
-const empty: Omit<M, 'id'> = { name: '', upstreamName: '', endpoint: null, fallbackEndpoints: '[]', provider: 'openai', inputPriceVND: 0, outputPriceVND: 0, enabled: true };
+const empty: Omit<M, 'id'> = { name: '', upstreamName: '', endpoint: null, fallbackEndpoints: '[]', imageFallbackModel: null, provider: 'openai', inputPriceVND: 0, outputPriceVND: 0, enabled: true };
 
 export default function ModelsClient({ initial }: { initial: M[] }) {
   const [list, setList] = useState<M[]>(initial);
@@ -65,6 +65,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
         <div className="grid md:grid-cols-3 gap-3">
           <input className="input" placeholder="Tên hiển thị (claude-sonnet-4-5)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input className="input" placeholder="Upstream model" value={draft.upstreamName} onChange={(e) => setDraft({ ...draft, upstreamName: e.target.value })} />
+          <input className="input" placeholder="Ảnh fallback: claude-sonnet-4-5" value={draft.imageFallbackModel || ''} onChange={(e) => setDraft({ ...draft, imageFallbackModel: e.target.value || null })} />
           <input className="input md:col-span-2" placeholder="Model fallback: gpt-4o, claude-sonnet-4-0" value={fbDisplay(draft.fallbackEndpoints)} onChange={(e) => setDraft({ ...draft, fallbackEndpoints: fbValue(e.target.value) })} />
           <select className="input" value={draft.provider} onChange={(e) => setDraft({ ...draft, provider: e.target.value })}>
             <option value="openai">openai</option>
@@ -81,7 +82,8 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
             <tr>
               <th className="p-3">Tên</th>
               <th className="p-3">Upstream</th>
-              <th className="p-3">Model fallback</th>
+              <th className="p-3">Fallback ảnh</th>
+              <th className="p-3">Fallback upstream</th>
               <th className="p-3">Nhà cung cấp</th>
 
               <th className="p-3">Bật</th>
@@ -93,6 +95,7 @@ export default function ModelsClient({ initial }: { initial: M[] }) {
               <tr key={m.id} className="border-t" style={{ borderColor: 'rgb(var(--border))' }}>
                 <td className="p-2"><input className="input" value={m.name} onChange={(e) => patch(i, { name: e.target.value })} /></td>
                 <td className="p-2"><input className="input" value={m.upstreamName} onChange={(e) => patch(i, { upstreamName: e.target.value })} /></td>
+                <td className="p-2"><input className="input" value={m.imageFallbackModel || ''} onChange={(e) => patch(i, { imageFallbackModel: e.target.value || null })} placeholder="claude-sonnet-4-5" /></td>
                 <td className="p-2"><input className="input" value={fbDisplay(m.fallbackEndpoints)} onChange={(e) => patch(i, { fallbackEndpoints: fbValue(e.target.value) })} placeholder="gpt-4o, claude-sonnet-4-0" /></td>
                 <td className="p-2">
                   <select className="input" value={m.provider} onChange={(e) => patch(i, { provider: e.target.value })}>

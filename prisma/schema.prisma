@@ -79,9 +79,10 @@ model Model {
   provider         String     @default("openai")
   inputPriceVND    Int        @default(0)
   outputPriceVND   Int        @default(0)
-  enabled          Boolean    @default(true)
-  createdAt        DateTime   @default(now())
-  usage            UsageLog[]
+  enabled              Boolean    @default(true)
+  imageFallbackModel   String?   // model name để fallback khi detect ảnh trong messages
+  createdAt            DateTime   @default(now())
+  usage                UsageLog[]
 }
 
 model UsageLog {

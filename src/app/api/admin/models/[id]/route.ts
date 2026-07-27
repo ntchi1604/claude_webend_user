@@ -23,6 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (b.upstreamName !== undefined) data.upstreamName = b.upstreamName;
     if (b.endpoint !== undefined) data.endpoint = b.endpoint || null;
     if (b.fallbackEndpoints !== undefined) data.fallbackEndpoints = normalizeFallbackEndpoints(b.fallbackEndpoints);
+    if (b.imageFallbackModel !== undefined) data.imageFallbackModel = b.imageFallbackModel || null;
     if (b.provider !== undefined) data.provider = b.provider;
     if (b.inputPriceVND !== undefined) data.inputPriceVND = +b.inputPriceVND || 0;
     if (b.outputPriceVND !== undefined) data.outputPriceVND = +b.outputPriceVND || 0;
