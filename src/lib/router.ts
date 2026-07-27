@@ -38,8 +38,8 @@ export type ResolvedModel = {
   apiKey: string;
 };
 
-/** Parse fallbackEndpoints as an ordered array of Model.upstreamName values. */
-async function parseFallbacks(raw: string): Promise<EndpointCandidate[]> {
+/** Parse fallbackEndpoints as upstream model names served by the same upstream endpoint. */
+function parseFallbacks(raw: string, provider: string, baseUrl: string): EndpointCandidate[] {
   try {
     const value = JSON.parse(raw);
     if (!Array.isArray(value)) return [];
@@ -52,26 +52,12 @@ async function parseFallbacks(raw: string): Promise<EndpointCandidate[]> {
     }
     if (refs.length === 0) return [];
 
-    const models = await prisma.model.findMany({
-      where: { upstreamName: { in: refs } },
-      orderBy: { createdAt: 'asc' }
-    });
-    const modelsByUpstream = new Map<string, (typeof models)[number]>();
-    for (const model of models) {
-      if (!modelsByUpstream.has(model.upstreamName)) modelsByUpstream.set(model.upstreamName, model);
-    }
-
-    const found = new Set(modelsByUpstream.keys());
-    const missing = refs.filter((r) => !found.has(r));
-    if (missing.length > 0) console.warn(`[parseFallbacks] Upstream model(s) not found in DB: ${missing.join(', ')}`);
-
     return refs
-      .map((ref) => modelsByUpstream.get(ref))
-      .filter((model): model is (typeof models)[number] => !!model)
-      .map((model) => ({
-        baseUrl: (model.endpoint && model.endpoint.trim()) || pickBase(model.provider || 'openai'),
-        apiKey: pickKey(model.provider || 'openai'),
-        upstreamName: model.upstreamName
+      .filter(Boolean)
+      .map((upstreamName) => ({
+        baseUrl,
+        apiKey: pickKey(provider),
+        upstreamName
       }))
       .filter((candidate) => candidate.baseUrl);
   } catch {
@@ -193,7 +179,7 @@ async function resolveModelRecord(model: ModelRecord | null): Promise<ResolvedMo
     apiKey: envKey,
     upstreamName: model.upstreamName
   };
-  const fallbacks = await parseFallbacks(model.fallbackEndpoints ?? '[]');
+  const fallbacks = parseFallbacks(model.fallbackEndpoints ?? '[]', provider, primary.baseUrl);
 
   return {
     model,
@@ -206,13 +192,5 @@ async function resolveModelRecord(model: ModelRecord | null): Promise<ResolvedMo
 
 export async function resolveModelEndpoint(modelName: string): Promise<ResolvedModel | null> {
   const model = await prisma.model.findUnique({ where: { name: modelName } });
-  return resolveModelRecord(model);
-}
-
-export async function resolveModelEndpointByUpstreamName(upstreamName: string): Promise<ResolvedModel | null> {
-  const model = await prisma.model.findFirst({
-    where: { upstreamName },
-    orderBy: { createdAt: 'asc' }
-  });
   return resolveModelRecord(model);
 }

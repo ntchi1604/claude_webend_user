@@ -1,5 +1,3 @@
-import { prisma } from './prisma';
-
 export class FallbackConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -40,19 +38,4 @@ export function normalizeImageFallbackUpstream(value: unknown) {
     throw new FallbackConfigError('Fallback ảnh phải là một Model.upstreamName');
   }
   return value.trim();
-}
-
-export async function assertFallbackUpstreamsExist(upstreamNames: string[]) {
-  const uniqueNames = Array.from(new Set(upstreamNames.filter(Boolean)));
-  if (uniqueNames.length === 0) return;
-
-  const models = await prisma.model.findMany({
-    where: { upstreamName: { in: uniqueNames } },
-    select: { upstreamName: true }
-  });
-  const found = new Set(models.map((model) => model.upstreamName));
-  const missing = uniqueNames.filter((name) => !found.has(name));
-  if (missing.length > 0) {
-    throw new FallbackConfigError(`Upstream không tồn tại: ${missing.join(', ')}`);
-  }
 }

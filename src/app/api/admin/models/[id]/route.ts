@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 import {
-  assertFallbackUpstreamsExist,
   FallbackConfigError,
   normalizeFallbackUpstreams,
   normalizeImageFallbackUpstream
@@ -22,10 +21,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const imageFallback = b.imageFallbackModel !== undefined
       ? normalizeImageFallbackUpstream(b.imageFallbackModel)
       : undefined;
-    await assertFallbackUpstreamsExist([
-      ...(fallback?.upstreamNames || []),
-      ...(imageFallback ? [imageFallback] : [])
-    ]);
     if (b.name !== undefined) data.name = b.name;
     if (b.upstreamName !== undefined) data.upstreamName = b.upstreamName;
     if (b.endpoint !== undefined) data.endpoint = b.endpoint || null;

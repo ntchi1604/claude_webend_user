@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 import {
-  assertFallbackUpstreamsExist,
   FallbackConfigError,
   normalizeFallbackUpstreams,
   normalizeImageFallbackUpstream
@@ -15,10 +14,6 @@ export async function POST(req: NextRequest) {
     if (!b.name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
     const fallback = normalizeFallbackUpstreams(b.fallbackEndpoints);
     const imageFallback = normalizeImageFallbackUpstream(b.imageFallbackModel);
-    await assertFallbackUpstreamsExist([
-      ...fallback.upstreamNames,
-      ...(imageFallback ? [imageFallback] : [])
-    ]);
     const model = await prisma.model.create({
       data: {
         name: b.name,

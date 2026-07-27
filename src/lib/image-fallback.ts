@@ -1,6 +1,5 @@
 import {
   resolveModelEndpoint,
-  resolveModelEndpointByUpstreamName,
   tryCandidates,
   type ResolvedModel
 } from './router';
@@ -142,29 +141,34 @@ function extractVisionText(payload: any): string {
   return '';
 }
 
-async function analyzeImages(fallback: ResolvedModel, messages: any[]): Promise<string> {
+async function analyzeImages(main: ResolvedModel, visionUpstreamName: string, messages: any[]): Promise<string> {
   const visionContent = collectVisionContent(messages);
-  const usesAnthropicWire = fallback.model.provider === 'anthropic' && !/^oc\//i.test(fallback.upstreamName);
+  const usesAnthropicWire = main.model.provider === 'anthropic' && !/^oc\//i.test(visionUpstreamName);
   const path = usesAnthropicWire ? '/v1/messages' : '/v1/chat/completions';
   const headers: Record<string, string> = {
     'content-type': 'application/json',
     ...(usesAnthropicWire ? { 'anthropic-version': '2023-06-01' } : {})
   };
+  const visionCandidate = {
+    baseUrl: main.baseUrl,
+    apiKey: main.apiKey,
+    upstreamName: visionUpstreamName
+  };
 
   try {
-    const result = await tryCandidates(fallback.candidates, path, {
+    const result = await tryCandidates([visionCandidate], path, {
       headers,
       isAnthropic: usesAnthropicWire,
       timeout: 60_000,
       bodyBuilder: (candidate) => JSON.stringify(usesAnthropicWire
         ? {
-            model: candidate.upstreamName || fallback.upstreamName,
+            model: candidate.upstreamName || visionUpstreamName,
             messages: [{ role: 'user', content: toAnthropicVisionContent(visionContent) }],
             max_tokens: 2048,
             stream: false
           }
         : {
-            model: candidate.upstreamName || fallback.upstreamName,
+            model: candidate.upstreamName || visionUpstreamName,
             messages: [{ role: 'user', content: visionContent }],
             max_tokens: 2048,
             stream: false
@@ -239,12 +243,7 @@ export async function prepareModelMessages(
     return { resolved, messages: safeMessages, imageAnalysisApplied: false };
   }
 
-  const fallback = await resolveModelEndpointByUpstreamName(fallbackUpstreamName);
-  if (!fallback) {
-    throw new ImageFallbackError(`Upstream fallback ảnh không tồn tại: ${fallbackUpstreamName}`);
-  }
-
-  const analysis = await analyzeImages(fallback, safeMessages);
+  const analysis = await analyzeImages(resolved, fallbackUpstreamName, safeMessages);
   console.log(`[image-fallback] analyzed images with upstream "${fallbackUpstreamName}", returning to "${modelName}"`);
   return {
     resolved,
