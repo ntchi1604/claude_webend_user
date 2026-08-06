@@ -81,7 +81,7 @@ export async function logUsage(
 ) {
   await prisma.usageLog.create({
     data: {
-      apiKeyId: apiKeyId?.startsWith('session_') ? null : apiKeyId,
+      apiKeyId: apiKeyId && !apiKeyId.startsWith('session_') ? apiKeyId : undefined,
       userId,
       modelId,
       modelName,
