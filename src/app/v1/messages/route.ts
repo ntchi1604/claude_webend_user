@@ -722,14 +722,12 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
           sawError = true;
           streamFailed = true;
           console.error(`[passthrough] upstream error event: ${j.error?.message}`);
-          const text = sanitizeChineseOutput(`[Error: ${j.error?.message || 'upstream error'}]`, allowChinese);
-          const index = startTextBlock();
-          completionBuf += text;
-          emit(controller, 'content_block_delta', {
-            type: 'content_block_delta', index,
-            delta: { type: 'text_delta', text }
-          });
-          finalizeStream('end_turn');
+          const safeMessage = sanitizeUpstreamError(j.error?.message || 'upstream error', resolved.upstreamName, modelName);
+          controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({
+            type: 'error',
+            error: { type: 'api_error', message: safeMessage }
+          })}\n\n`));
+          controller.close();
           return;
         }
 
@@ -874,7 +872,7 @@ function passthroughAnthropicStream(upstream: Response, key: any, resolved: any,
         }
         if (idleTimer) clearTimeout(idleTimer);
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-        controller.close();
+        if (!sawError) controller.close();
       } catch (e) {
         streamFailed = true;
         if (idleTimer) clearTimeout(idleTimer);

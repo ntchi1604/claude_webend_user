@@ -5,6 +5,32 @@ export class FallbackConfigError extends Error {
   }
 }
 
+// Private / link-local / metadata ranges that must never be fetched server-side.
+const PRIVATE_HOST_RE =
+  /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.|::1$|fe80:|fc|fd)/i;
+const LOCAL_LABELS = ['localhost', 'metadata', 'metadata.google.internal', 'instance-data'];
+
+export function validateEndpoint(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new FallbackConfigError('Endpoint phải là một URL hợp lệ');
+  }
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    throw new FallbackConfigError('Endpoint phải là một URL hợp lệ');
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new FallbackConfigError('Endpoint chỉ hỗ trợ http/https');
+  }
+  const host = url.hostname.toLowerCase();
+  if (PRIVATE_HOST_RE.test(host) || LOCAL_LABELS.some((l) => host === l || host.endsWith(`.${l}`))) {
+    throw new FallbackConfigError('Endpoint không được trỏ tới địa chỉ nội bộ/metadata');
+  }
+  return value.trim().replace(/\/+$/, '');
+}
+
 export function normalizeFallbackUpstreams(value: unknown) {
   let parsed: unknown = value == null ? [] : value;
   if (typeof value === 'string') {

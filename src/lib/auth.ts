@@ -4,11 +4,9 @@ import crypto from 'crypto';
 
 const JWT_DEFAULT = 'dev-secret-change-me-please-32chars';
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === JWT_DEFAULT) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('JWT_SECRET must be set in production');
-  }
+  throw new Error('JWT_SECRET must be set and must not be the default value');
 }
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || JWT_DEFAULT);
+const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
 export type SessionPayload = {
   uid: string;

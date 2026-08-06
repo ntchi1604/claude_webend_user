@@ -20,7 +20,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (b.requestsPerMinute !== undefined) data.requestsPerMinute = Number(b.requestsPerMinute) || 60;
     if (b.priceVND !== undefined) data.priceVND = Number(b.priceVND) || 0;
     if (b.modelIds !== undefined) data.modelIds = JSON.stringify(b.modelIds || []);
-    if (b.enabled !== undefined) data.enabled = b.enabled;
+    if (b.enabled !== undefined) {
+      if (b.enabled === false) {
+        const existing = await prisma.plan.findUnique({ where: { id } });
+        if (existing?.name === 'Free') {
+          return NextResponse.json({ error: 'Không thể tắt gói Free' }, { status: 400 });
+        }
+      }
+      data.enabled = b.enabled;
+    }
 
     const plan = await prisma.plan.update({ where: { id }, data });
     return NextResponse.json({
@@ -38,6 +46,19 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     await requireAdmin();
     const { id } = await params;
+    const plan = await prisma.plan.findUnique({ where: { id } });
+    if (!plan) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    if (plan.name === 'Free') {
+      return NextResponse.json({ error: 'Không thể xoá gói Free — người dùng mới phụ thuộc vào nó' }, { status: 400 });
+    }
+    const referenced = await prisma.subscription.count({ where: { planId: id } });
+    if (referenced > 0) {
+      return NextResponse.json({ error: `Gói đang được ${referenced} subscription sử dụng — không thể xoá` }, { status: 400 });
+    }
+    const paymentCount = await prisma.payment.count({ where: { planId: id } });
+    if (paymentCount > 0) {
+      return NextResponse.json({ error: 'Gói có lịch sử thanh toán — không thể xoá' }, { status: 400 });
+    }
     await prisma.plan.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (e: any) {

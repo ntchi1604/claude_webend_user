@@ -30,18 +30,23 @@ export default function BillingClient({
   async function submit() {
     if (!plan) return;
     setLoading(true);
-    const r = await fetch('/api/payments', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ planId: plan.id, reference, note })
-    });
-    setLoading(false);
-    const d = await r.json();
-    if (!r.ok) return toast.error(d.error || 'Lỗi');
-    toast.success('Đã gửi yêu cầu — chờ admin duyệt');
-    setReference('');
-    setNote('');
-    location.reload();
+    try {
+      const r = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ planId: plan.id, reference, note })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) return toast.error(d.error || 'Lỗi');
+      toast.success('Đã gửi yêu cầu — chờ admin duyệt');
+      setReference('');
+      setNote('');
+      location.reload();
+    } catch {
+      toast.error('Lỗi kết nối — vui lòng thử lại');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function copy(s: string) {

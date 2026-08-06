@@ -7,6 +7,7 @@ export type AuthedKey = {
   id: string;
   userId: string;
   active: boolean;
+  isSession: boolean;
   user: { id: string; banned: boolean; [key: string]: any };
   [key: string]: any;
 };
@@ -30,7 +31,7 @@ export async function authKeyHeaderOnly(req: NextRequest): Promise<AuthedKey | n
     include: { user: true }
   });
   if (!key || !key.active || key.user.banned) return null;
-  return key as AuthedKey;
+  return { ...key, isSession: false } as unknown as AuthedKey;
 }
 
 /**
@@ -45,7 +46,7 @@ export async function authKeyWithCookie(req: NextRequest): Promise<AuthedKey | n
       where: { keyHash: hashApiKey(raw) },
       include: { user: true }
     });
-    if (key && key.active && !key.user.banned) return key as AuthedKey;
+    if (key && key.active && !key.user.banned) return { ...key, isSession: false } as unknown as AuthedKey;
   }
   const cookieHeader = req.headers.get('cookie') || '';
   const sessionMatch = cookieHeader.match(/cw_session=([^;]+)/);
@@ -59,28 +60,37 @@ export async function authKeyWithCookie(req: NextRequest): Promise<AuthedKey | n
     });
     if (key) {
       if (key.user.banned) return null;
-      return key as AuthedKey;
+      return { ...key, isSession: false } as unknown as AuthedKey;
     }
     const user = await prisma.user.findUnique({ where: { id: payload.uid } });
     if (!user || user.banned) return null;
-    return { id: `session_${user.id}`, userId: user.id, user, active: true } as AuthedKey;
+    return { id: `session_${user.id}`, userId: user.id, user, active: true, isSession: true } as AuthedKey;
   }
   return null;
 }
 
 export async function logUsage(
-  apiKeyId: string,
+  apiKeyId: string | null,
   userId: string,
-  modelId: string,
+  modelId: string | null,
   modelName: string,
   pt: number,
   ct: number,
   status: number,
   errorMessage: string | null
 ) {
-  if (apiKeyId.startsWith('session_')) return;
   await prisma.usageLog.create({
-    data: { apiKeyId, userId, modelId, modelName, promptTokens: pt, completionTokens: ct, totalTokens: pt + ct, status, errorMessage: errorMessage ?? null }
+    data: {
+      apiKeyId: apiKeyId?.startsWith('session_') ? null : apiKeyId,
+      userId,
+      modelId,
+      modelName,
+      promptTokens: pt,
+      completionTokens: ct,
+      totalTokens: pt + ct,
+      status,
+      errorMessage: errorMessage ?? null
+    }
   });
 }
 

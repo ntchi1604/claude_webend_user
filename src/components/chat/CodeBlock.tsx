@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Check, Copy } from 'lucide-react';
 import hljs from 'highlight.js';
 
@@ -11,7 +11,7 @@ interface Props {
 export default function CodeBlock({ code, language }: Props) {
   const [copied, setCopied] = useState(false);
 
-  const highlighted = (() => {
+  const highlighted = useMemo(() => {
     try {
       if (language && hljs.getLanguage(language)) {
         return hljs.highlight(code, { language, ignoreIllegals: true }).value;
@@ -20,7 +20,7 @@ export default function CodeBlock({ code, language }: Props) {
     } catch {
       return hljs.highlightAuto(code).value;
     }
-  })();
+  }, [code, language]);
 
   function copy() {
     navigator.clipboard.writeText(code).catch(() => {});

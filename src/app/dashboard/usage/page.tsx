@@ -19,12 +19,12 @@ export default async function UsagePage() {
     select: { ts: true, totalTokens: true, modelName: true, status: true }
   });
 
-  // Gom dữ liệu theo ngày và theo model để vẽ biểu đồ.
+  // Gom dữ liệu theo ngày (múi giờ địa phương của user) và theo model để vẽ biểu đồ.
   const byDay = new Map<string, number>();
   const byModel = new Map<string, number>();
   let total = 0;
   for (const l of logs) {
-    const d = l.ts.toISOString().slice(0, 10);
+    const d = l.ts.toLocaleDateString('sv-SE'); // YYYY-MM-DD theo giờ local
     byDay.set(d, (byDay.get(d) ?? 0) + l.totalTokens);
     byModel.set(l.modelName, (byModel.get(l.modelName) ?? 0) + l.totalTokens);
     total += l.totalTokens;

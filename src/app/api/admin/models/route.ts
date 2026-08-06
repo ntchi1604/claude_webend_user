@@ -4,7 +4,8 @@ import { requireAdmin } from '@/lib/session';
 import {
   FallbackConfigError,
   normalizeFallbackUpstreams,
-  normalizeImageFallbackUpstream
+  normalizeImageFallbackUpstream,
+  validateEndpoint
 } from '@/lib/model-fallback-config';
 
 export async function POST(req: NextRequest) {
@@ -14,11 +15,12 @@ export async function POST(req: NextRequest) {
     if (!b.name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
     const fallback = normalizeFallbackUpstreams(b.fallbackEndpoints);
     const imageFallback = normalizeImageFallbackUpstream(b.imageFallbackModel);
+    const endpoint = validateEndpoint(b.endpoint);
     const model = await prisma.model.create({
       data: {
         name: b.name,
         upstreamName: b.upstreamName || b.name,
-        endpoint: b.endpoint || null,
+        endpoint,
         fallbackEndpoints: fallback.serialized,
         imageFallbackModel: imageFallback,
         provider: b.provider || 'openai',

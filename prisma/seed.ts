@@ -5,7 +5,11 @@ const prisma = new PrismaClient();
 
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@local.dev';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const defaultPassword = 'admin123';
+  const adminPassword = process.env.ADMIN_PASSWORD || defaultPassword;
+  if (process.env.NODE_ENV === 'production' && adminPassword === defaultPassword) {
+    throw new Error('ADMIN_PASSWORD phải được đặt khi chạy seed trong production');
+  }
   const hash = await bcrypt.hash(adminPassword, 10);
 
   const admin = await prisma.user.upsert({

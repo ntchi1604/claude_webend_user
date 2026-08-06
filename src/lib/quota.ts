@@ -79,13 +79,14 @@ export async function checkQuota(userId: string, modelName: string, estimateToke
     return { allowed: true, limit: tokenLimit, used: 0, remaining: unlimitedTokens ? Number.MAX_SAFE_INTEGER : tokenLimit, windowHours: plan.windowHours, resetAt, planName: plan.name, modelAllowed: true };
   }
 
-  // Window is active — count only SUCCESSFUL usage since window started
+  // Window is active — count all usage since window started (failed requests with
+  // consumed completion tokens still cost the plan, preventing quota-bypass via cancellation)
   const windowStart = new Date(resetMs - windowMs);
   const agg = await prisma.usageLog.aggregate({
     where: {
       userId,
       ts: { gte: windowStart },
-      status: 200
+      totalTokens: { gt: 0 }
     },
     _sum: { totalTokens: true }
   });

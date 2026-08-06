@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { hashApiKey } from '@/lib/auth';
+import { getSessionFromRequest } from '@/lib/session';
 
 /**
  * GET /api/setup/:tool?key=...&os=windows|mac
  * GET /api/v1/setup/:tool?key=...&os=windows|mac
  * Trả về script PowerShell hoặc Bash cho Claude Code, Codex CLI hoặc VS Code Extension.
+ *
+ * Yêu cầu đăng nhập và key phải thuộc về chính người dùng đó — ngăn lộ API key
+ * qua URL công khai / cache CDN.
  */
 export async function GET(
   req: NextRequest,
@@ -11,7 +17,17 @@ export async function GET(
 ) {
   const { tool } = await params;
   const url = new URL(req.url);
-  const key = clean(url.searchParams.get('key'), 'YOUR_API_KEY');
+  const rawKey = url.searchParams.get('key');
+  const session = await getSessionFromRequest(req);
+  if (!session) return NextResponse.json({ error: 'Bạn cần đăng nhập' }, { status: 401 });
+
+  if (!rawKey) return NextResponse.json({ error: 'Thiếu tham số key' }, { status: 400 });
+  const owned = await prisma.apiKey.findUnique({ where: { keyHash: hashApiKey(rawKey) }, select: { userId: true, active: true } });
+  if (!owned || !owned.active || owned.userId !== session.uid) {
+    return NextResponse.json({ error: 'API key không hợp lệ hoặc không thuộc tài khoản của bạn' }, { status: 403 });
+  }
+
+  const key = clean(rawKey, 'YOUR_API_KEY');
   const os = url.searchParams.get('os') || 'windows';
   const baseUrl = getRequestOrigin(req, url);
   const claudeBaseUrl = baseUrl;
@@ -59,7 +75,10 @@ export async function GET(
   }
 
   return new NextResponse(script, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store, max-age=0'
+    },
   });
 }
 

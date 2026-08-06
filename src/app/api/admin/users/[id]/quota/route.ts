@@ -34,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!expired && resetAt) {
     windowStart = new Date(resetMs - windowMs);
     const agg = await prisma.usageLog.aggregate({
-      where: { userId, ts: { gte: windowStart }, status: 200 },
+      where: { userId, ts: { gte: windowStart }, totalTokens: { gt: 0 } },
       _sum: { totalTokens: true }
     });
     used = agg._sum.totalTokens ?? 0;

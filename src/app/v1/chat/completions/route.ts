@@ -132,11 +132,12 @@ export async function POST(req: NextRequest) {
   ];
 
   const upstreamBody = {
-    ...body,
     model: resolved.upstreamName,
     messages: normalizeMessagesForOpenAI(finalMessages),
     stream,
-    max_tokens: ensureMaxTokens(body.max_tokens)
+    max_tokens: ensureMaxTokens(body.max_tokens),
+    ...(body.temperature != null ? { temperature: body.temperature } : {}),
+    ...(body.top_p != null ? { top_p: body.top_p } : {})
   };
 
   const isAnthropicProvider = resolved.model.provider === 'anthropic';
@@ -170,11 +171,10 @@ export async function POST(req: NextRequest) {
   const bodyBuilder = (candidate: { upstreamName?: string }) => {
     const modelToUse = candidate.upstreamName || resolved.upstreamName;
     const baseBody = isAnthropicProvider ? upstreamBodyFinal : upstreamBody;
-    const body = {
+    return JSON.stringify({
       ...baseBody,
       model: modelToUse
-    };
-    return JSON.stringify(body);
+    });
   };
 
   let upstream: Response;

@@ -25,6 +25,7 @@ export default function ChatPage() {
     fetchConversations();
     const saved = localStorage.getItem('chat_model');
     if (saved) setModel(saved);
+    return () => abortRef.current?.abort();
   }, []);
 
   async function fetchModels() {
@@ -54,6 +55,7 @@ export default function ChatPage() {
 
   async function loadConversation(id: string) {
     try {
+      abortRef.current?.abort();
       const r = await fetch(`/api/conversations/${id}`, { credentials: 'include' });
       if (!r.ok) return;
       const data = await r.json();
@@ -70,6 +72,7 @@ export default function ChatPage() {
   }
 
   function handleNewChat() {
+    abortRef.current?.abort();
     setActiveConvId(null);
     setMessages([]);
     setInput('');
@@ -203,8 +206,8 @@ export default function ChatPage() {
         setMessages([...newMsgs, { role: 'assistant', content: `Lỗi: ${e?.message || 'Lỗi không xác định'}` }]);
       }
     } finally {
-      setStreaming(false);
       abortRef.current = null;
+      setStreaming(false);
     }
   }, [input, attachments, model, messages, streaming, activeConvId]);
 

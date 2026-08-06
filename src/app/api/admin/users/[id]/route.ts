@@ -16,6 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     } else if (action === 'grant') {
       const plan = await prisma.plan.findUnique({ where: { id: body.planId } });
       if (!plan) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+      if (!plan.enabled) return NextResponse.json({ error: 'Plan đã bị tắt — không thể cấp' }, { status: 400 });
       await prisma.$transaction([
         prisma.subscription.updateMany({ where: { userId: id, active: true }, data: { active: false } }),
         prisma.subscription.create({
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ]);
     } else if (action === 'extend') {
       const days = Number(body.days);
-      if (!Number.isFinite(days) || days === 0) return NextResponse.json({ error: 'days must be a non-zero number' }, { status: 400 });
+      if (!Number.isFinite(days) || days <= 0) return NextResponse.json({ error: 'days phải là số dương' }, { status: 400 });
       const sub = await prisma.subscription.findFirst({
         where: { userId: id, active: true },
         orderBy: { expiresAt: 'desc' }

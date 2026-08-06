@@ -13,30 +13,36 @@ export default function KeysPage() {
   useEffect(() => { fetchKeys(); }, []);
 
   async function fetchKeys() {
-    const r = await fetch('/api/keys');
-    if (r.ok) { const d = await r.json(); setKeys(d.keys || d); }
+    try {
+      const r = await fetch('/api/keys');
+      if (r.ok) { const d = await r.json(); setKeys(d.keys || d); }
+    } catch {}
   }
 
   async function createKey() {
     setLoading(true);
-    const r = await fetch('/api/keys', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: name || undefined })
-    });
-    if (r.ok) {
-      const d = await r.json();
-      setNewKey(d.key);
-      setName('');
-      fetchKeys();
-    }
+    try {
+      const r = await fetch('/api/keys', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: name || undefined })
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setNewKey(d.key);
+        setName('');
+        fetchKeys();
+      }
+    } catch {}
     setLoading(false);
   }
 
   async function deleteKey(id: string) {
     if (!confirm('Xóa key này?')) return;
-    await fetch(`/api/keys/${id}`, { method: 'DELETE' });
-    fetchKeys();
+    try {
+      await fetch(`/api/keys/${id}`, { method: 'DELETE' });
+      fetchKeys();
+    } catch {}
   }
 
   function copyKey(text: string) {

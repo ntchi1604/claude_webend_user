@@ -11,6 +11,7 @@ export default function Countdown({ resetAt }: { resetAt: string | null }) {
     }
 
     let interval: NodeJS.Timeout | null = null;
+    let reloadTimer: NodeJS.Timeout | null = null;
 
     function update() {
       const diff = new Date(resetAt!).getTime() - Date.now();
@@ -20,7 +21,7 @@ export default function Countdown({ resetAt }: { resetAt: string | null }) {
           clearInterval(interval);
           interval = null;
         }
-        setTimeout(() => window.location.reload(), 2000);
+        reloadTimer = setTimeout(() => window.location.reload(), 2000);
         return;
       }
       const h = Math.floor(diff / 3600000);
@@ -39,6 +40,7 @@ export default function Countdown({ resetAt }: { resetAt: string | null }) {
     interval = setInterval(update, 1000);
     return () => {
       if (interval) clearInterval(interval);
+      if (reloadTimer) clearTimeout(reloadTimer);
     };
   }, [resetAt]);
 

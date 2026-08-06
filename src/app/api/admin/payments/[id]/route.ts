@@ -37,12 +37,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       });
       if (claimed.count === 0) throw new Error('ALREADY_PROCESSED');
 
+      const now = new Date();
+      const newerActive = await tx.subscription.findFirst({
+        where: { userId: payment.userId, active: true, createdAt: { gt: payment.createdAt } }
+      });
+      if (newerActive) throw new Error('NEWER_SUBSCRIPTION');
+
       await tx.subscription.updateMany({ where: { userId: payment.userId, active: true }, data: { active: false } });
       await tx.subscription.create({
         data: {
           userId: payment.userId,
           planId: payment.planId,
-          expiresAt: planExpiresAt(payment.plan)
+          expiresAt: planExpiresAt(payment.plan, now.getTime())
         }
       });
     });
@@ -52,6 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (e?.message === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (e?.message === 'ALREADY_PROCESSED') return NextResponse.json({ error: 'Already processed' }, { status: 409 });
+    if (e?.message === 'NEWER_SUBSCRIPTION') return NextResponse.json({ error: 'Người dùng đã có gói mới hơn — bỏ qua approve' }, { status: 409 });
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

@@ -4,7 +4,8 @@ import { requireAdmin } from '@/lib/session';
 import {
   FallbackConfigError,
   normalizeFallbackUpstreams,
-  normalizeImageFallbackUpstream
+  normalizeImageFallbackUpstream,
+  validateEndpoint
 } from '@/lib/model-fallback-config';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       : undefined;
     if (b.name !== undefined) data.name = b.name;
     if (b.upstreamName !== undefined) data.upstreamName = b.upstreamName;
-    if (b.endpoint !== undefined) data.endpoint = b.endpoint || null;
+    if (b.endpoint !== undefined) data.endpoint = validateEndpoint(b.endpoint);
     if (fallback) data.fallbackEndpoints = fallback.serialized;
     if (imageFallback !== undefined) data.imageFallbackModel = imageFallback;
     if (b.provider !== undefined) data.provider = b.provider;

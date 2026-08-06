@@ -87,7 +87,7 @@ model Model {
 
 model UsageLog {
   id               String   @id @default(cuid())
-  apiKeyId         String
+  apiKeyId         String?  // null when request authenticated via session without an API key
   userId           String
   modelId          String?
   modelName        String
@@ -97,7 +97,7 @@ model UsageLog {
   status           Int      @default(200)
   errorMessage     String?
   ts               DateTime @default(now())
-  apiKey           ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  apiKey           ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
   model            Model?   @relation(fields: [modelId], references: [id])
 
   @@index([userId, ts])

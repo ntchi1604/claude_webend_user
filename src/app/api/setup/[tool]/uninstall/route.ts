@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSessionFromRequest } from '@/lib/session';
 
 /**
  * GET /api/setup/:tool/uninstall?os=windows|mac
@@ -8,6 +9,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ tool: string }> }
 ) {
+  const session = await getSessionFromRequest(req);
+  if (!session) return NextResponse.json({ error: 'Bạn cần đăng nhập' }, { status: 401 });
+
   const { tool } = await params;
   const url = new URL(req.url);
   const os = url.searchParams.get('os') || 'windows';
@@ -29,7 +33,7 @@ export async function GET(
   }
 
   return new NextResponse(script, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store, max-age=0' },
   });
 }
 
