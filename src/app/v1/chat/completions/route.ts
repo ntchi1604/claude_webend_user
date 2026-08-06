@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     ...body,
     model: resolved.upstreamName,
     messages: normalizeMessagesForOpenAI(finalMessages),
-    stream: true,
+    stream,
     max_tokens: ensureMaxTokens(body.max_tokens)
   };
 
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
       system: sysParts.join('\n\n'),
       messages: conv,
       max_tokens: ensureMaxTokens(body.max_tokens),
-      stream: true
+      stream
     };
     if (body.temperature != null) upstreamBodyFinal.temperature = body.temperature;
     if (body.top_p != null) upstreamBodyFinal.top_p = body.top_p;
@@ -183,6 +183,8 @@ export async function POST(req: NextRequest) {
       headers: upstreamHeaders,
       bodyBuilder,
       isAnthropic: isAnthropicProvider,
+      timeout: 45_000,
+      totalTimeout: 90_000,
     });
     upstream = result.response;
     const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');

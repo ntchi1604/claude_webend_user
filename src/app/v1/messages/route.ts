@@ -5,7 +5,7 @@ import { countMessagesTokens, countTokens } from '@/lib/tokens';
 import { resolveModelEndpoint, tryCandidates, UpstreamError } from '@/lib/router';
 import { prepareModelMessages } from '@/lib/image-fallback';
 import { checkRateLimit, getUserRequestsPerMinute } from '@/lib/rate-limit';
-import { MIN_MAX_TOKENS, VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
+import { VERBOSE_SYSTEM_PROMPT, ensureMaxTokens, injectVerboseIntoAnthropicSystem } from '@/lib/verbose';
 import { sanitizeUpstreamError } from '@/lib/errors';
 import { authKeyHeaderOnly, logUsage, estimateCompletion } from '@/lib/api-gateway';
 import { buildLanguageInstruction, sanitizeChineseOutput } from '@/lib/language';
@@ -376,7 +376,7 @@ export async function POST(req: NextRequest) {
       messages: msgsToOpenAIFormat(routedMessages, body.system, body.tools),
       // Reasoning tokens count against this budget. A low caller value can otherwise
       // be exhausted before the provider emits any user-visible content.
-      max_tokens: Math.max(ensureMaxTokens(body.max_tokens), MIN_MAX_TOKENS),
+      max_tokens: ensureMaxTokens(body.max_tokens),
       temperature: body.temperature,
       top_p: body.top_p,
       stream,
@@ -417,7 +417,7 @@ export async function POST(req: NextRequest) {
             model: retryCandidate.upstreamName || resolved.upstreamName,
             messages: recoveryMessages,
             stream: false,
-            max_tokens: Math.max(upstreamBody.max_tokens || 0, MIN_MAX_TOKENS)
+            max_tokens: upstreamBody.max_tokens || ensureMaxTokens(undefined)
           })
         });
         const raw = await result.response.text();
@@ -442,8 +442,8 @@ export async function POST(req: NextRequest) {
       headers: upstreamHeaders,
       bodyBuilder,
       isAnthropic,
-      // Reasoning models can sit silent before first byte; keep connect budget high.
-      timeout: 180_000,
+      timeout: 45_000,
+      totalTimeout: 90_000,
     });
     upstream = result.response;
     const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');

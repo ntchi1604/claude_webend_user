@@ -98,9 +98,17 @@ export function buildUpstreamUrl(baseUrl: string, path: string) {
 export async function tryCandidates(
   candidates: EndpointCandidate[],
   path: string,
-  opts: { headers?: Record<string, string>; body?: string; bodyBuilder?: (candidate: EndpointCandidate) => string; timeout?: number; isAnthropic?: boolean }
+  opts: {
+    headers?: Record<string, string>;
+    body?: string;
+    bodyBuilder?: (candidate: EndpointCandidate) => string;
+    timeout?: number;
+    totalTimeout?: number;
+    isAnthropic?: boolean;
+  }
 ): Promise<{ response: Response; candidate: EndpointCandidate }> {
   let last: Error | null = null;
+  const deadline = Date.now() + (opts.totalTimeout ?? 90_000);
   for (const c of candidates) {
     const baseUrl = c.baseUrl?.replace(/\/$/, '');
     if (!baseUrl) continue;
@@ -114,19 +122,31 @@ export async function tryCandidates(
     const body = opts.bodyBuilder ? opts.bodyBuilder(c) : opts.body;
 
     try {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
       const controller = new AbortController();
-      const tid = setTimeout(() => controller.abort(), opts.timeout ?? 60_000);
+      const timeoutMs = Math.min(opts.timeout ?? 45_000, remaining);
+      let tid = setTimeout(() => controller.abort(), timeoutMs);
+      const armTimeout = (delay = timeoutMs) => {
+        clearTimeout(tid);
+        const untilDeadline = deadline - Date.now();
+        if (untilDeadline <= 0) {
+          controller.abort();
+          return;
+        }
+        tid = setTimeout(() => controller.abort(), Math.min(delay, untilDeadline));
+      };
       const response = await fetch(buildUpstreamUrl(baseUrl, path), {
         method: 'POST',
         headers,
         body,
         signal: controller.signal,
       });
-      clearTimeout(tid);
 
       // Non-2xx → advance
       if (!response.ok) {
         const text = await response.text().catch(() => '');
+        clearTimeout(tid);
         last = new UpstreamError(text.slice(0, 500), response.status, text);
         console.log(`[tryCandidates] ${baseUrl} → ${response.status}, next`);
         continue;
@@ -157,6 +177,44 @@ export async function tryCandidates(
         } catch { /* not JSON — pass through */ }
       }
 
+      // Keep the same abort signal active while the caller consumes the body.
+      // Previously the timer was cleared as soon as headers arrived, allowing a
+      // stalled upstream body to hold the Next.js worker until Cloudflare timed out.
+      if (!response.body) clearTimeout(tid);
+      else {
+        const reader = response.body.getReader();
+        const bodyStream = new ReadableStream<Uint8Array>({
+          async pull(streamController) {
+            try {
+              const chunk = await reader.read();
+              if (chunk.done) {
+                clearTimeout(tid);
+                streamController.close();
+              } else {
+                // This is an idle timeout, not a total generation timeout.
+                // Active streams can run longer as long as bytes keep arriving.
+                armTimeout(opts.timeout ?? 45_000);
+                streamController.enqueue(chunk.value);
+              }
+            } catch (error) {
+              clearTimeout(tid);
+              streamController.error(error);
+            }
+          },
+          async cancel(reason) {
+            clearTimeout(tid);
+            await reader.cancel(reason).catch(() => {});
+          }
+        });
+        return {
+          response: new Response(bodyStream, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers
+          }),
+          candidate: c
+        };
+      }
       return { response, candidate: c };
     } catch (e: any) {
       last = e;

@@ -395,6 +395,8 @@ export async function POST(req: NextRequest) {
       headers: upstreamHeaders,
       bodyBuilder,
       isAnthropic: isAnthropicProvider,
+      timeout: 45_000,
+      totalTimeout: 90_000,
     });
     upstream = result.response;
     const usedBase = result.candidate.baseUrl?.replace(/\/$/, '');

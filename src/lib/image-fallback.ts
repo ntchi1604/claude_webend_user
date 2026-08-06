@@ -159,7 +159,8 @@ async function analyzeImages(main: ResolvedModel, visionUpstreamName: string, me
     const result = await tryCandidates([visionCandidate], path, {
       headers,
       isAnthropic: usesAnthropicWire,
-      timeout: 60_000,
+      timeout: 20_000,
+      totalTimeout: 20_000,
       bodyBuilder: (candidate) => JSON.stringify(usesAnthropicWire
         ? {
             model: candidate.upstreamName || visionUpstreamName,
