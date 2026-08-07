@@ -8,8 +8,8 @@ import { getSessionFromRequest } from '@/lib/session';
  * GET /api/v1/setup/:tool?key=...&os=windows|mac
  * Trả về script PowerShell hoặc Bash cho Claude Code, Codex CLI hoặc VS Code Extension.
  *
- * Yêu cầu đăng nhập và key phải thuộc về chính người dùng đó — ngăn lộ API key
- * qua URL công khai / cache CDN.
+ * Chấp nhận một trong hai: (1) session đăng nhập, hoặc (2) API key hợp lệ + active
+ * trong query string — vì lệnh sinh ra chạy trên terminal không có cookie.
  */
 export async function GET(
   req: NextRequest,
@@ -19,15 +19,23 @@ export async function GET(
   const url = new URL(req.url);
   const rawKey = url.searchParams.get('key');
   const session = await getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: 'Bạn cần đăng nhập' }, { status: 401 });
 
-  if (!rawKey) return NextResponse.json({ error: 'Thiếu tham số key' }, { status: 400 });
-  const owned = await prisma.apiKey.findUnique({ where: { keyHash: hashApiKey(rawKey) }, select: { userId: true, active: true } });
-  if (!owned || !owned.active || owned.userId !== session.uid) {
-    return NextResponse.json({ error: 'API key không hợp lệ hoặc không thuộc tài khoản của bạn' }, { status: 403 });
+  // Two allowed paths:
+  // 1. Logged-in session (cookie) — full access.
+  // 2. A valid, active API key in the query string — needed because the
+  //    generated command runs in a bare terminal (irm/curl) with no cookies.
+  //    The key grants the same gateway access anyway, so this does not leak
+  //    anything new; we still refuse inactive/unknown keys.
+  if (rawKey) {
+    const owned = await prisma.apiKey.findUnique({ where: { keyHash: hashApiKey(rawKey) }, select: { active: true } });
+    if (!owned || !owned.active) {
+      return NextResponse.json({ error: 'API key không hợp lệ hoặc đã bị vô hiệu hoá' }, { status: 403 });
+    }
+  } else if (!session) {
+    return NextResponse.json({ error: 'Bạn cần đăng nhập' }, { status: 401 });
   }
 
-  const key = clean(rawKey, 'YOUR_API_KEY');
+  const key = clean(rawKey || '', 'YOUR_API_KEY');
   const os = url.searchParams.get('os') || 'windows';
   const baseUrl = getRequestOrigin(req, url);
   const claudeBaseUrl = baseUrl;
